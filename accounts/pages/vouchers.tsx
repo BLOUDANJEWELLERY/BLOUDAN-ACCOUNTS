@@ -1,4 +1,3 @@
-// pages/vouchers.tsx
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import { useState, useEffect } from "react";
@@ -6,8 +5,8 @@ import { useState, useEffect } from "react";
 type Voucher = {
   id: string;
   date: string;
-  mvn?: string;
-  description?: string;
+  mvn?: string | null;
+  description?: string | null;
   vt: string;
   accountNo: number;
   gold: number;
@@ -48,61 +47,58 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
 
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
-  // Clear accountNo if type changes
+  // Reset account when type changes
   useEffect(() => {
-    setForm((prev) => ({ ...prev, accountNo: undefined }));
+    setForm((prev) => ({ ...prev, accountNo: undefined, mvn: "", description: "" }));
   }, [selectedType]);
 
-const handleSubmit = async () => {
-  if (
-    !form.date ||
-    !form.vt ||
-    !form.accountNo ||
-    (selectedType === "Market" ? !form.mvn : !form.description)
-  ) {
-    return alert("Missing required fields");
-  }
-
-  const method = editingId ? "PUT" : "POST";
-  const url = editingId ? `/api/vouchers/${editingId}` : "/api/vouchers";
-
-  // Build payload with correct nullable fields
-  const payload = {
-    date: form.date,
-    vt: form.vt,
-    accountNo: Number(form.accountNo),
-    gold: form.gold ?? 0,
-    kwd: form.kwd ?? 0,
-    mvn: selectedType === "Market" ? form.mvn ?? null : null,
-    description: selectedType !== "Market" ? form.description ?? null : null,
-  };
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) return alert("Error saving voucher");
-
-    const updated = await res.json();
-
-    if (editingId) {
-      setVouchers((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
-      setEditingId(null);
-    } else {
-      setVouchers((prev) => [updated, ...prev]);
+  const handleSubmit = async () => {
+    if (
+      !form.date ||
+      !form.vt ||
+      !form.accountNo ||
+      (selectedType === "Market" ? !form.mvn?.trim() : !form.description?.trim())
+    ) {
+      return alert("Missing required fields");
     }
 
-    // Reset form
-    setForm({});
-    setSelectedType("");
-  } catch (error) {
-    console.error(error);
-    alert("Error saving voucher");
-  }
-};
+    const payload = {
+      date: form.date,
+      vt: form.vt,
+      accountNo: Number(form.accountNo),
+      gold: form.gold ?? 0,
+      kwd: form.kwd ?? 0,
+      mvn: selectedType === "Market" ? form.mvn ?? null : null,
+      description: selectedType !== "Market" ? form.description ?? null : null,
+    };
+
+    try {
+      const res = await fetch(editingId ? `/api/vouchers/${editingId}` : "/api/vouchers", {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        return alert(errorData?.message || "Error saving voucher");
+      }
+
+      const updated = await res.json();
+      if (editingId) {
+        setVouchers((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+        setEditingId(null);
+      } else {
+        setVouchers((prev) => [updated, ...prev]);
+      }
+
+      setForm({});
+      setSelectedType("");
+    } catch (err) {
+      console.error(err);
+      alert("Error saving voucher");
+    }
+  };
 
   const handleEdit = (v: Voucher) => {
     setEditingId(v.id);
@@ -121,7 +117,6 @@ const handleSubmit = async () => {
     <main className="min-h-screen p-8 bg-[#fef3c7]">
       <h1 className="text-2xl font-bold mb-6">Vouchers</h1>
 
-      {/* Form */}
       <div className="flex flex-col gap-2 mb-8 max-w-lg">
         <input
           type="date"
@@ -130,7 +125,6 @@ const handleSubmit = async () => {
           className="border p-2 rounded"
         />
 
-        {/* Account Type first */}
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
@@ -144,7 +138,6 @@ const handleSubmit = async () => {
           ))}
         </select>
 
-        {/* Account selection depends on type */}
         <select
           value={form.accountNo ?? ""}
           onChange={(e) => setForm({ ...form, accountNo: Number(e.target.value) })}
@@ -159,7 +152,6 @@ const handleSubmit = async () => {
           ))}
         </select>
 
-        {/* MVN or Description based on type */}
         {selectedType === "Market" ? (
           <input
             type="text"
@@ -212,7 +204,6 @@ const handleSubmit = async () => {
         </button>
       </div>
 
-      {/* Table */}
       <table className="min-w-full border border-gray-400 bg-white">
         <thead>
           <tr className="bg-yellow-200">
