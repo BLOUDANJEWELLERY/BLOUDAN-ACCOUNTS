@@ -13,3 +13,27 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+model Account {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  accountNo       Int      @unique
+  name            String
+  type            String   // e.g. "Customer" or "Supplier"
+  phone           String?
+  crOrCivilIdNo   String?  // C.R. or Civil ID Number
+	
+	vouchers    Voucher[] // relation to transactions
+}
+
+model Voucher {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  date        DateTime
+  mvn         String   // Manual Voucher Number
+  vt          String   // Voucher Type (REC, INV, etc.)
+  gold        Float
+  kwd         Float
+
+  account     Account  @relation(fields: [accountId], references: [id])
+  accountId   String   @db.ObjectId
+
+  createdAt   DateTime @default(now())
+}
