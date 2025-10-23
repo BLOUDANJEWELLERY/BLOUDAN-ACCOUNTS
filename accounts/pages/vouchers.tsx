@@ -53,32 +53,56 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
     setForm((prev) => ({ ...prev, accountNo: undefined }));
   }, [selectedType]);
 
-  const handleSubmit = async () => {
-    if (!form.date || !form.vt || !form.accountNo || (selectedType === "Market" ? !form.mvn : !form.description)) {
-      return alert("Missing required fields");
-    }
+const handleSubmit = async () => {
+  if (
+    !form.date ||
+    !form.vt ||
+    !form.accountNo ||
+    (selectedType === "Market" ? !form.mvn : !form.description)
+  ) {
+    return alert("Missing required fields");
+  }
 
-    const method = editingId ? "PUT" : "POST";
-    const url = editingId ? `/api/vouchers/${editingId}` : "/api/vouchers";
+  const method = editingId ? "PUT" : "POST";
+  const url = editingId ? `/api/vouchers/${editingId}` : "/api/vouchers";
 
+  // Build payload with correct nullable fields
+  const payload = {
+    date: form.date,
+    vt: form.vt,
+    accountNo: Number(form.accountNo),
+    gold: form.gold ?? 0,
+    kwd: form.kwd ?? 0,
+    mvn: selectedType === "Market" ? form.mvn ?? null : null,
+    description: selectedType !== "Market" ? form.description ?? null : null,
+  };
+
+  try {
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) return alert("Error saving voucher");
 
     const updated = await res.json();
+
     if (editingId) {
       setVouchers((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
       setEditingId(null);
     } else {
       setVouchers((prev) => [updated, ...prev]);
     }
+
+    // Reset form
     setForm({});
     setSelectedType("");
-  };
+  } catch (error) {
+    console.error(error);
+    alert("Error saving voucher");
+  }
+};
 
   const handleEdit = (v: Voucher) => {
     setEditingId(v.id);
