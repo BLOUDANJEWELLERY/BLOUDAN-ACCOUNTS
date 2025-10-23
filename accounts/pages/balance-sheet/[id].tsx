@@ -58,7 +58,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     });
   }
 
-  // Step 2: Get vouchers within the date range
+  // Step 2: Fetch vouchers within the selected range
   const whereClause: any = { accountNo: account.accountNo };
   if (startDate && endDate) {
     whereClause.date = { gte: startDate, lte: endDate };
@@ -73,7 +73,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  // Step 3: Apply running balance logic
+  // Step 3: Compute running balances starting from Opening
   let goldBalance = openingGold;
   let kwdBalance = openingKwd;
 
@@ -86,11 +86,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       kwdBalance -= v.kwd;
     }
 
-    return {
-      ...v,
-      goldBalance,
-      kwdBalance,
-    };
+    return { ...v, goldBalance, kwdBalance };
   });
 
   return {
@@ -132,10 +128,15 @@ export default function BalanceSheetPage({
     router.push(`/balance-sheet/${account.id}`);
   };
 
+  // Safely calculate totals (ensuring defined values)
   const totalGold =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
+    vouchers.length > 0
+      ? vouchers[vouchers.length - 1].goldBalance ?? openingGold
+      : openingGold;
   const totalKwd =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
+    vouchers.length > 0
+      ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd
+      : openingKwd;
 
   return (
     <main className="min-h-screen p-8 bg-[#fef3c7]">
@@ -181,16 +182,6 @@ export default function BalanceSheetPage({
         </button>
       </div>
 
-      <div className="mb-4">
-        <p className="text-gray-800 font-semibold">
-          Opening Balance (before {startDate || "start"}):
-        </p>
-        <p>
-          Gold: <span className="font-bold">{openingGold.toFixed(3)}</span> | KWD:{" "}
-          <span className="font-bold">{openingKwd.toFixed(3)}</span>
-        </p>
-      </div>
-
       {vouchers.length === 0 ? (
         <p className="text-gray-700">No vouchers found for this period.</p>
       ) : (
@@ -207,6 +198,16 @@ export default function BalanceSheetPage({
             </tr>
           </thead>
           <tbody>
+            {/* Opening Balance Row */}
+            <tr className="bg-yellow-100 font-semibold">
+              <td className="p-2 border text-center" colSpan={5}>
+                Opening Balance
+              </td>
+              <td className="p-2 border text-right">{openingGold.toFixed(3)}</td>
+              <td className="p-2 border text-right">{openingKwd.toFixed(3)}</td>
+            </tr>
+
+            {/* Transactions */}
             {vouchers.map((v) => (
               <tr key={v.id}>
                 <td className="p-2 border">
@@ -224,10 +225,11 @@ export default function BalanceSheetPage({
                 </td>
               </tr>
             ))}
+
             {/* Final Totals */}
-            <tr className="bg-yellow-100 font-bold">
+            <tr className="bg-yellow-200 font-bold">
               <td className="p-2 border text-center" colSpan={5}>
-                Final Balance
+                Closing Balance
               </td>
               <td className="p-2 border text-right">{totalGold.toFixed(3)}</td>
               <td className="p-2 border text-right">{totalKwd.toFixed(3)}</td>
