@@ -28,8 +28,6 @@ model Voucher {
   vt          String   // Voucher Type (REC, INV, etc.)
   gold        Float
   kwd         Float
-
-accountNo   Int      // references Account.accountNo (not a Prisma relation for simplicity)
-
+	accountNo   Int      // references Account.accountNo (not a Prisma relation for simplicity)
   createdAt   DateTime @default(now())
 }
