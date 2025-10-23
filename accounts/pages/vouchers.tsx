@@ -1,12 +1,13 @@
 // pages/vouchers.tsx
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Voucher = {
   id: string;
   date: string;
-  mvn: string;
+  mvn?: string;
+  description?: string;
   vt: string;
   accountNo: number;
   gold: number;
@@ -16,6 +17,7 @@ type Voucher = {
 type Account = {
   accountNo: number;
   name: string;
+  type: string;
 };
 
 type Props = {
@@ -26,7 +28,7 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async () => {
   const vouchers = await prisma.voucher.findMany({ orderBy: { date: "desc" } });
   const accounts = await prisma.account.findMany({
-    select: { accountNo: true, name: true },
+    select: { accountNo: true, name: true, type: true },
     orderBy: { accountNo: "asc" },
   });
 
@@ -42,10 +44,19 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
   const [vouchers, setVouchers] = useState<Voucher[]>(initialVouchers);
   const [form, setForm] = useState<Partial<Voucher>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string>("");
+
+  const filteredAccounts = accounts.filter((a) => a.type === selectedType);
+
+  // Clear accountNo if type changes
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, accountNo: undefined }));
+  }, [selectedType]);
 
   const handleSubmit = async () => {
-    if (!form.date || !form.mvn || !form.vt || !form.accountNo)
+    if (!form.date || !form.vt || !form.accountNo || (selectedType === "Market" ? !form.mvn : !form.description)) {
       return alert("Missing required fields");
+    }
 
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `/api/vouchers/${editingId}` : "/api/vouchers";
@@ -66,10 +77,13 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
       setVouchers((prev) => [updated, ...prev]);
     }
     setForm({});
+    setSelectedType("");
   };
 
   const handleEdit = (v: Voucher) => {
     setEditingId(v.id);
+    const acc = accounts.find((a) => a.accountNo === v.accountNo);
+    setSelectedType(acc?.type ?? "");
     setForm(v);
   };
 
@@ -91,13 +105,55 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
           onChange={(e) => setForm({ ...form, date: e.target.value })}
           className="border p-2 rounded"
         />
-        <input
-          type="text"
-          placeholder="Manual Voucher No"
-          value={form.mvn ?? ""}
-          onChange={(e) => setForm({ ...form, mvn: e.target.value })}
+
+        {/* Account Type first */}
+        <select
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
           className="border p-2 rounded"
-        />
+        >
+          <option value="">Select Account Type</option>
+          {[...new Set(accounts.map((a) => a.type))].map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+
+        {/* Account selection depends on type */}
+        <select
+          value={form.accountNo ?? ""}
+          onChange={(e) => setForm({ ...form, accountNo: Number(e.target.value) })}
+          className="border p-2 rounded"
+          disabled={!selectedType}
+        >
+          <option value="">Select Account</option>
+          {filteredAccounts.map((a) => (
+            <option key={a.accountNo} value={a.accountNo}>
+              {a.accountNo} - {a.name}
+            </option>
+          ))}
+        </select>
+
+        {/* MVN or Description based on type */}
+        {selectedType === "Market" ? (
+          <input
+            type="text"
+            placeholder="Manual Voucher No"
+            value={form.mvn ?? ""}
+            onChange={(e) => setForm({ ...form, mvn: e.target.value })}
+            className="border p-2 rounded"
+          />
+        ) : (
+          <input
+            type="text"
+            placeholder="Description"
+            value={form.description ?? ""}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="border p-2 rounded"
+          />
+        )}
+
         <select
           value={form.vt ?? ""}
           onChange={(e) => setForm({ ...form, vt: e.target.value })}
@@ -107,18 +163,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
           <option value="REC">REC (Receipt)</option>
           <option value="INV">INV (Invoice)</option>
         </select>
-        <select
-          value={form.accountNo ?? ""}
-          onChange={(e) => setForm({ ...form, accountNo: Number(e.target.value) })}
-          className="border p-2 rounded"
-        >
-          <option value="">Select Account</option>
-          {accounts.map((a) => (
-            <option key={a.accountNo} value={a.accountNo}>
-              {a.accountNo} - {a.name}
-            </option>
-          ))}
-        </select>
+
         <input
           type="number"
           placeholder="Gold"
@@ -126,6 +171,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
           onChange={(e) => setForm({ ...form, gold: parseFloat(e.target.value) })}
           className="border p-2 rounded"
         />
+
         <input
           type="number"
           placeholder="KWD"
@@ -133,6 +179,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
           onChange={(e) => setForm({ ...form, kwd: parseFloat(e.target.value) })}
           className="border p-2 rounded"
         />
+
         <button
           onClick={handleSubmit}
           className="bg-green-600 text-white px-4 py-2 rounded"
@@ -146,7 +193,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
         <thead>
           <tr className="bg-yellow-200">
             <th className="p-2 border">Date</th>
-            <th className="p-2 border">MVN</th>
+            <th className="p-2 border">MVN / Description</th>
             <th className="p-2 border">Type</th>
             <th className="p-2 border">Account No</th>
             <th className="p-2 border">Gold</th>
@@ -158,7 +205,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
           {vouchers.map((v) => (
             <tr key={v.id}>
               <td className="p-2 border">{v.date.split("T")[0]}</td>
-              <td className="p-2 border">{v.mvn}</td>
+              <td className="p-2 border">{v.mvn || v.description}</td>
               <td className="p-2 border">{v.vt}</td>
               <td className="p-2 border">{v.accountNo}</td>
               <td className="p-2 border">{v.gold}</td>
