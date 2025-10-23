@@ -2,7 +2,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+type Account = {
+  id: string;
+  accountNo: number;
+  name: string;
+  type: string;
+  phone?: string;
+  crOrCivilIdNo?: string;
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Account | { message: string }>
+) {
   const { id } = req.query;
 
   if (typeof id !== "string") {
@@ -11,11 +23,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     if (req.method === "PUT") {
-      const { accountNo, name, type, phone, crOrCivilIdNo } = req.body;
+      const { name, phone, crOrCivilIdNo } = req.body as {
+        name?: string;
+        phone?: string;
+        crOrCivilIdNo?: string;
+      };
 
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      // Only allow updating name, phone, and CR/Civil ID
       const updated = await prisma.account.update({
         where: { id },
-        data: { accountNo: Number(accountNo), name, type, phone, crOrCivilIdNo },
+        data: { name, phone, crOrCivilIdNo },
       });
 
       return res.status(200).json(updated);
@@ -26,6 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(204).end();
     }
 
+    res.setHeader("Allow", ["PUT", "DELETE"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
     console.error(error);
