@@ -141,6 +141,13 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                 >
                   Delete
                 </button>
+                
+                  <a
+    href={`/balance-sheet/${acc.id}`}
+    className="px-2 py-1 bg-green-600 text-white rounded"
+  >
+    Balance Sheet
+  </a>
               </td>
             </tr>
           ))}
