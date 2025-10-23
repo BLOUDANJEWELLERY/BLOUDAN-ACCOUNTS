@@ -8,12 +8,13 @@ type Voucher = {
   mvn?: string | null;
   description?: string | null;
   vt: string;
-  accountNo: number;
+  accountId: string;
   gold: number;
   kwd: number;
 };
 
 type Account = {
+  id: string;
   accountNo: number;
   name: string;
   type: string;
@@ -27,7 +28,7 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async () => {
   const vouchers = await prisma.voucher.findMany({ orderBy: { date: "desc" } });
   const accounts = await prisma.account.findMany({
-    select: { accountNo: true, name: true, type: true },
+    select: { id: true, accountNo: true, name: true, type: true },
     orderBy: { accountNo: "asc" },
   });
 
@@ -49,70 +50,63 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
 
   // Reset account when type changes
   useEffect(() => {
-    setForm((prev) => ({ ...prev, accountNo: undefined, mvn: "", description: "" }));
+    setForm((prev) => ({ ...prev, accountId: undefined, mvn: "", description: "" }));
   }, [selectedType]);
 
-const handleSubmit = async () => {
-  // Basic validation
-  if (
-    !form.date ||
-    !form.vt ||
-    !form.accountNo ||
-    !selectedType ||
-    (selectedType === "Market" ? !form.mvn?.trim() : !form.description?.trim())
-  ) {
-    return alert("Missing required fields");
-  }
+  const handleSubmit = async () => {
+    // Basic validation
+    if (
+      !form.date ||
+      !form.vt ||
+      !form.accountId ||
+      !selectedType ||
+      (selectedType === "Market" ? !form.mvn?.trim() : !form.description?.trim())
+    ) {
+      return alert("Missing required fields");
+    }
 
-  // Build payload with accountType included
-  const payload = {
-    date: form.date,
-    vt: form.vt,
-    accountNo: Number(form.accountNo),
-    accountType: selectedType, // Send frontend type to API
-    gold: form.gold ?? 0,
-    kwd: form.kwd ?? 0,
-    mvn: selectedType === "Market" ? form.mvn ?? null : null,
-    description: selectedType !== "Market" ? form.description ?? null : null,
-  };
+    const payload = {
+      date: form.date,
+      vt: form.vt,
+      accountId: form.accountId, // use ID
+      gold: form.gold ?? 0,
+      kwd: form.kwd ?? 0,
+      mvn: selectedType === "Market" ? form.mvn ?? null : null,
+      description: selectedType !== "Market" ? form.description ?? null : null,
+    };
 
-  try {
-    const res = await fetch(
-      editingId ? `/api/vouchers/${editingId}` : "/api/vouchers",
-      {
+    try {
+      const res = await fetch(editingId ? `/api/vouchers/${editingId}` : "/api/vouchers", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        return alert(errorData?.message || "Error saving voucher");
       }
-    );
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      return alert(errorData?.message || "Error saving voucher");
+      const updated = await res.json();
+
+      if (editingId) {
+        setVouchers((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+        setEditingId(null);
+      } else {
+        setVouchers((prev) => [updated, ...prev]);
+      }
+
+      setForm({});
+      setSelectedType("");
+    } catch (err) {
+      console.error(err);
+      alert("Error saving voucher");
     }
-
-    const updated = await res.json();
-
-    // Update local state
-    if (editingId) {
-      setVouchers((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
-      setEditingId(null);
-    } else {
-      setVouchers((prev) => [updated, ...prev]);
-    }
-
-    // Reset form
-    setForm({});
-    setSelectedType("");
-  } catch (err) {
-    console.error(err);
-    alert("Error saving voucher");
-  }
-};
+  };
 
   const handleEdit = (v: Voucher) => {
     setEditingId(v.id);
-    const acc = accounts.find((a) => a.accountNo === v.accountNo);
+    const acc = accounts.find((a) => a.id === v.accountId);
     setSelectedType(acc?.type ?? "");
     setForm(v);
   };
@@ -149,14 +143,14 @@ const handleSubmit = async () => {
         </select>
 
         <select
-          value={form.accountNo ?? ""}
-          onChange={(e) => setForm({ ...form, accountNo: Number(e.target.value) })}
+          value={form.accountId ?? ""}
+          onChange={(e) => setForm({ ...form, accountId: e.target.value })}
           className="border p-2 rounded"
           disabled={!selectedType}
         >
           <option value="">Select Account</option>
           {filteredAccounts.map((a) => (
-            <option key={a.accountNo} value={a.accountNo}>
+            <option key={a.id} value={a.id}>
               {a.accountNo} - {a.name}
             </option>
           ))}
@@ -220,37 +214,42 @@ const handleSubmit = async () => {
             <th className="p-2 border">Date</th>
             <th className="p-2 border">MVN / Description</th>
             <th className="p-2 border">Type</th>
-            <th className="p-2 border">Account No</th>
+            <th className="p-2 border">Account</th>
             <th className="p-2 border">Gold</th>
             <th className="p-2 border">KWD</th>
             <th className="p-2 border">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {vouchers.map((v) => (
-            <tr key={v.id}>
-              <td className="p-2 border">{v.date.split("T")[0]}</td>
-              <td className="p-2 border">{v.mvn || v.description}</td>
-              <td className="p-2 border">{v.vt}</td>
-              <td className="p-2 border">{v.accountNo}</td>
-              <td className="p-2 border">{v.gold}</td>
-              <td className="p-2 border">{v.kwd}</td>
-              <td className="p-2 border space-x-2">
-                <button
-                  onClick={() => handleEdit(v)}
-                  className="px-2 py-1 bg-yellow-500 text-white rounded"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(v.id)}
-                  className="px-2 py-1 bg-red-600 text-white rounded"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
+          {vouchers.map((v) => {
+            const acc = accounts.find((a) => a.id === v.accountId);
+            return (
+              <tr key={v.id}>
+                <td className="p-2 border">{v.date.split("T")[0]}</td>
+                <td className="p-2 border">{v.mvn || v.description}</td>
+                <td className="p-2 border">{v.vt}</td>
+                <td className="p-2 border">
+                  {acc ? `${acc.accountNo} - ${acc.name}` : v.accountId}
+                </td>
+                <td className="p-2 border">{v.gold}</td>
+                <td className="p-2 border">{v.kwd}</td>
+                <td className="p-2 border space-x-2">
+                  <button
+                    onClick={() => handleEdit(v)}
+                    className="px-2 py-1 bg-yellow-500 text-white rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(v.id)}
+                    className="px-2 py-1 bg-red-600 text-white rounded"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </main>
