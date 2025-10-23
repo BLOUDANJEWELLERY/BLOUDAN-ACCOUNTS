@@ -216,8 +216,8 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   Edit
                 </button>
                 <a
-                  href={`/balance-sheet/${acc.id}`}
-                  className="px-2 py-1 bg-green-600 text-white rounded"
+                  href={`/balance-sheet/${acc.id}?accountType=${encodeURIComponent(acc.type)}`}
+className="px-2 py-1 bg-green-600 text-white rounded"
                 >
                   Ledger
                 </a>
