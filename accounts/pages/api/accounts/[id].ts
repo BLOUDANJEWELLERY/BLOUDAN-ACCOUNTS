@@ -33,13 +33,13 @@ export default async function handler(
         return res.status(400).json({ message: "Name is required" });
       }
 
-      // Only update allowed fields: name, phone, crOrCivilIdNo
+      // Update only editable fields
       const updated = await prisma.account.update({
         where: { id },
         data: { name, phone, crOrCivilIdNo },
       });
 
-      // Sanitize null -> undefined for optional fields
+      // Sanitize null → undefined
       const sanitized: Account = {
         id: updated.id,
         accountNo: updated.accountNo,
@@ -52,7 +52,7 @@ export default async function handler(
       return res.status(200).json(sanitized);
     }
 
-    // Only PUT is allowed now
+    // DELETE removed
     res.setHeader("Allow", ["PUT"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
