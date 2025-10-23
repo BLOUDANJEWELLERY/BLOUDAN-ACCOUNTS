@@ -13,42 +13,63 @@ type Account = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<Account | Account[] | { message: string }>
+  res: NextApiResponse<Account[] | { message: string }>
 ) {
   try {
     if (req.method === "GET") {
       const accounts = await prisma.account.findMany({
         orderBy: { accountNo: "asc" },
       });
-      return res.status(200).json(accounts);
+
+      // Sanitize null -> undefined for optional fields
+      const sanitized = accounts.map((acc) => ({
+        ...acc,
+        phone: acc.phone ?? undefined,
+        crOrCivilIdNo: acc.crOrCivilIdNo ?? undefined,
+      }));
+
+      return res.status(200).json(sanitized);
     }
 
     if (req.method === "POST") {
       const { name, type, phone, crOrCivilIdNo } = req.body as {
-        name: string;
-        type: string;
-        phone?: string;
-        crOrCivilIdNo?: string;
+        name?: string;
+        type?: string;
+        phone?: string | null;
+        crOrCivilIdNo?: string | null;
       };
 
       if (!name || !type) {
-        return res.status(400).json({ message: "Missing required fields" });
+        return res.status(400).json({ message: "Name and Type are required" });
       }
 
-      // Compute accountNo based on type
+      // Determine next accountNo for this type
       const sameTypeAccounts = await prisma.account.findMany({
         where: { type },
       });
+
       const nextNo =
         sameTypeAccounts.length > 0
           ? Math.max(...sameTypeAccounts.map((a) => a.accountNo)) + 1
           : 1;
 
       const newAccount = await prisma.account.create({
-        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo },
+        data: {
+          accountNo: nextNo,
+          name,
+          type,
+          phone,
+          crOrCivilIdNo,
+        },
       });
 
-      return res.status(201).json(newAccount);
+      const sanitized: Account = {
+        ...newAccount,
+        phone: newAccount.phone ?? undefined,
+        crOrCivilIdNo: newAccount.crOrCivilIdNo ?? undefined,
+      };
+
+      return res.status(201).json(sanitized);
     }
 
     res.setHeader("Allow", ["GET", "POST"]);
