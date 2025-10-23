@@ -12,19 +12,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "POST") {
-      const { date, mvn, vt, accountNo, gold, kwd } = req.body;
-      if (!date || !mvn || !vt || !accountNo) {
+      const { date, mvn, description, vt, accountNo, gold, kwd } = req.body;
+
+      if (!date || !vt || !accountNo) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Determine account type
+      const account = await prisma.account.findUnique({
+        where: { accountNo: Number(accountNo) },
+      });
+
+      if (!account) {
+        return res.status(400).json({ message: "Account not found" });
+      }
+
+      // Conditional validation
+      if (account.type === "Market" && !mvn) {
+        return res.status(400).json({ message: "MVN is required for Market accounts" });
+      }
+
+      if (account.type !== "Market" && !description) {
+        return res.status(400).json({ message: "Description is required for non-Market accounts" });
       }
 
       const newVoucher = await prisma.voucher.create({
         data: {
           date: new Date(date),
-          mvn,
+          mvn: mvn || null,
+          description: description || null,
           vt,
           accountNo: Number(accountNo),
-          gold: parseFloat(gold),
-          kwd: parseFloat(kwd),
+          gold: gold ? parseFloat(gold) : 0,
+          kwd: kwd ? parseFloat(kwd) : 0,
         },
       });
 
