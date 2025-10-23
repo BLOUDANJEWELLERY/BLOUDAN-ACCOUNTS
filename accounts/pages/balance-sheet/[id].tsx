@@ -1,4 +1,3 @@
-// pages/balance-sheet/[id].tsx
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import { useRouter } from "next/router";
@@ -21,20 +20,45 @@ type Props = {
   vouchers: Voucher[];
   startDate?: string;
   endDate?: string;
+  openingGold: number;
+  openingKwd: number;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const id = context.params?.id as string;
-  const startDate = context.query.startDate
-    ? new Date(context.query.startDate as string)
-    : undefined;
-  const endDate = context.query.endDate
-    ? new Date(context.query.endDate as string)
-    : undefined;
+  const startDateParam = context.query.startDate as string | undefined;
+  const endDateParam = context.query.endDate as string | undefined;
+
+  const startDate = startDateParam ? new Date(startDateParam) : undefined;
+  const endDate = endDateParam ? new Date(endDateParam) : undefined;
 
   const account = await prisma.account.findUnique({ where: { id } });
   if (!account) return { notFound: true };
 
+  // Step 1: Calculate Opening Balance (all vouchers before startDate)
+  let openingGold = 0;
+  let openingKwd = 0;
+  if (startDate) {
+    const previousVouchers = await prisma.voucher.findMany({
+      where: {
+        accountNo: account.accountNo,
+        date: { lt: startDate },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    previousVouchers.forEach((v) => {
+      if (v.vt === "INV") {
+        openingGold += v.gold;
+        openingKwd += v.kwd;
+      } else if (v.vt === "REC") {
+        openingGold -= v.gold;
+        openingKwd -= v.kwd;
+      }
+    });
+  }
+
+  // Step 2: Get vouchers within the date range
   const whereClause: any = { accountNo: account.accountNo };
   if (startDate && endDate) {
     whereClause.date = { gte: startDate, lte: endDate };
@@ -49,8 +73,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  let goldBalance = 0;
-  let kwdBalance = 0;
+  // Step 3: Apply running balance logic
+  let goldBalance = openingGold;
+  let kwdBalance = openingKwd;
 
   const processed = vouchers.map((v) => {
     if (v.vt === "INV") {
@@ -60,6 +85,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       goldBalance -= v.gold;
       kwdBalance -= v.kwd;
     }
+
     return {
       ...v,
       goldBalance,
@@ -75,8 +101,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         accountNo: account.accountNo,
       },
       vouchers: JSON.parse(JSON.stringify(processed)),
-      startDate: context.query.startDate || null,
-      endDate: context.query.endDate || null,
+      startDate: startDateParam || null,
+      endDate: endDateParam || null,
+      openingGold,
+      openingKwd,
     },
   };
 };
@@ -86,6 +114,8 @@ export default function BalanceSheetPage({
   vouchers,
   startDate,
   endDate,
+  openingGold,
+  openingKwd,
 }: Props) {
   const router = useRouter();
   const [start, setStart] = useState(startDate || "");
@@ -98,10 +128,14 @@ export default function BalanceSheetPage({
     router.push(`/balance-sheet/${account.id}?${params.toString()}`);
   };
 
+  const handleReset = () => {
+    router.push(`/balance-sheet/${account.id}`);
+  };
+
   const totalGold =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : 0;
+    vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
   const totalKwd =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : 0;
+    vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
 
   return (
     <main className="min-h-screen p-8 bg-[#fef3c7]">
@@ -109,7 +143,7 @@ export default function BalanceSheetPage({
         Balance Sheet — {account.name} (#{account.accountNo})
       </h1>
 
-      {/* Date Range Filter */}
+      {/* Filter Section */}
       <div className="flex flex-wrap items-center gap-4 mb-8">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -140,11 +174,21 @@ export default function BalanceSheetPage({
           Filter
         </button>
         <button
-          onClick={() => router.push(`/balance-sheet/${account.id}`)}
-          className="bg-gray-500 text-white px-4 py-2 rounded self-end mt-5"
+          onClick={handleReset}
+          className="bg-gray-600 text-white px-4 py-2 rounded self-end mt-5"
         >
           Reset
         </button>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-gray-800 font-semibold">
+          Opening Balance (before {startDate || "start"}):
+        </p>
+        <p>
+          Gold: <span className="font-bold">{openingGold.toFixed(3)}</span> | KWD:{" "}
+          <span className="font-bold">{openingKwd.toFixed(3)}</span>
+        </p>
       </div>
 
       {vouchers.length === 0 ? (
@@ -180,7 +224,7 @@ export default function BalanceSheetPage({
                 </td>
               </tr>
             ))}
-            {/* Total Row */}
+            {/* Final Totals */}
             <tr className="bg-yellow-100 font-bold">
               <td className="p-2 border text-center" colSpan={5}>
                 Final Balance
