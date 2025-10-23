@@ -54,7 +54,6 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
   }, [selectedType]);
 
   const handleSubmit = async () => {
-    // Basic validation
     if (
       !form.date ||
       !form.vt ||
@@ -68,7 +67,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
     const payload = {
       date: form.date,
       vt: form.vt,
-      accountId: form.accountId, // use ID
+      accountId: form.accountId,
       gold: form.gold ?? 0,
       kwd: form.kwd ?? 0,
       mvn: selectedType === "Market" ? form.mvn ?? null : null,
@@ -136,9 +135,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
         >
           <option value="">Select Account Type</option>
           {[...new Set(accounts.map((a) => a.type))].map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
 
@@ -228,9 +225,7 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
                 <td className="p-2 border">{v.date.split("T")[0]}</td>
                 <td className="p-2 border">{v.mvn || v.description}</td>
                 <td className="p-2 border">{v.vt}</td>
-                <td className="p-2 border">
-                  {acc ? `${acc.accountNo} - ${acc.name}` : v.accountId}
-                </td>
+                <td className="p-2 border">{acc ? `${acc.accountNo} - ${acc.name}` : v.accountId}</td>
                 <td className="p-2 border">{v.gold}</td>
                 <td className="p-2 border">{v.kwd}</td>
                 <td className="p-2 border space-x-2">
