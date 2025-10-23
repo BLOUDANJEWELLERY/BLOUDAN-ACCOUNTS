@@ -1,4 +1,3 @@
-// pages/api/vouchers/index.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
@@ -18,21 +17,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      // Fetch the account to determine type
+      // Fetch account to determine type
       const account = await prisma.account.findUnique({
         where: { accountNo: Number(accountNo) },
       });
 
       if (!account) return res.status(400).json({ message: "Account not found" });
 
-      // Conditional validation based on account type
+      // Conditional validation
       if (account.type === "Market" && (!mvn || mvn.trim() === "")) {
         return res.status(400).json({ message: "MVN is required for Market accounts" });
       }
+
       if (account.type !== "Market" && (!description || description.trim() === "")) {
         return res.status(400).json({ message: "Description is required for non-Market accounts" });
       }
 
+      // Prisma with MongoDB requires null instead of undefined
       const newVoucher = await prisma.voucher.create({
         data: {
           date: new Date(date),
