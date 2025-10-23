@@ -25,29 +25,35 @@ export default async function handler(
     if (req.method === "PUT") {
       const { name, phone, crOrCivilIdNo } = req.body as {
         name?: string;
-        phone?: string;
-        crOrCivilIdNo?: string;
+        phone?: string | null;
+        crOrCivilIdNo?: string | null;
       };
 
       if (!name) {
         return res.status(400).json({ message: "Name is required" });
       }
 
-      // Only allow updating name, phone, and CR/Civil ID
+      // Only update allowed fields: name, phone, crOrCivilIdNo
       const updated = await prisma.account.update({
         where: { id },
         data: { name, phone, crOrCivilIdNo },
       });
 
-      return res.status(200).json(updated);
+      // Sanitize null -> undefined for optional fields
+      const sanitized: Account = {
+        id: updated.id,
+        accountNo: updated.accountNo,
+        type: updated.type,
+        name: updated.name,
+        phone: updated.phone ?? undefined,
+        crOrCivilIdNo: updated.crOrCivilIdNo ?? undefined,
+      };
+
+      return res.status(200).json(sanitized);
     }
 
-    if (req.method === "DELETE") {
-      await prisma.account.delete({ where: { id } });
-      return res.status(204).end();
-    }
-
-    res.setHeader("Allow", ["PUT", "DELETE"]);
+    // Only PUT is allowed now
+    res.setHeader("Allow", ["PUT"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
     console.error(error);
