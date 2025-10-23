@@ -30,8 +30,9 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
 
   const predefinedTypes = ["Market", "Casting", "Finishing", "Project"];
 
-  // When user selects a type → auto-number next account
+  // Auto-number new accounts by type
   useEffect(() => {
+    if (editingId) return; // Don't auto-assign when editing
     const type = form.type?.trim();
     if (!type) return;
 
@@ -42,7 +43,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
       ? Math.max(...filtered.map((a) => a.accountNo)) + 1
       : 1;
     setForm((prev) => ({ ...prev, accountNo: nextNo }));
-  }, [form.type, accounts]);
+  }, [form.type, accounts, editingId]);
 
   // Handle Submit (Create / Update)
   const handleSubmit = async () => {
@@ -103,10 +104,10 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
 
       {/* Account Form */}
       <div className="flex flex-col gap-2 mb-8 max-w-md bg-white p-4 border rounded shadow">
-        {/* Disabled auto-generated Account No */}
+        {/* Auto-generated Account No */}
         <input
           type="number"
-          placeholder="Account No (auto)"
+          placeholder="Account No"
           value={form.accountNo ?? ""}
           disabled
           className="border p-2 rounded bg-gray-100 text-gray-600"
@@ -120,31 +121,40 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
           className="border p-2 rounded"
         />
 
-        {/* Type Dropdown + Manual Entry */}
-        <div className="flex gap-2">
-          <select
-            value={predefinedTypes.includes(form.type || "") ? form.type : ""}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-            className="border p-2 rounded flex-1"
-          >
-            <option value="">Select Type</option>
-            {predefinedTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        {/* Type (dropdown + manual entry) — disabled while editing */}
+        {!editingId ? (
+          <div className="flex gap-2">
+            <select
+              value={predefinedTypes.includes(form.type || "") ? form.type : ""}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="border p-2 rounded flex-1"
+            >
+              <option value="">Select Type</option>
+              {predefinedTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
 
+            <input
+              type="text"
+              placeholder="Or type new"
+              value={
+                !predefinedTypes.includes(form.type || "") ? form.type ?? "" : ""
+              }
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="border p-2 rounded flex-1"
+            />
+          </div>
+        ) : (
           <input
             type="text"
-            placeholder="Or type new"
-            value={
-              !predefinedTypes.includes(form.type || "") ? form.type ?? "" : ""
-            }
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-            className="border p-2 rounded flex-1"
+            value={form.type ?? ""}
+            disabled
+            className="border p-2 rounded bg-gray-100 text-gray-600"
           />
-        </div>
+        )}
 
         <input
           type="text"
