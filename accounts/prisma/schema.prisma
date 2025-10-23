@@ -24,7 +24,7 @@ model Account {
 model Voucher {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   date        DateTime
-  mvn         String   // Manual Voucher Number
+  mvn         String?   // Manual Voucher Number
   description     String?
 vt          String   // Voucher Type (REC, INV, etc.)
   gold        Float
