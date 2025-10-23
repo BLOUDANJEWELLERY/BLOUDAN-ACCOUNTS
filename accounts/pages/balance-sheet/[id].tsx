@@ -6,7 +6,8 @@ import { useState } from "react";
 type Voucher = {
   id: string;
   date: string;
-  mvn: string;
+  mvn?: string;
+  description?: string;
   vt: "REC" | "INV";
   accountNo: number;
   gold: number;
@@ -16,7 +17,7 @@ type Voucher = {
 };
 
 type Props = {
-  account: { id: string; name: string; accountNo: number };
+  account: { id: string; name: string; accountNo: number; type: string };
   vouchers: Voucher[];
   startDate?: string;
   endDate?: string;
@@ -26,23 +27,30 @@ type Props = {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const id = context.params?.id as string;
+  const accountType = context.query.accountType as string; // from frontend
   const startDateParam = context.query.startDate as string | undefined;
   const endDateParam = context.query.endDate as string | undefined;
 
   const startDate = startDateParam ? new Date(startDateParam) : undefined;
   const endDate = endDateParam ? new Date(endDateParam) : undefined;
 
+  // Fetch account and validate type
   const account = await prisma.account.findUnique({ where: { id } });
   if (!account) return { notFound: true };
+  if (!accountType || account.type !== accountType) {
+    return { notFound: true };
+  }
 
-  // Step 1: Calculate Opening Balance (all vouchers before startDate)
+  // Step 1: Opening Balance (vouchers before startDate)
   let openingGold = 0;
   let openingKwd = 0;
+
   if (startDate) {
     const previousVouchers = await prisma.voucher.findMany({
       where: {
         accountNo: account.accountNo,
         date: { lt: startDate },
+        // optional: filter by account type if stored in voucher
       },
       orderBy: { date: "asc" },
     });
@@ -58,25 +66,22 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     });
   }
 
-  // Step 2: Fetch vouchers within the selected range
-  const whereClause: any = { accountNo: account.accountNo };
-  if (startDate && endDate) {
-    whereClause.date = { gte: startDate, lte: endDate };
-  } else if (startDate) {
-    whereClause.date = { gte: startDate };
-  } else if (endDate) {
-    whereClause.date = { lte: endDate };
-  }
+  // Step 2: Fetch vouchers within date range
+  const whereClause: any = {
+    accountNo: account.accountNo,
+  };
+  if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
+  else if (startDate) whereClause.date = { gte: startDate };
+  else if (endDate) whereClause.date = { lte: endDate };
 
   const vouchers = await prisma.voucher.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
   });
 
-  // Step 3: Compute running balances starting from Opening
+  // Step 3: Compute running balances
   let goldBalance = openingGold;
   let kwdBalance = openingKwd;
-
   const processed = vouchers.map((v) => {
     if (v.vt === "INV") {
       goldBalance += v.gold;
@@ -85,7 +90,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       goldBalance -= v.gold;
       kwdBalance -= v.kwd;
     }
-
     return { ...v, goldBalance, kwdBalance };
   });
 
@@ -95,6 +99,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         id: account.id,
         name: account.name,
         accountNo: account.accountNo,
+        type: accountType,
       },
       vouchers: JSON.parse(JSON.stringify(processed)),
       startDate: startDateParam || null,
@@ -121,35 +126,29 @@ export default function BalanceSheetPage({
     const params = new URLSearchParams();
     if (start) params.append("startDate", start);
     if (end) params.append("endDate", end);
+    if (account.type) params.append("accountType", account.type);
     router.push(`/balance-sheet/${account.id}?${params.toString()}`);
   };
 
   const handleReset = () => {
-    router.push(`/balance-sheet/${account.id}`);
+    router.push(`/balance-sheet/${account.id}?accountType=${account.type}`);
   };
 
-  // Safely calculate totals (ensuring defined values)
   const totalGold =
-    vouchers.length > 0
-      ? vouchers[vouchers.length - 1].goldBalance ?? openingGold
-      : openingGold;
+    vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance ?? openingGold : openingGold;
   const totalKwd =
-    vouchers.length > 0
-      ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd
-      : openingKwd;
+    vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd : openingKwd;
 
   return (
     <main className="min-h-screen p-8 bg-[#fef3c7]">
       <h1 className="text-2xl font-bold mb-6">
-        Balance Sheet — {account.name} (#{account.accountNo})
+        Balance Sheet — {account.name} (#{account.accountNo}) [{account.type}]
       </h1>
 
       {/* Filter Section */}
       <div className="flex flex-wrap items-center gap-4 mb-8">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            From:
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">From:</label>
           <input
             type="date"
             value={start}
@@ -158,9 +157,7 @@ export default function BalanceSheetPage({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            To:
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">To:</label>
           <input
             type="date"
             value={end}
@@ -189,7 +186,7 @@ export default function BalanceSheetPage({
           <thead>
             <tr className="bg-yellow-200">
               <th className="p-2 border">Date</th>
-              <th className="p-2 border">MVN</th>
+              <th className="p-2 border">MVN / Description</th>
               <th className="p-2 border">Type</th>
               <th className="p-2 border">Gold</th>
               <th className="p-2 border">KWD</th>
@@ -198,7 +195,7 @@ export default function BalanceSheetPage({
             </tr>
           </thead>
           <tbody>
-            {/* Opening Balance Row */}
+            {/* Opening Balance */}
             <tr className="bg-yellow-100 font-semibold">
               <td className="p-2 border text-center" colSpan={5}>
                 Opening Balance
@@ -207,26 +204,19 @@ export default function BalanceSheetPage({
               <td className="p-2 border text-right">{openingKwd.toFixed(3)}</td>
             </tr>
 
-            {/* Transactions */}
             {vouchers.map((v) => (
               <tr key={v.id}>
-                <td className="p-2 border">
-                  {new Date(v.date).toLocaleDateString()}
-                </td>
-                <td className="p-2 border">{v.mvn}</td>
+                <td className="p-2 border">{new Date(v.date).toLocaleDateString()}</td>
+                <td className="p-2 border">{v.mvn || v.description}</td>
                 <td className="p-2 border">{v.vt}</td>
                 <td className="p-2 border text-right">{v.gold.toFixed(3)}</td>
                 <td className="p-2 border text-right">{v.kwd.toFixed(3)}</td>
-                <td className="p-2 border text-right font-semibold">
-                  {v.goldBalance?.toFixed(3)}
-                </td>
-                <td className="p-2 border text-right font-semibold">
-                  {v.kwdBalance?.toFixed(3)}
-                </td>
+                <td className="p-2 border text-right font-semibold">{v.goldBalance?.toFixed(3)}</td>
+                <td className="p-2 border text-right font-semibold">{v.kwdBalance?.toFixed(3)}</td>
               </tr>
             ))}
 
-            {/* Final Totals */}
+            {/* Closing Balance */}
             <tr className="bg-yellow-200 font-bold">
               <td className="p-2 border text-center" colSpan={5}>
                 Closing Balance
