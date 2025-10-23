@@ -11,29 +11,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "POST") {
-      const { date, mvn, description, vt, accountNo, gold, kwd } = req.body;
+      const { date, mvn, description, vt, accountNo, gold, kwd, accountType } = req.body;
 
-      if (!date || !vt || !accountNo) {
+      if (!date || !vt || !accountNo || !accountType) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      // Fetch account to determine type
-      const account = await prisma.account.findUnique({
-        where: { accountNo: Number(accountNo) },
-      });
-
-      if (!account) return res.status(400).json({ message: "Account not found" });
-
-      // Conditional validation
-      if (account.type === "Market" && (!mvn || mvn.trim() === "")) {
+      // Conditional validation based on frontend-provided type
+      if (accountType === "Market" && (!mvn || mvn.trim() === "")) {
         return res.status(400).json({ message: "MVN is required for Market accounts" });
       }
 
-      if (account.type !== "Market" && (!description || description.trim() === "")) {
+      if (accountType !== "Market" && (!description || description.trim() === "")) {
         return res.status(400).json({ message: "Description is required for non-Market accounts" });
       }
 
-      // Prisma with MongoDB requires null instead of undefined
       const newVoucher = await prisma.voucher.create({
         data: {
           date: new Date(date),
@@ -41,8 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           accountNo: Number(accountNo),
           gold: gold ? parseFloat(gold) : 0,
           kwd: kwd ? parseFloat(kwd) : 0,
-          mvn: account.type === "Market" ? mvn : null,
-          description: account.type !== "Market" ? description : null,
+          mvn: accountType === "Market" ? mvn : null,
+          description: accountType !== "Market" ? description : null,
         },
       });
 
