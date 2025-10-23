@@ -25,7 +25,8 @@ model Voucher {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   date        DateTime
   mvn         String   // Manual Voucher Number
-  vt          String   // Voucher Type (REC, INV, etc.)
+  description     String?
+vt          String   // Voucher Type (REC, INV, etc.)
   gold        Float
   kwd         Float
 	accountNo   Int      // references Account.accountNo (not a Prisma relation for simplicity)
