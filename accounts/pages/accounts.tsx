@@ -1,232 +1,238 @@
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
-import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-type Voucher = {
+type Account = {
   id: string;
-  date: string;
-  mvn?: string;
-  description?: string;
-  vt: "REC" | "INV";
   accountNo: number;
-  gold: number;
-  kwd: number;
-  goldBalance?: number;
-  kwdBalance?: number;
+  name: string;
+  type: string;
+  phone?: string;
+  crOrCivilIdNo?: string;
 };
 
-type Props = {
-  account: { id: string; name: string; accountNo: number; type: string };
-  vouchers: Voucher[];
-  startDate?: string;
-  endDate?: string;
-  openingGold: number;
-  openingKwd: number;
+type Props = { accounts: Account[] };
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const accounts = await prisma.account.findMany({ orderBy: { accountNo: "asc" } });
+  return { props: { accounts: JSON.parse(JSON.stringify(accounts)) } };
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const id = context.params?.id as string;
-  const accountType = context.query.accountType as string; // from frontend
-  const startDateParam = context.query.startDate as string | undefined;
-  const endDateParam = context.query.endDate as string | undefined;
+export default function AccountsPage({ accounts: initialAccounts }: Props) {
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [form, setForm] = useState<Partial<Account>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const startDate = startDateParam ? new Date(startDateParam) : undefined;
-  const endDate = endDateParam ? new Date(endDateParam) : undefined;
+  const [filter, setFilter] = useState({ type: "", search: "" });
 
-  // Fetch account and validate type
-  const account = await prisma.account.findUnique({ where: { id } });
-  if (!account) return { notFound: true };
-  if (!accountType || account.type !== accountType) {
-    return { notFound: true };
-  }
+  const predefinedTypes = ["Market", "Casting", "Finishing", "Project"];
 
-  // Step 1: Opening Balance (vouchers before startDate)
-  let openingGold = 0;
-  let openingKwd = 0;
+  // Auto-number new accounts by type
+  useEffect(() => {
+    if (editingId) return;
+    const type = form.type?.trim();
+    if (!type) return;
 
-  if (startDate) {
-    const previousVouchers = await prisma.voucher.findMany({
-      where: {
-        accountNo: account.accountNo,
-        date: { lt: startDate },
-        // optional: filter by account type if stored in voucher
-      },
-      orderBy: { date: "asc" },
+    const filtered = accounts.filter(
+      (acc) => acc.type.toLowerCase() === type.toLowerCase()
+    );
+    const nextNo = filtered.length > 0
+      ? Math.max(...filtered.map((a) => a.accountNo)) + 1
+      : 1;
+    setForm((prev) => ({ ...prev, accountNo: nextNo }));
+  }, [form.type, accounts, editingId]);
+
+  // Handle Submit (Create / Update)
+  const handleSubmit = async () => {
+    if (!form.name || !form.type) return alert("Name and Type are required.");
+
+    const method = editingId ? "PUT" : "POST";
+    const url = editingId ? `/api/accounts/${editingId}` : "/api/accounts";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
     });
 
-    previousVouchers.forEach((v) => {
-      if (v.vt === "INV") {
-        openingGold += v.gold;
-        openingKwd += v.kwd;
-      } else if (v.vt === "REC") {
-        openingGold -= v.gold;
-        openingKwd -= v.kwd;
-      }
-    });
-  }
+    if (!res.ok) return alert("Error saving account");
 
-  // Step 2: Fetch vouchers within date range
-  const whereClause: any = {
-    accountNo: account.accountNo,
-  };
-  if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
-  else if (startDate) whereClause.date = { gte: startDate };
-  else if (endDate) whereClause.date = { lte: endDate };
-
-  const vouchers = await prisma.voucher.findMany({
-    where: whereClause,
-    orderBy: { date: "asc" },
-  });
-
-  // Step 3: Compute running balances
-  let goldBalance = openingGold;
-  let kwdBalance = openingKwd;
-  const processed = vouchers.map((v) => {
-    if (v.vt === "INV") {
-      goldBalance += v.gold;
-      kwdBalance += v.kwd;
-    } else if (v.vt === "REC") {
-      goldBalance -= v.gold;
-      kwdBalance -= v.kwd;
+    const updated = await res.json();
+    if (editingId) {
+      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      setEditingId(null);
+    } else {
+      setAccounts((prev) => [...prev, updated]);
     }
-    return { ...v, goldBalance, kwdBalance };
+    setForm({});
+  };
+
+  const handleEdit = (acc: Account) => {
+    setEditingId(acc.id);
+    setForm(acc);
+  };
+
+  // Filtering logic
+  const filteredAccounts = accounts.filter((acc) => {
+    const matchesType = filter.type
+      ? acc.type.toLowerCase() === filter.type.toLowerCase()
+      : true;
+
+    const searchTerm = filter.search.toLowerCase();
+    const matchesSearch =
+      acc.name.toLowerCase().includes(searchTerm) ||
+      acc.phone?.toLowerCase().includes(searchTerm) ||
+      acc.accountNo.toString().includes(searchTerm) ||
+      acc.crOrCivilIdNo?.toLowerCase().includes(searchTerm);
+
+    return matchesType && matchesSearch;
   });
-
-  return {
-    props: {
-      account: {
-        id: account.id,
-        name: account.name,
-        accountNo: account.accountNo,
-        type: accountType,
-      },
-      vouchers: JSON.parse(JSON.stringify(processed)),
-      startDate: startDateParam || null,
-      endDate: endDateParam || null,
-      openingGold,
-      openingKwd,
-    },
-  };
-};
-
-export default function BalanceSheetPage({
-  account,
-  vouchers,
-  startDate,
-  endDate,
-  openingGold,
-  openingKwd,
-}: Props) {
-  const router = useRouter();
-  const [start, setStart] = useState(startDate || "");
-  const [end, setEnd] = useState(endDate || "");
-
-  const handleFilter = () => {
-    const params = new URLSearchParams();
-    if (start) params.append("startDate", start);
-    if (end) params.append("endDate", end);
-    if (account.type) params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-  };
-
-  const handleReset = () => {
-    router.push(`/balance-sheet/${account.id}?accountType=${account.type}`);
-  };
-
-  const totalGold =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance ?? openingGold : openingGold;
-  const totalKwd =
-    vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd : openingKwd;
 
   return (
     <main className="min-h-screen p-8 bg-[#fef3c7]">
-      <h1 className="text-2xl font-bold mb-6">
-        Balance Sheet — {account.name} (#{account.accountNo}) [{account.type}]
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Accounts</h1>
 
-      {/* Filter Section */}
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">From:</label>
+      {/* Account Form */}
+      <div className="flex flex-col gap-2 mb-8 max-w-md bg-white p-4 border rounded shadow">
+        <input
+          type="number"
+          placeholder="Account No"
+          value={form.accountNo ?? ""}
+          disabled
+          className="border p-2 rounded bg-gray-100 text-gray-600"
+        />
+
+        <input
+          type="text"
+          placeholder="Name"
+          value={form.name ?? ""}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          className="border p-2 rounded"
+        />
+
+        {!editingId ? (
+          <div className="flex gap-2">
+            <select
+              value={predefinedTypes.includes(form.type || "") ? form.type : ""}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="border p-2 rounded flex-1"
+            >
+              <option value="">Select Type</option>
+              {predefinedTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Or type new"
+              value={
+                !predefinedTypes.includes(form.type || "") ? form.type ?? "" : ""
+              }
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="border p-2 rounded flex-1"
+            />
+          </div>
+        ) : (
           <input
-            type="date"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            className="border px-3 py-2 rounded"
+            type="text"
+            value={form.type ?? ""}
+            disabled
+            className="border p-2 rounded bg-gray-100 text-gray-600"
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">To:</label>
-          <input
-            type="date"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            className="border px-3 py-2 rounded"
-          />
-        </div>
+        )}
+
+        <input
+          type="text"
+          placeholder="Phone"
+          value={form.phone ?? ""}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          className="border p-2 rounded"
+        />
+
+        <input
+          type="text"
+          placeholder="C.R / Civil ID No"
+          value={form.crOrCivilIdNo ?? ""}
+          onChange={(e) => setForm({ ...form, crOrCivilIdNo: e.target.value })}
+          className="border p-2 rounded"
+        />
+
         <button
-          onClick={handleFilter}
-          className="bg-blue-600 text-white px-4 py-2 rounded self-end mt-5"
+          onClick={handleSubmit}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          Filter
-        </button>
-        <button
-          onClick={handleReset}
-          className="bg-gray-600 text-white px-4 py-2 rounded self-end mt-5"
-        >
-          Reset
+          {editingId ? "Update Account" : "Add Account"}
         </button>
       </div>
 
-      {vouchers.length === 0 ? (
-        <p className="text-gray-700">No vouchers found for this period.</p>
-      ) : (
-        <table className="min-w-full border border-gray-400 bg-white">
-          <thead>
-            <tr className="bg-yellow-200">
-              <th className="p-2 border">Date</th>
-              <th className="p-2 border">MVN / Description</th>
-              <th className="p-2 border">Type</th>
-              <th className="p-2 border">Gold</th>
-              <th className="p-2 border">KWD</th>
-              <th className="p-2 border">Gold Balance</th>
-              <th className="p-2 border">KWD Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Opening Balance */}
-            <tr className="bg-yellow-100 font-semibold">
-              <td className="p-2 border text-center" colSpan={5}>
-                Opening Balance
-              </td>
-              <td className="p-2 border text-right">{openingGold.toFixed(3)}</td>
-              <td className="p-2 border text-right">{openingKwd.toFixed(3)}</td>
-            </tr>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <select
+          value={filter.type}
+          onChange={(e) => setFilter({ ...filter, type: e.target.value })}
+          className="border p-2 rounded"
+        >
+          <option value="">All Types</option>
+          {predefinedTypes.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
 
-            {vouchers.map((v) => (
-              <tr key={v.id}>
-                <td className="p-2 border">{new Date(v.date).toLocaleDateString()}</td>
-                <td className="p-2 border">{v.mvn || v.description}</td>
-                <td className="p-2 border">{v.vt}</td>
-                <td className="p-2 border text-right">{v.gold.toFixed(3)}</td>
-                <td className="p-2 border text-right">{v.kwd.toFixed(3)}</td>
-                <td className="p-2 border text-right font-semibold">{v.goldBalance?.toFixed(3)}</td>
-                <td className="p-2 border text-right font-semibold">{v.kwdBalance?.toFixed(3)}</td>
-              </tr>
-            ))}
+        <input
+          type="text"
+          placeholder="Search by name, phone, or account no..."
+          value={filter.search}
+          onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+          className="border p-2 rounded flex-1"
+        />
+      </div>
 
-            {/* Closing Balance */}
-            <tr className="bg-yellow-200 font-bold">
-              <td className="p-2 border text-center" colSpan={5}>
-                Closing Balance
+      {/* Table */}
+      <table className="min-w-full border border-gray-400 bg-white">
+        <thead>
+          <tr className="bg-yellow-200">
+            <th className="p-2 border">#</th>
+            <th className="p-2 border">Name</th>
+            <th className="p-2 border">Type</th>
+            <th className="p-2 border">Phone</th>
+            <th className="p-2 border">C.R / Civil ID</th>
+            <th className="p-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredAccounts.map((acc) => (
+            <tr key={acc.id}>
+              <td className="p-2 border text-center">{acc.accountNo}</td>
+              <td className="p-2 border">{acc.name}</td>
+              <td className="p-2 border">{acc.type}</td>
+              <td className="p-2 border">{acc.phone}</td>
+              <td className="p-2 border">{acc.crOrCivilIdNo}</td>
+              <td className="p-2 border space-x-2 text-center">
+                <button
+                  onClick={() => handleEdit(acc)}
+                  className="px-2 py-1 bg-yellow-500 text-white rounded"
+                >
+                  Edit
+                </button>
+                <a
+                  href={`/balance-sheet/${acc.id}`}
+                  className="px-2 py-1 bg-green-600 text-white rounded"
+                >
+                  Ledger
+                </a>
               </td>
-              <td className="p-2 border text-right">{totalGold.toFixed(3)}</td>
-              <td className="p-2 border text-right">{totalKwd.toFixed(3)}</td>
             </tr>
-          </tbody>
-        </table>
-      )}
+          ))}
+          {filteredAccounts.length === 0 && (
+            <tr>
+              <td colSpan={6} className="text-center p-4 text-gray-500">
+                No accounts found
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </main>
   );
 }
