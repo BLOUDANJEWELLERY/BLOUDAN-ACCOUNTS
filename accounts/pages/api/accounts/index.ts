@@ -1,4 +1,4 @@
-// /pages/api/accounts/index.ts
+// pages/api/accounts/index.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
@@ -13,9 +13,16 @@ type Account = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<Account | Account[] | { error: string }>
+  res: NextApiResponse<Account | Account[] | { message: string }>
 ) {
   try {
+    if (req.method === "GET") {
+      const accounts = await prisma.account.findMany({
+        orderBy: { accountNo: "asc" },
+      });
+      return res.status(200).json(accounts);
+    }
+
     if (req.method === "POST") {
       const { name, type, phone, crOrCivilIdNo } = req.body as {
         name: string;
@@ -25,44 +32,29 @@ export default async function handler(
       };
 
       if (!name || !type) {
-        return res.status(400).json({ error: "Name and type are required" });
+        return res.status(400).json({ message: "Missing required fields" });
       }
 
-      // Fetch all accounts of the same type to compute next accountNo
+      // Compute accountNo based on type
       const sameTypeAccounts = await prisma.account.findMany({
         where: { type },
       });
-
       const nextNo =
         sameTypeAccounts.length > 0
           ? Math.max(...sameTypeAccounts.map((a) => a.accountNo)) + 1
           : 1;
 
       const newAccount = await prisma.account.create({
-        data: {
-          accountNo: nextNo,
-          name,
-          type,
-          phone,
-          crOrCivilIdNo,
-        },
+        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo },
       });
 
       return res.status(201).json(newAccount);
     }
 
-    if (req.method === "GET") {
-      const accounts = await prisma.account.findMany({
-        orderBy: { accountNo: "asc" },
-      });
-      return res.status(200).json(accounts);
-    }
-
-    // Method not allowed
     res.setHeader("Allow", ["GET", "POST"]);
-    return res.status(405).json({ error: "Method not allowed" });
-  } catch (error: unknown) {
+    return res.status(405).json({ message: "Method not allowed" });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
