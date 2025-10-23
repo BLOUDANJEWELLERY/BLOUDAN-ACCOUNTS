@@ -9,15 +9,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // ===== UPDATE VOUCHER =====
     if (req.method === "PUT") {
-      const { date, mvn, description, vt, accountNo, gold, kwd } = req.body;
+      const { date, mvn, description, vt, accountId, gold, kwd } = req.body;
 
-      if (!date || !vt || !accountNo) {
+      if (!date || !vt || !accountId) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
       // Fetch account to check type
       const account = await prisma.account.findUnique({
-        where: { accountNo: Number(accountNo) },
+        where: { id: accountId },
       });
 
       if (!account) return res.status(400).json({ message: "Account not found" });
@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: {
           date: new Date(date),
           vt,
-          accountNo: Number(accountNo),
+          accountId: account.id,
           gold: gold ? parseFloat(gold) : 0,
           kwd: kwd ? parseFloat(kwd) : 0,
           mvn: account.type === "Market" ? mvn : null,
