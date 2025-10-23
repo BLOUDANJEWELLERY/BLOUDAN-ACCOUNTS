@@ -18,39 +18,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      // Determine account type
+      // Fetch the account to determine type
       const account = await prisma.account.findUnique({
         where: { accountNo: Number(accountNo) },
       });
 
-      if (!account) {
-        return res.status(400).json({ message: "Account not found" });
-      }
+      if (!account) return res.status(400).json({ message: "Account not found" });
 
-      // Conditional validation
-      if (account.type === "Market" && !mvn) {
+      // Conditional validation based on account type
+      if (account.type === "Market" && (!mvn || mvn.trim() === "")) {
         return res.status(400).json({ message: "MVN is required for Market accounts" });
       }
-
-      if (account.type !== "Market" && !description) {
+      if (account.type !== "Market" && (!description || description.trim() === "")) {
         return res.status(400).json({ message: "Description is required for non-Market accounts" });
       }
 
       const newVoucher = await prisma.voucher.create({
         data: {
           date: new Date(date),
-          mvn: mvn || null,
-          description: description || null,
           vt,
           accountNo: Number(accountNo),
           gold: gold ? parseFloat(gold) : 0,
           kwd: kwd ? parseFloat(kwd) : 0,
+          mvn: account.type === "Market" ? mvn : null,
+          description: account.type !== "Market" ? description : null,
         },
       });
 
       return res.status(201).json(newVoucher);
     }
 
+    res.setHeader("Allow", ["GET", "POST"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
     console.error(error);
