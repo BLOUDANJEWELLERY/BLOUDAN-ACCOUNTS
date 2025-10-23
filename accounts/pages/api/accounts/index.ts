@@ -13,7 +13,7 @@ type Account = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<Account[] | { message: string }>
+  res: NextApiResponse<Account[] | Account | { message: string }>
 ) {
   try {
     if (req.method === "GET") {
@@ -21,7 +21,7 @@ export default async function handler(
         orderBy: { accountNo: "asc" },
       });
 
-      // Sanitize null -> undefined for optional fields
+      // Sanitize null -> undefined
       const sanitized = accounts.map((acc) => ({
         ...acc,
         phone: acc.phone ?? undefined,
@@ -44,23 +44,14 @@ export default async function handler(
       }
 
       // Determine next accountNo for this type
-      const sameTypeAccounts = await prisma.account.findMany({
-        where: { type },
-      });
-
+      const sameTypeAccounts = await prisma.account.findMany({ where: { type } });
       const nextNo =
         sameTypeAccounts.length > 0
           ? Math.max(...sameTypeAccounts.map((a) => a.accountNo)) + 1
           : 1;
 
       const newAccount = await prisma.account.create({
-        data: {
-          accountNo: nextNo,
-          name,
-          type,
-          phone,
-          crOrCivilIdNo,
-        },
+        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo },
       });
 
       const sanitized: Account = {
@@ -69,6 +60,7 @@ export default async function handler(
         crOrCivilIdNo: newAccount.crOrCivilIdNo ?? undefined,
       };
 
+      // ✅ Fix: now returning single Account type allowed by NextApiResponse
       return res.status(201).json(sanitized);
     }
 
