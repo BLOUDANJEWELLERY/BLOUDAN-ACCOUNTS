@@ -23,16 +23,13 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [form, setForm] = useState<Partial<Account>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState({
-    type: "",
-    search: "",
-  });
+  const [filter, setFilter] = useState({ type: "", search: "" });
 
   const predefinedTypes = ["Market", "Casting", "Finishing", "Project"];
 
   // Auto-number new accounts by type
   useEffect(() => {
-    if (editingId) return; // Don't auto-assign when editing
+    if (editingId) return;
     const type = form.type?.trim();
     if (!type) return;
 
@@ -70,13 +67,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     setForm({});
   };
 
-  // Handle Delete
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this account?")) return;
-    const res = await fetch(`/api/accounts/${id}`, { method: "DELETE" });
-    if (res.ok) setAccounts((prev) => prev.filter((a) => a.id !== id));
-  };
-
   const handleEdit = (acc: Account) => {
     setEditingId(acc.id);
     setForm(acc);
@@ -104,7 +94,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
 
       {/* Account Form */}
       <div className="flex flex-col gap-2 mb-8 max-w-md bg-white p-4 border rounded shadow">
-        {/* Auto-generated Account No */}
         <input
           type="number"
           placeholder="Account No"
@@ -121,7 +110,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
           className="border p-2 rounded"
         />
 
-        {/* Type (dropdown + manual entry) — disabled while editing */}
         {!editingId ? (
           <div className="flex gap-2">
             <select
@@ -131,9 +119,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
             >
               <option value="">Select Type</option>
               {predefinedTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
 
@@ -189,9 +175,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
         >
           <option value="">All Types</option>
           {predefinedTypes.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
 
@@ -230,12 +214,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   className="px-2 py-1 bg-yellow-500 text-white rounded"
                 >
                   Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(acc.id)}
-                  className="px-2 py-1 bg-red-600 text-white rounded"
-                >
-                  Delete
                 </button>
                 <a
                   href={`/balance-sheet/${acc.id}`}
