@@ -19,6 +19,7 @@ model Account {
   type            String   // e.g. "Customer" or "Supplier"
   phone           String?
   crOrCivilIdNo   String?  // C.R. or Civil ID Number
+	vouchers   Voucher[]
 }
 
 model Voucher {
@@ -29,6 +30,9 @@ model Voucher {
 vt          String   // Voucher Type (REC, INV, etc.)
   gold        Float
   kwd         Float
-	accountNo   Int      // references Account.accountNo (not a Prisma relation for simplicity)
-  createdAt   DateTime @default(now())
+
+	accountId   String   @db.ObjectId
+  account     Account  @relation(fields: [accountId], references: [id])
+
+ createdAt   DateTime @default(now())
 }
