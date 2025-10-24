@@ -9,7 +9,7 @@ type Voucher = {
   mvn?: string;
   description?: string;
   vt: "REC" | "INV";
-  accountNo: number;
+  accountId: string;
   gold: number;
   kwd: number;
   goldBalance?: number;
@@ -17,7 +17,7 @@ type Voucher = {
 };
 
 type Props = {
-  account: { id: string; name: string; accountNo: number; type: string };
+  account: { id: string; name: string; type: string };
   vouchers: Voucher[];
   startDate?: string;
   endDate?: string;
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const id = context.params?.id as string;
+  const id = context.params?.id as string; // accountId from URL
   const accountType = context.query.accountType as string; // from frontend
   const startDateParam = context.query.startDate as string | undefined;
   const endDateParam = context.query.endDate as string | undefined;
@@ -48,9 +48,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   if (startDate) {
     const previousVouchers = await prisma.voucher.findMany({
       where: {
-        accountNo: account.accountNo,
+        accountId: account.id,
         date: { lt: startDate },
-        // optional: filter by account type if stored in voucher
       },
       orderBy: { date: "asc" },
     });
@@ -67,9 +66,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   // Step 2: Fetch vouchers within date range
-  const whereClause: any = {
-    accountNo: account.accountNo,
-  };
+  const whereClause: any = { accountId: account.id };
   if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
   else if (startDate) whereClause.date = { gte: startDate };
   else if (endDate) whereClause.date = { lte: endDate };
@@ -98,7 +95,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       account: {
         id: account.id,
         name: account.name,
-        accountNo: account.accountNo,
         type: accountType,
       },
       vouchers: JSON.parse(JSON.stringify(processed)),
@@ -142,7 +138,7 @@ export default function BalanceSheetPage({
   return (
     <main className="min-h-screen p-8 bg-[#fef3c7]">
       <h1 className="text-2xl font-bold mb-6">
-        Balance Sheet — {account.name} (#{account.accountNo}) [{account.type}]
+        Balance Sheet — {account.name} [{account.type}]
       </h1>
 
       {/* Filter Section */}
