@@ -108,57 +108,54 @@ export default function VouchersPage({ vouchers: initialVouchers, accounts }: Pr
     ));
   };
 
-  const handleBatchSubmit = async () => {
-    // Validate all forms
-    for (let i = 0; i < voucherForms.length; i++) {
-      const form = voucherForms[i];
-      if (
-        !form.date ||
-        !form.vt ||
-        !form.accountId ||
-        !selectedType ||
-        (selectedType === "Market" ? !form.mvn?.trim() : !form.description?.trim())
-      ) {
-        return alert(`Missing required fields in voucher ${i + 1}`);
-      }
+const handleBatchSubmit = async () => {
+  // ... validation code ...
+
+  try {
+    const payload = voucherForms.map(form => ({
+      date: form.date,
+      vt: form.vt,
+      accountId: form.accountId,
+      gold: form.gold ?? 0,
+      kwd: form.kwd ?? 0,
+      mvn: selectedType === "Market" ? form.mvn ?? null : null,
+      description: selectedType !== "Market" ? form.description ?? null : null,
+    }));
+
+    const res = await fetch("/api/vouchers/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      return alert(errorData?.message || "Error saving vouchers");
     }
 
-    try {
-      const payload = voucherForms.map(form => ({
-        date: form.date,
-        vt: form.vt,
-        accountId: form.accountId,
-        gold: form.gold ?? 0,
-        kwd: form.kwd ?? 0,
-        mvn: selectedType === "Market" ? form.mvn ?? null : null,
-        description: selectedType !== "Market" ? form.description ?? null : null,
-      }));
-
-      const res = await fetch("/api/vouchers/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        return alert(errorData?.message || "Error saving vouchers");
-      }
-
-      const newVouchers = await res.json();
+    const newVouchers = await res.json();
+    
+    // Make sure newVouchers is an array before spreading
+    if (Array.isArray(newVouchers)) {
       setVouchers(prev => [...newVouchers, ...prev]);
-
-      // Reset forms
-      setVoucherForms([{ date: new Date().toISOString().split('T')[0], vt: "", accountId: "", gold: 0, kwd: 0 }]);
-      setSelectedType("");
-      setSelectedAccountId("");
-      
-      alert(`Successfully created ${newVouchers.length} vouchers!`);
-    } catch (err) {
-      console.error(err);
-      alert("Error saving vouchers");
+    } else {
+      // If the API returns an object (like in the createMany fallback), refetch all vouchers
+      const refreshRes = await fetch('/api/vouchers');
+      const latestVouchers = await refreshRes.json();
+      setVouchers(latestVouchers);
     }
-  };
+
+    // Reset forms
+    setVoucherForms([{ date: new Date().toISOString().split('T')[0], vt: "", accountId: "", gold: 0, kwd: 0 }]);
+    setSelectedType("");
+    setSelectedAccountId("");
+    
+    alert(`Successfully created ${voucherForms.length} vouchers!`);
+  } catch (err) {
+    console.error(err);
+    alert("Error saving vouchers");
+  }
+};
 
   const handleSingleSubmit = async () => {
     if (
