@@ -10,9 +10,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: 'Expected an array of vouchers' });
       }
 
+      // Validate and transform the data
+      const validatedVouchers = vouchersData.map(voucher => {
+        // Convert date string to Date object
+        const date = new Date(voucher.date);
+        
+        return {
+          date: date,
+          vt: voucher.vt,
+          accountId: voucher.accountId,
+          gold: parseFloat(voucher.gold) || 0,
+          kwd: parseFloat(voucher.kwd) || 0,
+          mvn: voucher.mvn || null,
+          description: voucher.description || null,
+        };
+      });
+
       // Create multiple vouchers using transaction
       const createdVouchers = await prisma.$transaction(
-        vouchersData.map(voucher => 
+        validatedVouchers.map(voucher => 
           prisma.voucher.create({
             data: voucher
           })
@@ -20,9 +36,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
 
       res.status(201).json(createdVouchers);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating vouchers:', error);
-      res.status(500).json({ message: 'Error creating vouchers' });
+      res.status(500).json({ 
+        message: `Error creating vouchers: ${error.message}`,
+        details: error
+      });
     }
   } else {
     res.setHeader('Allow', ['POST']);
