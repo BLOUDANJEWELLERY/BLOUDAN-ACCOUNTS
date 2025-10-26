@@ -24,84 +24,121 @@ type Props = {
   overallKwd: number;
   totalAccounts: number;
   totalTransactions: number;
+  error?: string;
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  // Define the account types we want to summarize
-  const accountTypes = ["Market", "Casting", "Finishing", "Project"];
+  try {
+    // Define the account types we want to summarize
+    const accountTypes = ["Market", "Casting", "Finishing", "Project"];
 
-  // Fetch all accounts and their vouchers in one go for efficiency
-  const accountsWithVouchers = await prisma.account.findMany({
-    where: {
-      type: { in: accountTypes }
-    },
-    include: {
-      vouchers: {
-        orderBy: { date: "asc" },
+    // Fetch all accounts grouped by type
+    const accountsByType = await prisma.account.findMany({
+      where: {
+        type: { in: accountTypes }
       },
-    },
-    orderBy: { type: "asc", accountNo: "asc" },
-  });
+      select: {
+        id: true,
+        accountNo: true,
+        name: true,
+        type: true,
+        phone: true,
+        crOrCivilIdNo: true,
+      },
+      orderBy: { type: "asc", accountNo: "asc" },
+    });
 
-  // Group accounts by type and calculate balances
-  const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
-    const typeAccounts = accountsWithVouchers.filter(account => account.type === type);
-    
-    // Calculate balances for each account in this type
-    const accountsWithBalances = typeAccounts.map(account => {
-      let goldBalance = 0;
-      let kwdBalance = 0;
+    // Get all account IDs to fetch vouchers
+    const accountIds = accountsByType.map(account => account.id);
 
-      account.vouchers.forEach(voucher => {
-        if (voucher.vt === "INV") {
-          goldBalance += voucher.gold;
-          kwdBalance += voucher.kwd;
-        } else if (voucher.vt === "REC") {
-          goldBalance -= voucher.gold;
-          kwdBalance -= voucher.kwd;
-        }
+    // Fetch all vouchers for these accounts
+    const vouchers = await prisma.voucher.findMany({
+      where: {
+        accountId: { in: accountIds }
+      },
+      select: {
+        id: true,
+        accountId: true,
+        vt: true,
+        gold: true,
+        kwd: true,
+      },
+      orderBy: { date: "asc" },
+    });
+
+    // Group accounts by type and calculate balances
+    const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
+      const typeAccounts = accountsByType.filter(account => account.type === type);
+      
+      // Calculate balances for each account in this type
+      const accountsWithBalances = typeAccounts.map(account => {
+        const accountVouchers = vouchers.filter(v => v.accountId === account.id);
+        let goldBalance = 0;
+        let kwdBalance = 0;
+
+        accountVouchers.forEach(voucher => {
+          if (voucher.vt === "INV") {
+            goldBalance += voucher.gold;
+            kwdBalance += voucher.kwd;
+          } else if (voucher.vt === "REC") {
+            goldBalance -= voucher.gold;
+            kwdBalance -= voucher.kwd;
+          }
+        });
+
+        return {
+          id: account.id,
+          name: account.name,
+          accountNo: account.accountNo,
+          goldBalance,
+          kwdBalance,
+          transactionCount: accountVouchers.length,
+        };
       });
 
+      // Calculate totals for this type
+      const goldBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.goldBalance, 0);
+      const kwdBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.kwdBalance, 0);
+      const totalTransactions = accountsWithBalances.reduce((sum, acc) => sum + acc.transactionCount, 0);
+
       return {
-        id: account.id,
-        name: account.name,
-        accountNo: account.accountNo,
+        type,
+        totalAccounts: typeAccounts.length,
+        totalTransactions,
         goldBalance,
         kwdBalance,
-        transactionCount: account.vouchers.length,
+        accounts: accountsWithBalances,
       };
     });
 
-    // Calculate totals for this type
-    const goldBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.goldBalance, 0);
-    const kwdBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.kwdBalance, 0);
-    const totalTransactions = accountsWithBalances.reduce((sum, acc) => sum + acc.transactionCount, 0);
+    // Calculate overall totals
+    const overallGold = typeSummaries.reduce((sum, summary) => sum + summary.goldBalance, 0);
+    const overallKwd = typeSummaries.reduce((sum, summary) => sum + summary.kwdBalance, 0);
+    const totalAccounts = typeSummaries.reduce((sum, summary) => sum + summary.totalAccounts, 0);
+    const totalTransactions = typeSummaries.reduce((sum, summary) => sum + summary.totalTransactions, 0);
 
     return {
-      type,
-      totalAccounts: typeAccounts.length,
-      totalTransactions,
-      goldBalance,
-      kwdBalance,
-      accounts: accountsWithBalances,
+      props: {
+        typeSummaries: JSON.parse(JSON.stringify(typeSummaries)),
+        overallGold,
+        overallKwd,
+        totalAccounts,
+        totalTransactions,
+      },
     };
-  });
-
-  // Calculate overall totals
-  const overallGold = typeSummaries.reduce((sum, summary) => sum + summary.goldBalance, 0);
-  const overallKwd = typeSummaries.reduce((sum, summary) => sum + summary.kwdBalance, 0);
-  const totalAccounts = typeSummaries.reduce((sum, summary) => sum + summary.totalAccounts, 0);
-  const totalTransactions = typeSummaries.reduce((sum, summary) => sum + summary.totalTransactions, 0);
-
-  return {
-    props: {
-      typeSummaries: JSON.parse(JSON.stringify(typeSummaries)),
-      overallGold,
-      overallKwd,
-      totalAccounts,
-      totalTransactions,
-    },
-  };
+  } catch (error) {
+    console.error('Error in getServerSideProps:', error);
+    return {
+      props: {
+        typeSummaries: [],
+        overallGold: 0,
+        overallKwd: 0,
+        totalAccounts: 0,
+        totalTransactions: 0,
+        error: 'Failed to load account type summary data'
+      },
+    };
+  }
 };
 
 export default function TypeSummaryPage({
@@ -110,6 +147,7 @@ export default function TypeSummaryPage({
   overallKwd,
   totalAccounts,
   totalTransactions,
+  error,
 }: Props) {
   const formatCurrency = (value: number) => {
     return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -166,6 +204,26 @@ export default function TypeSummaryPage({
     if (balance < 0) return '↘';
     return '→';
   };
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Data</h1>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Link 
+              href="/accounts" 
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Back to Accounts
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -263,307 +321,246 @@ export default function TypeSummaryPage({
           </div>
         </div>
 
-        {/* Account Type Summary Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {typeSummaries.map((summary) => {
-            const typeColor = getTypeColor(summary.type);
-            return (
-              <div key={summary.type} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                {/* Header */}
-                <div className={`bg-gradient-to-r ${typeColor.gradient} px-6 py-4 text-white`}>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold">{summary.type} Accounts</h2>
-                    <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-medium">
-                      {summary.totalAccounts} account{summary.totalAccounts !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Summary Stats */}
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className={`text-2xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
-                        {formatCurrency(summary.goldBalance)}
-                      </div>
-                      <div className="text-sm text-gray-600">Gold Balance</div>
-                    </div>
-                    <div className="text-center">
-                      <div className={`text-2xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
-                        {formatCurrency(summary.kwdBalance)}
-                      </div>
-                      <div className="text-sm text-gray-600">KWD Balance</div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between text-sm text-gray-600 mb-4">
-                    <span>{summary.totalTransactions} transactions</span>
-                    <span>{summary.accounts.filter(a => a.transactionCount > 0).length} active accounts</span>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/accounts/balance/${summary.type}`}
-                      className="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      View Balances
-                    </Link>
-                    <Link
-                      href={`/balance-sheet/type/${summary.type}`}
-                      className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      View Ledger
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Top Accounts (simplified view) */}
-                {summary.accounts.length > 0 && (
-                  <div className="border-t border-gray-200">
-                    <div className="px-6 py-3 bg-gray-50">
-                      <h3 className="text-sm font-medium text-gray-900">Top Accounts</h3>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {summary.accounts.slice(0, 5).map((account) => (
-                        <div key={account.id} className="px-6 py-3 border-b border-gray-100 last:border-b-0">
-                          <div className="flex justify-between items-center">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center">
-                                <div className={`w-2 h-2 rounded-full ${typeColor.bg} mr-2`}></div>
-                                <span className="text-sm font-medium text-gray-900 truncate">
-                                  {account.name}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500 ml-4">
-                                #{account.accountNo} • {account.transactionCount} transactions
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`text-sm font-semibold ${getBalanceColor(account.goldBalance)}`}>
-                                {formatCurrency(account.goldBalance)}
-                              </div>
-                              <div className="text-xs text-gray-500">Gold</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {summary.accounts.length > 5 && (
-                        <div className="px-6 py-3 text-center text-sm text-gray-500">
-                          +{summary.accounts.length - 5} more accounts
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Detailed Summary Table */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Detailed Account Type Summary
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Complete breakdown of all account types and their financial positions
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account Type
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Accounts
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Transactions
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Gold Balance
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    KWD Balance
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {typeSummaries.map((summary) => {
-                  const typeColor = getTypeColor(summary.type);
-                  return (
-                    <tr key={summary.type} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className={`w-3 h-3 rounded-full ${typeColor.bg} mr-3`}></div>
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900">{summary.type}</div>
-                            <div className="text-xs text-gray-500">
-                              {summary.accounts.filter(a => a.transactionCount > 0).length} active accounts
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="text-sm text-gray-900 font-medium">{summary.totalAccounts}</div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="text-sm text-gray-900 font-medium">{summary.totalTransactions}</div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)} flex items-center justify-end`}>
-                          <span className="mr-1">{getBalanceIcon(summary.goldBalance)}</span>
-                          {formatCurrency(summary.goldBalance)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)} flex items-center justify-end`}>
-                          <span className="mr-1">{getBalanceIcon(summary.kwdBalance)}</span>
-                          {formatCurrency(summary.kwdBalance)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Link
-                            href={`/accounts/balance/${summary.type}`}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
-                          >
-                            Balances
-                          </Link>
-                          <Link
-                            href={`/balance-sheet/type/${summary.type}`}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                          >
-                            Ledger
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              {/* Footer with totals */}
-              <tfoot>
-                <tr className="bg-gray-50 font-bold">
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    Overall Total
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-900">
-                    {totalAccounts}
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-900">
-                    {totalTransactions}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm text-gray-900">
-                    <span className={getBalanceColor(overallGold)}>
-                      {formatCurrency(overallGold)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm text-gray-900">
-                    <span className={getBalanceColor(overallKwd)}>
-                      {formatCurrency(overallKwd)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
-        {/* Financial Overview */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
-            <h3 className="text-lg font-semibold mb-4">Financial Overview</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Total Assets (Positive):</span>
-                <span className="font-semibold">
-                  Gold: {formatCurrency(typeSummaries.reduce((sum, s) => sum + Math.max(0, s.goldBalance), 0))}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Total Liabilities (Negative):</span>
-                <span className="font-semibold">
-                  Gold: {formatCurrency(typeSummaries.reduce((sum, s) => sum + Math.min(0, s.goldBalance), 0))}
-                </span>
-              </div>
-              <div className="pt-2 border-t border-white border-opacity-20">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Net Position:</span>
-                  <span>{formatCurrency(overallGold)} Gold</span>
-                </div>
-              </div>
+        {/* Check if we have data */}
+        {typeSummaries.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">📊</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Data Available</h2>
+            <p className="text-gray-600 mb-6">No account type summary data found. You may need to create accounts and vouchers first.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link 
+                href="/accounts" 
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Create Accounts
+              </Link>
+              <Link 
+                href="/vouchers/create" 
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              >
+                Create Vouchers
+              </Link>
             </div>
           </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Activity</h3>
-            <div className="space-y-3">
+        ) : (
+          <>
+            {/* Account Type Summary Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {typeSummaries.map((summary) => {
-                const activePercentage = summary.totalAccounts > 0 
-                  ? (summary.accounts.filter(a => a.transactionCount > 0).length / summary.totalAccounts) * 100
-                  : 0;
-                
+                const typeColor = getTypeColor(summary.type);
                 return (
-                  <div key={summary.type}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">{summary.type}</span>
-                      <span className="font-medium">{Math.round(activePercentage)}% active</span>
+                  <div key={summary.type} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    {/* Header */}
+                    <div className={`bg-gradient-to-r ${typeColor.gradient} px-6 py-4 text-white`}>
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">{summary.type} Accounts</h2>
+                        <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-medium">
+                          {summary.totalAccounts} account{summary.totalAccounts !== 1 ? 's' : ''}
+                        </span>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `${activePercentage}%` }}
-                      ></div>
+
+                    {/* Summary Stats */}
+                    <div className="p-6">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
+                            {formatCurrency(summary.goldBalance)}
+                          </div>
+                          <div className="text-sm text-gray-600">Gold Balance</div>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
+                            {formatCurrency(summary.kwdBalance)}
+                          </div>
+                          <div className="text-sm text-gray-600">KWD Balance</div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between text-sm text-gray-600 mb-4">
+                        <span>{summary.totalTransactions} transactions</span>
+                        <span>{summary.accounts.filter(a => a.transactionCount > 0).length} active accounts</span>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="flex gap-2">
+                        <Link
+                          href={`/accounts/balance/${summary.type}`}
+                          className="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition-colors text-sm"
+                        >
+                          View Balances
+                        </Link>
+                        <Link
+                          href={`/balance-sheet/type/${summary.type}`}
+                          className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                        >
+                          View Ledger
+                        </Link>
+                      </div>
                     </div>
+
+                    {/* Top Accounts */}
+                    {summary.accounts.length > 0 && (
+                      <div className="border-t border-gray-200">
+                        <div className="px-6 py-3 bg-gray-50">
+                          <h3 className="text-sm font-medium text-gray-900">Account Overview</h3>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {summary.accounts.slice(0, 5).map((account) => (
+                            <div key={account.id} className="px-6 py-3 border-b border-gray-100 last:border-b-0">
+                              <div className="flex justify-between items-center">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center">
+                                    <div className={`w-2 h-2 rounded-full ${typeColor.bg} mr-2`}></div>
+                                    <span className="text-sm font-medium text-gray-900 truncate">
+                                      {account.name}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 ml-4">
+                                    #{account.accountNo} • {account.transactionCount} transactions
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className={`text-sm font-semibold ${getBalanceColor(account.goldBalance)}`}>
+                                    {formatCurrency(account.goldBalance)}
+                                  </div>
+                                  <div className="text-xs text-gray-500">Gold</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {summary.accounts.length > 5 && (
+                            <div className="px-6 py-3 text-center text-sm text-gray-500">
+                              +{summary.accounts.length - 5} more accounts
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Navigation</h3>
-            <div className="space-y-3">
-              {typeSummaries.map((summary) => (
-                <div key={summary.type} className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">{summary.type}</span>
-                  <div className="flex space-x-2">
-                    <Link
-                      href={`/accounts/balance/${summary.type}`}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Balances
-                    </Link>
-                    <Link
-                      href={`/balance-sheet/type/${summary.type}`}
-                      className="text-xs text-green-600 hover:text-green-800 font-medium"
-                    >
-                      Ledger
-                    </Link>
-                  </div>
-                </div>
-              ))}
+            {/* Detailed Summary Table */}
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Detailed Account Type Summary
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Complete breakdown of all account types and their financial positions
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Account Type
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Accounts
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Transactions
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Gold Balance
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        KWD Balance
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {typeSummaries.map((summary) => {
+                      const typeColor = getTypeColor(summary.type);
+                      return (
+                        <tr key={summary.type} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center">
+                              <div className={`w-3 h-3 rounded-full ${typeColor.bg} mr-3`}></div>
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">{summary.type}</div>
+                                <div className="text-xs text-gray-500">
+                                  {summary.accounts.filter(a => a.transactionCount > 0).length} active accounts
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="text-sm text-gray-900 font-medium">{summary.totalAccounts}</div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="text-sm text-gray-900 font-medium">{summary.totalTransactions}</div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)} flex items-center justify-end`}>
+                              <span className="mr-1">{getBalanceIcon(summary.goldBalance)}</span>
+                              {formatCurrency(summary.goldBalance)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)} flex items-center justify-end`}>
+                              <span className="mr-1">{getBalanceIcon(summary.kwdBalance)}</span>
+                              {formatCurrency(summary.kwdBalance)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end space-x-2">
+                              <Link
+                                href={`/accounts/balance/${summary.type}`}
+                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
+                              >
+                                Balances
+                              </Link>
+                              <Link
+                                href={`/balance-sheet/type/${summary.type}`}
+                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                              >
+                                Ledger
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {/* Footer with totals */}
+                  <tfoot>
+                    <tr className="bg-gray-50 font-bold">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        Overall Total
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {totalAccounts}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {totalTransactions}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(overallGold)}>
+                          {formatCurrency(overallGold)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(overallKwd)}>
+                          {formatCurrency(overallKwd)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <Link
-                href="/accounts"
-                className="w-full text-center block bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition-colors text-sm"
-              >
-                Manage All Accounts
-              </Link>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </main>
   );
