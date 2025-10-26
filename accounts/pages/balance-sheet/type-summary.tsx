@@ -8,14 +8,6 @@ type AccountTypeSummary = {
   totalTransactions: number;
   goldBalance: number;
   kwdBalance: number;
-  accounts: Array<{
-    id: string;
-    name: string;
-    accountNo: number;
-    goldBalance: number;
-    kwdBalance: number;
-    transactionCount: number;
-  }>;
 };
 
 type Props = {
@@ -32,30 +24,19 @@ export const getServerSideProps: GetServerSideProps = async () => {
     // Define the account types we want to summarize
     const accountTypes = ["Market", "Casting", "Finishing", "Project"];
 
-    // Fetch all accounts grouped by type
+    // Get all accounts grouped by type
     const accountsByType = await prisma.account.findMany({
       where: {
         type: { in: accountTypes }
       },
       select: {
         id: true,
-        accountNo: true,
-        name: true,
         type: true,
-        phone: true,
-        crOrCivilIdNo: true,
       },
-      orderBy: { type: "asc", accountNo: "asc" },
     });
 
-    // Get all account IDs to fetch vouchers
-    const accountIds = accountsByType.map(account => account.id);
-
-    // Fetch all vouchers for these accounts
-    const vouchers = await prisma.voucher.findMany({
-      where: {
-        accountId: { in: accountIds }
-      },
+    // Get all vouchers
+    const allVouchers = await prisma.voucher.findMany({
       select: {
         id: true,
         accountId: true,
@@ -63,51 +44,37 @@ export const getServerSideProps: GetServerSideProps = async () => {
         gold: true,
         kwd: true,
       },
-      orderBy: { date: "asc" },
     });
 
-    // Group accounts by type and calculate balances
+    // Calculate balances for each account type
     const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
-      const typeAccounts = accountsByType.filter(account => account.type === type);
-      
-      // Calculate balances for each account in this type
-      const accountsWithBalances = typeAccounts.map(account => {
-        const accountVouchers = vouchers.filter(v => v.accountId === account.id);
-        let goldBalance = 0;
-        let kwdBalance = 0;
+      const typeAccountIds = accountsByType
+        .filter(account => account.type === type)
+        .map(account => account.id);
 
-        accountVouchers.forEach(voucher => {
-          if (voucher.vt === "INV") {
-            goldBalance += voucher.gold;
-            kwdBalance += voucher.kwd;
-          } else if (voucher.vt === "REC") {
-            goldBalance -= voucher.gold;
-            kwdBalance -= voucher.kwd;
-          }
-        });
+      const typeVouchers = allVouchers.filter(v => 
+        typeAccountIds.includes(v.accountId)
+      );
 
-        return {
-          id: account.id,
-          name: account.name,
-          accountNo: account.accountNo,
-          goldBalance,
-          kwdBalance,
-          transactionCount: accountVouchers.length,
-        };
+      let goldBalance = 0;
+      let kwdBalance = 0;
+
+      typeVouchers.forEach(voucher => {
+        if (voucher.vt === "INV") {
+          goldBalance += voucher.gold;
+          kwdBalance += voucher.kwd;
+        } else if (voucher.vt === "REC") {
+          goldBalance -= voucher.gold;
+          kwdBalance -= voucher.kwd;
+        }
       });
-
-      // Calculate totals for this type
-      const goldBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.goldBalance, 0);
-      const kwdBalance = accountsWithBalances.reduce((sum, acc) => sum + acc.kwdBalance, 0);
-      const totalTransactions = accountsWithBalances.reduce((sum, acc) => sum + acc.transactionCount, 0);
 
       return {
         type,
-        totalAccounts: typeAccounts.length,
-        totalTransactions,
+        totalAccounts: typeAccountIds.length,
+        totalTransactions: typeVouchers.length,
         goldBalance,
         kwdBalance,
-        accounts: accountsWithBalances,
       };
     });
 
@@ -119,7 +86,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
     return {
       props: {
-        typeSummaries: JSON.parse(JSON.stringify(typeSummaries)),
+        typeSummaries,
         overallGold,
         overallKwd,
         totalAccounts,
@@ -135,7 +102,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         overallKwd: 0,
         totalAccounts: 0,
         totalTransactions: 0,
-        error: 'Failed to load account type summary data'
+        error: 'Failed to load account type summary data. Please check if you have accounts and vouchers in the database.'
       },
     };
   }
@@ -199,12 +166,6 @@ export default function TypeSummaryPage({
     return 'text-gray-600';
   };
 
-  const getBalanceIcon = (balance: number) => {
-    if (balance > 0) return '↗';
-    if (balance < 0) return '↘';
-    return '→';
-  };
-
   if (error) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -213,12 +174,20 @@ export default function TypeSummaryPage({
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Data</h1>
             <p className="text-gray-600 mb-6">{error}</p>
-            <Link 
-              href="/accounts" 
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Back to Accounts
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link 
+                href="/accounts" 
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Manage Accounts
+              </Link>
+              <Link 
+                href="/vouchers/create" 
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              >
+                Create Vouchers
+              </Link>
+            </div>
           </div>
         </div>
       </main>
@@ -379,7 +348,7 @@ export default function TypeSummaryPage({
 
                       <div className="flex justify-between text-sm text-gray-600 mb-4">
                         <span>{summary.totalTransactions} transactions</span>
-                        <span>{summary.accounts.filter(a => a.transactionCount > 0).length} active accounts</span>
+                        <span>Total Balance</span>
                       </div>
 
                       {/* Quick Actions */}
@@ -398,45 +367,6 @@ export default function TypeSummaryPage({
                         </Link>
                       </div>
                     </div>
-
-                    {/* Top Accounts */}
-                    {summary.accounts.length > 0 && (
-                      <div className="border-t border-gray-200">
-                        <div className="px-6 py-3 bg-gray-50">
-                          <h3 className="text-sm font-medium text-gray-900">Account Overview</h3>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {summary.accounts.slice(0, 5).map((account) => (
-                            <div key={account.id} className="px-6 py-3 border-b border-gray-100 last:border-b-0">
-                              <div className="flex justify-between items-center">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center">
-                                    <div className={`w-2 h-2 rounded-full ${typeColor.bg} mr-2`}></div>
-                                    <span className="text-sm font-medium text-gray-900 truncate">
-                                      {account.name}
-                                    </span>
-                                  </div>
-                                  <div className="text-xs text-gray-500 ml-4">
-                                    #{account.accountNo} • {account.transactionCount} transactions
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className={`text-sm font-semibold ${getBalanceColor(account.goldBalance)}`}>
-                                    {formatCurrency(account.goldBalance)}
-                                  </div>
-                                  <div className="text-xs text-gray-500">Gold</div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {summary.accounts.length > 5 && (
-                            <div className="px-6 py-3 text-center text-sm text-gray-500">
-                              +{summary.accounts.length - 5} more accounts
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -485,12 +415,7 @@ export default function TypeSummaryPage({
                           <td className="px-6 py-4">
                             <div className="flex items-center">
                               <div className={`w-3 h-3 rounded-full ${typeColor.bg} mr-3`}></div>
-                              <div>
-                                <div className="text-sm font-semibold text-gray-900">{summary.type}</div>
-                                <div className="text-xs text-gray-500">
-                                  {summary.accounts.filter(a => a.transactionCount > 0).length} active accounts
-                                </div>
-                              </div>
+                              <div className="text-sm font-semibold text-gray-900">{summary.type}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -500,14 +425,12 @@ export default function TypeSummaryPage({
                             <div className="text-sm text-gray-900 font-medium">{summary.totalTransactions}</div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)} flex items-center justify-end`}>
-                              <span className="mr-1">{getBalanceIcon(summary.goldBalance)}</span>
+                            <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)}`}>
                               {formatCurrency(summary.goldBalance)}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)} flex items-center justify-end`}>
-                              <span className="mr-1">{getBalanceIcon(summary.kwdBalance)}</span>
+                            <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)}`}>
                               {formatCurrency(summary.kwdBalance)}
                             </div>
                           </td>
