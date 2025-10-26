@@ -13,6 +13,8 @@ type Voucher = {
   accountId: string;
   gold: number;
   kwd: number;
+  goldBalance: number; // Added this
+  kwdBalance: number; // Added this
   account: {
     name: string;
     accountNo: number;
@@ -190,9 +192,9 @@ export default function AccountTypeBalanceSheet({
     setIsFiltering(false);
   };
 
-  // Calculate totals
-  const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance ?? openingGold : openingGold;
-  const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd : openingKwd;
+  // Calculate totals - Fixed: removed optional chaining since goldBalance/kwdBalance are now required
+  const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
+  const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
 
   // Calculate period totals
   const periodGold = vouchers.reduce((sum, v) => sum + (v.vt === "INV" ? v.gold : -v.gold), 0);
@@ -530,10 +532,10 @@ export default function AccountTypeBalanceSheet({
                         {formatCurrency(v.kwd)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                        {formatCurrency(v.goldBalance || 0)}
+                        {formatCurrency(v.goldBalance)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                        {formatCurrency(v.kwdBalance || 0)}
+                        {formatCurrency(v.kwdBalance)}
                       </td>
                     </tr>
                   ))}
