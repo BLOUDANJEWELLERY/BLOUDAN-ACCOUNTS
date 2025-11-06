@@ -22,7 +22,7 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async () => {
   try {
     // Define the account types we want to summarize
-    const accountTypes = ["Market", "Casting", "Finishing", "Project"];
+    const accountTypes = ["Market", "Casting", "Faceting", "Project", "GoldFixers"];
 
     // Get all accounts grouped by type
     const accountsByType = await prisma.account.findMany({
@@ -136,7 +136,7 @@ export default function TypeSummaryPage({
         border: 'border-purple-200',
         gradient: 'from-purple-500 to-purple-600',
       },
-      Finishing: {
+      Faceting: {
         bg: 'bg-amber-500',
         lightBg: 'bg-amber-50',
         text: 'text-amber-800',
@@ -149,6 +149,13 @@ export default function TypeSummaryPage({
         text: 'text-green-800',
         border: 'border-green-200',
         gradient: 'from-green-500 to-green-600',
+      },
+        GoldFixers: {
+        bg: 'bg-black-500',
+        lightBg: 'bg-black-50',
+        text: 'text-black-800',
+        border: 'border-black-200',
+        gradient: 'from-black-500 to-black-600',
       },
     };
     return colors[type as keyof typeof colors] || {
