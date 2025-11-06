@@ -13,17 +13,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-What is wrong in this:
-
 model Account {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  accountNo       Int      @unique
-  name            String
-  type            String   // e.g. "Customer" or "Supplier"
-  phone           String?
-  crOrCivilIdNo   String?  // C.R. or Civil ID Number
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  accountNo     Int      @unique
+  name          String
+  type          String   // e.g. "Customer" or "Supplier"
+  phone         String?
+  crOrCivilIdNo String?  // C.R. or Civil ID Number
+  createdAt     DateTime @default(now())
 
-	vouchers   Voucher[]
+  vouchers      Voucher[]
 }
 
 model Voucher {
