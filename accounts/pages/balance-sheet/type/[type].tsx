@@ -44,7 +44,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const endDate = endDateParam ? new Date(endDateParam) : undefined;
 
   // Validate account type
-  const validTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixers"];
+  const validTypes = ["Market", "Casting", "Faceting", "Project", "GoldFixers"];
   if (!validTypes.includes(type)) {
     return { notFound: true };
   }
@@ -232,7 +232,7 @@ export default function AccountTypeBalanceSheet({
       Casting: 'bg-purple-100 text-purple-800',
       Faceting: 'bg-amber-100 text-amber-800',
       Project: 'bg-green-100 text-green-800',
-      Gold Fixers: 'bg-black-100 text-blue-800',
+      GoldFixers: 'bg-black-100 text-blue-800',
     };
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
