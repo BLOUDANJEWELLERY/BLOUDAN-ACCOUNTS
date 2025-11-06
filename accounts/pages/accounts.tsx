@@ -26,7 +26,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState({ type: "", search: "" });
 
-  const predefinedTypes = ["Market", "Casting", "Finishing", "Project"];
+  const predefinedTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixers"];
 
   // Auto-number new accounts by type
   useEffect(() => {
