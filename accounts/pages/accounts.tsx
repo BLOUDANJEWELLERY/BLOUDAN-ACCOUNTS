@@ -11,7 +11,6 @@ type Account = {
   phone?: string;
   crOrCivilIdNo?: string;
   createdAt: string;
-  updatedAt: string;
 };
 
 type Props = { accounts: Account[] };
@@ -141,8 +140,8 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
       return sortBy.direction === 'asc' ? result : -result;
     }
     
-    // For date sorting (createdAt/updatedAt)
-    if (sortBy.field === 'createdAt' || sortBy.field === 'updatedAt') {
+    // For date sorting (createdAt only)
+    if (sortBy.field === 'createdAt') {
       const aDate = new Date(aValue).getTime();
       const bDate = new Date(bValue).getTime();
       return sortBy.direction === 'asc' ? aDate - bDate : bDate - aDate;
@@ -353,7 +352,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-w-[200px]"
                 />
 
-                {/* Sort Options */}
+                {/* Sort Options - removed updatedAt options */}
                 <select
                   value={`${sortBy.field}-${sortBy.direction}`}
                   onChange={(e) => {
@@ -370,8 +369,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   <option value="name-desc">Name: Z to A</option>
                   <option value="createdAt-desc">Recently Created</option>
                   <option value="createdAt-asc">Oldest First</option>
-                  <option value="updatedAt-desc">Recently Updated</option>
-                  <option value="updatedAt-asc">Least Recently Updated</option>
                 </select>
               </div>
             </div>
