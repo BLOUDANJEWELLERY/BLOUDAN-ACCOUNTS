@@ -10,12 +10,20 @@ type Account = {
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type Props = { accounts: Account[] };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const accounts = await prisma.account.findMany({ orderBy: { accountNo: "asc" } });
+  const accounts = await prisma.account.findMany({ 
+    orderBy: { accountNo: "asc" },
+    include: {
+      createdAt: true,
+      updatedAt: true
+    }
+  });
   return { props: { accounts: JSON.parse(JSON.stringify(accounts)) } };
 };
 
@@ -25,6 +33,10 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState({ type: "", search: "" });
+  const [sortBy, setSortBy] = useState<{ field: string; direction: 'asc' | 'desc' }>({
+    field: 'type',
+    direction: 'asc'
+  });
 
   // Added "Gold Fixing" to predefined types
   const predefinedTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
@@ -87,7 +99,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     setForm({});
   };
 
-  // Filtering logic
+  // Filtering logic - removed accountNo and crOrCivilIdNo from search
   const filteredAccounts = accounts.filter((acc) => {
     const matchesType = filter.type
       ? acc.type.toLowerCase() === filter.type.toLowerCase()
@@ -96,11 +108,59 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     const searchTerm = filter.search.toLowerCase();
     const matchesSearch =
       acc.name.toLowerCase().includes(searchTerm) ||
-      acc.phone?.toLowerCase().includes(searchTerm) ||
-      acc.accountNo.toString().includes(searchTerm) ||
-      acc.crOrCivilIdNo?.toLowerCase().includes(searchTerm);
+      acc.phone?.toLowerCase().includes(searchTerm);
 
     return matchesType && matchesSearch;
+  });
+
+  // Sorting logic
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+    let aValue: any = a[sortBy.field as keyof Account];
+    let bValue: any = b[sortBy.field as keyof Account];
+    
+    // Handle undefined values
+    if (aValue === undefined || aValue === null) aValue = '';
+    if (bValue === undefined || bValue === null) bValue = '';
+    
+    // For type sorting, group by type then by account number
+    if (sortBy.field === 'type') {
+      if (a.type !== b.type) {
+        const result = a.type.localeCompare(b.type);
+        return sortBy.direction === 'asc' ? result : -result;
+      }
+      // Same type - sort by account number
+      return a.accountNo - b.accountNo;
+    }
+    
+    // For account number sorting
+    if (sortBy.field === 'accountNo') {
+      return sortBy.direction === 'asc' 
+        ? a.accountNo - b.accountNo 
+        : b.accountNo - a.accountNo;
+    }
+    
+    // For name sorting
+    if (sortBy.field === 'name') {
+      const result = a.name.localeCompare(b.name);
+      return sortBy.direction === 'asc' ? result : -result;
+    }
+    
+    // For date sorting (createdAt/updatedAt)
+    if (sortBy.field === 'createdAt' || sortBy.field === 'updatedAt') {
+      const aDate = new Date(aValue).getTime();
+      const bDate = new Date(bValue).getTime();
+      return sortBy.direction === 'asc' ? aDate - bDate : bDate - aDate;
+    }
+    
+    // Default string comparison
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+    
+    if (aValue < bValue) return sortBy.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortBy.direction === 'asc' ? 1 : -1;
+    return 0;
   });
 
   // Statistics
@@ -274,8 +334,9 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 sm:mb-0">All Accounts</h2>
               
-              {/* Filters */}
+              {/* Filters and Sort */}
               <div className="flex flex-col sm:flex-row gap-3">
+                {/* Type Filter */}
                 <select
                   value={filter.type}
                   onChange={(e) => setFilter({ ...filter, type: e.target.value })}
@@ -287,19 +348,41 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   ))}
                 </select>
 
+                {/* Search - removed account ID search */}
                 <input
                   type="text"
-                  placeholder="Search accounts..."
+                  placeholder="Search by name or phone..."
                   value={filter.search}
                   onChange={(e) => setFilter({ ...filter, search: e.target.value })}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-w-[200px]"
                 />
+
+                {/* Sort Options */}
+                <select
+                  value={`${sortBy.field}-${sortBy.direction}`}
+                  onChange={(e) => {
+                    const [field, direction] = e.target.value.split('-');
+                    setSortBy({ field, direction: direction as 'asc' | 'desc' });
+                  }}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                >
+                  <option value="type-asc">Type: A to Z</option>
+                  <option value="type-desc">Type: Z to A</option>
+                  <option value="accountNo-asc">Account No: Low to High</option>
+                  <option value="accountNo-desc">Account No: High to Low</option>
+                  <option value="name-asc">Name: A to Z</option>
+                  <option value="name-desc">Name: Z to A</option>
+                  <option value="createdAt-desc">Recently Created</option>
+                  <option value="createdAt-asc">Oldest First</option>
+                  <option value="updatedAt-desc">Recently Updated</option>
+                  <option value="updatedAt-asc">Least Recently Updated</option>
+                </select>
               </div>
             </div>
 
             {/* Accounts List */}
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {filteredAccounts.map((acc) => (
+              {sortedAccounts.map((acc) => (
                 <div key={acc.id} className="border border-gray-200 rounded-xl p-4 hover:border-emerald-300 hover:shadow-md transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -367,7 +450,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                 </div>
               ))}
 
-              {filteredAccounts.length === 0 && (
+              {sortedAccounts.length === 0 && (
                 <div className="text-center py-12">
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
