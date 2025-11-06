@@ -18,11 +18,7 @@ type Props = { accounts: Account[] };
 
 export const getServerSideProps: GetServerSideProps = async () => {
   const accounts = await prisma.account.findMany({ 
-    orderBy: { accountNo: "asc" },
-    include: {
-      createdAt: true,
-      updatedAt: true
-    }
+    orderBy: { accountNo: "asc" }
   });
   return { props: { accounts: JSON.parse(JSON.stringify(accounts)) } };
 };
