@@ -26,7 +26,8 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState({ type: "", search: "" });
 
-  const predefinedTypes = ["Market", "Casting", "Faceting", "Project", "GoldFixers"];
+  // Added "Gold Fixing" to predefined types
+  const predefinedTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
   // Auto-number new accounts by type
   useEffect(() => {
@@ -86,22 +87,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     setForm({});
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this account? This action cannot be undone.")) return;
-    
-    try {
-      const res = await fetch(`/api/accounts/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setAccounts(prev => prev.filter(a => a.id !== id));
-        alert("Account deleted successfully!");
-      } else {
-        alert("Error deleting account");
-      }
-    } catch (error) {
-      alert("Error deleting account");
-    }
-  };
-
   // Filtering logic
   const filteredAccounts = accounts.filter((acc) => {
     const matchesType = filter.type
@@ -141,7 +126,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
             <div className="text-2xl font-bold text-emerald-600">{totalAccounts}</div>
             <div className="text-sm text-gray-600">Total Accounts</div>
@@ -327,8 +312,10 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             acc.type === 'Market' ? 'bg-blue-100 text-blue-800' :
                             acc.type === 'Casting' ? 'bg-purple-100 text-purple-800' :
-                            acc.type === 'Finishing' ? 'bg-amber-100 text-amber-800' :
-                            'bg-green-100 text-green-800'
+                            acc.type === 'Faceting' ? 'bg-amber-100 text-amber-800' :
+                            acc.type === 'Project' ? 'bg-green-100 text-green-800' :
+                            acc.type === 'Gold Fixing' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}>
                             {acc.type}
                           </span>
@@ -365,15 +352,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                         </svg>
                       </Link>
                       
-                      <button
-                        onClick={() => handleDelete(acc.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Account"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      {/* Delete button has been removed */}
                     </div>
                   </div>
                   
