@@ -457,11 +457,6 @@ export default function OpenBalanceSheet({
             <h2 className="text-lg font-semibold text-gray-900">
               Open Balance Ledger
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Market REC (Gold Fixing) vouchers: Gold (+), Fixing Amount (+)
-              <br />
-              GFV vouchers: Gold (-), KWD (-)
-            </p>
           </div>
 
           {vouchers.length === 0 ? (
