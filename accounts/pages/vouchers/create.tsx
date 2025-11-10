@@ -19,6 +19,14 @@ type VoucherForm = {
   gold: number;
   kwd: number;
   goldRate?: number;
+  isGoldFixing?: boolean;
+  fixingAmount?: number;
+  paymentMethod: 'cash' | 'cheque';
+  bankName?: string;
+  branch?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeAmount?: number;
 };
 
 type Props = {
@@ -42,7 +50,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [voucherForms, setVoucherForms] = useState<VoucherForm[]>([
-    { date: new Date().toISOString().split('T')[0], vt: "", accountId: "", gold: 0, kwd: 0 }
+    { 
+      date: new Date().toISOString().split('T')[0], 
+      vt: "", 
+      accountId: "", 
+      gold: 0, 
+      kwd: 0,
+      paymentMethod: 'cash'
+    }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,6 +79,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   };
 
+  // Check if should show gold fixing section
+  const shouldShowGoldFixing = (form: VoucherForm) => {
+    return selectedType === "Market" && form.vt === "REC";
+  };
+
+  // Calculate fixing amount
+  const calculateFixingAmount = (gold: number, goldRate: number | undefined): number => {
+    if (!goldRate || goldRate <= 0) return 0;
+    return gold * goldRate;
+  };
+
   // Reset account when type changes
   useEffect(() => {
     setSelectedAccountId("");
@@ -73,7 +99,15 @@ export default function CreateVouchersPage({ accounts }: Props) {
       mvn: "",
       description: "",
       vt: "",
-      goldRate: undefined
+      goldRate: undefined,
+      isGoldFixing: false,
+      fixingAmount: 0,
+      paymentMethod: 'cash',
+      bankName: "",
+      branch: "",
+      chequeNo: "",
+      chequeDate: "",
+      chequeAmount: 0
     })));
   }, [selectedType]);
 
@@ -87,12 +121,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   }, [selectedAccountId]);
 
-  // Calculate KWD from gold and gold rate for GFV vouchers
-  const calculateKwdFromGoldRate = (gold: number, goldRate: number | undefined): number => {
-    if (!goldRate || goldRate <= 0) return 0;
-    return gold * goldRate;
-  };
-
   const addVoucherForm = () => {
     setVoucherForms(forms => [
       ...forms,
@@ -102,7 +130,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
         accountId: selectedAccountId, 
         gold: 0, 
         kwd: 0,
-        goldRate: forms[0]?.vt === "GFV" ? forms[0]?.goldRate || 0 : undefined
+        paymentMethod: 'cash',
+        isGoldFixing: forms[0]?.isGoldFixing || false,
+        goldRate: forms[0]?.goldRate || 0,
+        fixingAmount: forms[0]?.fixingAmount || 0
       }
     ]);
   };
@@ -118,17 +149,36 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
-        // If this is a GFV voucher and gold or goldRate is updated, recalculate KWD
-        if (updatedForm.vt === "GFV") {
+        // Handle Gold Fixing calculations
+        if (shouldShowGoldFixing(updatedForm) && updatedForm.isGoldFixing) {
           if (field === 'gold' || field === 'goldRate') {
-            const calculatedKwd = calculateKwdFromGoldRate(
+            const calculatedFixingAmount = calculateFixingAmount(
               field === 'gold' ? value : updatedForm.gold,
               field === 'goldRate' ? value : updatedForm.goldRate
             );
-            updatedForm.kwd = calculatedKwd;
+            updatedForm.fixingAmount = calculatedFixingAmount;
+            
+            // If payment method is cheque, update cheque amount too
+            if (updatedForm.paymentMethod === 'cheque') {
+              updatedForm.chequeAmount = calculatedFixingAmount;
+            }
           }
         }
-        
+
+        // Reset cheque-related fields when switching to cash
+        if (field === 'paymentMethod' && value === 'cash') {
+          updatedForm.bankName = "";
+          updatedForm.branch = "";
+          updatedForm.chequeNo = "";
+          updatedForm.chequeDate = "";
+          updatedForm.chequeAmount = 0;
+        }
+
+        // Update cheque amount when fixing amount changes and payment method is cheque
+        if (field === 'fixingAmount' && updatedForm.paymentMethod === 'cheque') {
+          updatedForm.chequeAmount = value;
+        }
+
         return updatedForm;
       }
       return form;
@@ -153,6 +203,18 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (form.vt === "GFV" && (!form.goldRate || form.goldRate <= 0)) {
         return alert(`Gold Rate is required and must be greater than 0 for GFV voucher ${i + 1}`);
       }
+
+      // Additional validation for Gold Fixing in Market REC
+      if (shouldShowGoldFixing(form) && form.isGoldFixing && (!form.goldRate || form.goldRate <= 0)) {
+        return alert(`Gold Rate is required when Gold Fixing is checked for voucher ${i + 1}`);
+      }
+
+      // Validation for cheque payments
+      if (form.paymentMethod === 'cheque') {
+        if (!form.bankName?.trim() || !form.branch?.trim() || !form.chequeNo?.trim() || !form.chequeDate) {
+          return alert(`All cheque details are required for voucher ${i + 1}`);
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -167,6 +229,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           accountId: form.accountId,
           gold: parseFloat(form.gold.toString()) || 0,
           kwd: parseFloat(form.kwd.toString()) || 0,
+          paymentMethod: form.paymentMethod,
         };
 
         // Only include mvn for Market accounts
@@ -179,9 +242,25 @@ export default function CreateVouchersPage({ accounts }: Props) {
           baseVoucher.description = form.description;
         }
 
-        // Only include goldRate for GFV vouchers
-        if (form.vt === "GFV" && form.goldRate) {
+        // Include goldRate for GFV vouchers or when Gold Fixing is checked
+        if ((form.vt === "GFV" || (shouldShowGoldFixing(form) && form.isGoldFixing)) && form.goldRate) {
           baseVoucher.goldRate = parseFloat(form.goldRate.toString()) || 0;
+        }
+
+        // Include fixing amount when Gold Fixing is checked
+        if (shouldShowGoldFixing(form) && form.isGoldFixing && form.fixingAmount) {
+          baseVoucher.fixingAmount = parseFloat(form.fixingAmount.toString()) || 0;
+        }
+
+        // Include cheque details if payment method is cheque
+        if (form.paymentMethod === 'cheque') {
+          baseVoucher.bankName = form.bankName;
+          baseVoucher.branch = form.branch;
+          baseVoucher.chequeNo = form.chequeNo;
+          if (form.chequeDate) {
+            baseVoucher.chequeDate = new Date(form.chequeDate).toISOString();
+          }
+          baseVoucher.chequeAmount = parseFloat(form.chequeAmount?.toString() || "0") || 0;
         }
 
         return baseVoucher;
@@ -206,7 +285,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         vt: "", 
         accountId: "", 
         gold: 0, 
-        kwd: 0 
+        kwd: 0,
+        paymentMethod: 'cash'
       }]);
       setSelectedType("");
       setSelectedAccountId("");
@@ -222,7 +302,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Vouchers</h1>
@@ -291,9 +371,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
           </div>
 
           {/* Voucher Forms */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             {voucherForms.map((form, index) => (
-              <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white hover:border-blue-300 transition-colors">
+              <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gradient-to-r from-gray-50 to-white hover:border-blue-300 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                   <h3 className="font-semibold text-gray-700 mb-2 sm:mb-0">Voucher #{index + 1}</h3>
                   {voucherForms.length > 1 && (
@@ -309,9 +389,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   )}
                 </div>
                 
-                <div className={`grid grid-cols-1 ${
-                  form.vt === "GFV" ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-2 lg:grid-cols-4"
-                } gap-3`}>
+                {/* Basic Voucher Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
                     <input
@@ -373,50 +452,211 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
+                </div>
 
-                  {/* Gold Rate Field - Only show for GFV vouchers */}
-                  {form.vt === "GFV" && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
-                        Gold Rate *
-                        {form.goldRate && form.gold > 0 && (
-                          <span className="text-green-600 ml-1">
-                            (Total: {(form.gold * form.goldRate).toFixed(2)} KWD)
-                          </span>
-                        )}
-                      </label>
+                {/* Gold Fixing Section - Only for Market REC */}
+                {shouldShowGoldFixing(form) && (
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center mb-3">
                       <input
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        value={form.goldRate || ""}
-                        onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        type="checkbox"
+                        id={`gold-fixing-${index}`}
+                        checked={form.isGoldFixing || false}
+                        onChange={(e) => updateVoucherForm(index, 'isGoldFixing', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
+                      <label htmlFor={`gold-fixing-${index}`} className="ml-2 block text-sm font-medium text-gray-700">
+                        Gold Fixing
+                      </label>
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      step="0.01"
-                      value={form.kwd}
-                      onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                        form.vt === "GFV" 
-                          ? 'bg-gray-100 text-gray-600 cursor-not-allowed border-gray-300' 
-                          : 'border-gray-300'
-                      }`}
-                      readOnly={form.vt === "GFV"}
-                    />
-                    {form.vt === "GFV" && (
-                      <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                    {form.isGoldFixing && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Gold Rate *</label>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            value={form.goldRate || ""}
+                            onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Fixing Amount</label>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.01"
+                            value={form.fixingAmount || 0}
+                            readOnly
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.01"
+                            value={form.kwd}
+                            onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
+
+                {/* GFV Voucher Type - Keep existing functionality */}
+                {form.vt === "GFV" && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          Gold Rate *
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          value={form.goldRate || ""}
+                          onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          value={form.kwd}
+                          readOnly
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Regular KWD field for non-GFV and non-GoldFixing */}
+                {form.vt !== "GFV" && !(shouldShowGoldFixing(form) && form.isGoldFixing) && (
+                  <div className="mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          value={form.kwd}
+                          onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Method Section - Only for Market REC with Gold Fixing */}
+                {shouldShowGoldFixing(form) && form.isGoldFixing && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
+                    
+                    <div className="flex space-x-4 mb-4">
+                      <label className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name={`payment-method-${index}`}
+                          value="cash"
+                          checked={form.paymentMethod === 'cash'}
+                          onChange={(e) => updateVoucherForm(index, 'paymentMethod', e.target.value)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Cash</span>
+                      </label>
+                      <label className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name={`payment-method-${index}`}
+                          value="cheque"
+                          checked={form.paymentMethod === 'cheque'}
+                          onChange={(e) => updateVoucherForm(index, 'paymentMethod', e.target.value)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Cheque</span>
+                      </label>
+                    </div>
+
+                    {form.paymentMethod === 'cheque' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Bank Name *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter bank name"
+                            value={form.bankName || ""}
+                            onChange={(e) => updateVoucherForm(index, 'bankName', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Branch *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter branch"
+                            value={form.branch || ""}
+                            onChange={(e) => updateVoucherForm(index, 'branch', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Cheque No *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter cheque number"
+                            value={form.chequeNo || ""}
+                            onChange={(e) => updateVoucherForm(index, 'chequeNo', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Cheque Date *</label>
+                          <input
+                            type="date"
+                            value={form.chequeDate || ""}
+                            onChange={(e) => updateVoucherForm(index, 'chequeDate', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Cheque Amount</label>
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.01"
+                            value={form.chequeAmount || 0}
+                            readOnly
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
