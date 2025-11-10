@@ -33,7 +33,7 @@ model Voucher {
   vt           String     // Voucher Type (REC, INV, etc.)
   gold         Float
   kwd          Float
-  goldRate     Float      // New field added
+  goldRate     Float?      // New field added
 
   accountId    String     @db.ObjectId
   account      Account    @relation(fields: [accountId], references: [id])
