@@ -15,16 +15,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Convert date string to Date object
         const date = new Date(voucher.date);
         
-        return {
+        // Create base data object with required fields
+        const data: any = {
           date: date,
           vt: voucher.vt,
           accountId: voucher.accountId,
           gold: parseFloat(voucher.gold) || 0,
           kwd: parseFloat(voucher.kwd) || 0,
-          goldRate: parseFloat(voucher.goldRate) || 0, // Include goldRate
-          mvn: voucher.mvn || null,
-          description: voucher.description || null,
         };
+
+        // Only include mvn if it exists and is not empty
+        if (voucher.mvn && voucher.mvn.trim()) {
+          data.mvn = voucher.mvn;
+        }
+
+        // Only include description if it exists and is not empty
+        if (voucher.description && voucher.description.trim()) {
+          data.description = voucher.description;
+        }
+
+        // Only include goldRate for GFV vouchers and if it exists
+        if (voucher.vt === "GFV" && voucher.goldRate !== undefined) {
+          data.goldRate = parseFloat(voucher.goldRate) || 0;
+        }
+
+        return data;
       });
 
       // Create multiple vouchers using transaction
