@@ -13,6 +13,8 @@ type Voucher = {
   accountId: string;
   gold: number;
   kwd: number;
+  goldRate?: number;
+  fixingAmount?: number;
   goldBalance: number;
   kwdBalance: number;
   account: {
@@ -33,12 +35,14 @@ type Props = {
     name: string;
     accountNo: number;
   }>;
+  showOpenBalance?: boolean;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const type = context.params?.type as string;
   const startDateParam = context.query.startDate as string | undefined;
   const endDateParam = context.query.endDate as string | undefined;
+  const showOpenBalance = context.query.openBalance === 'true';
 
   const startDate = startDateParam ? new Date(startDateParam) : undefined;
   const endDate = endDateParam ? new Date(endDateParam) : undefined;
@@ -66,21 +70,32 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         openingGold: 0,
         openingKwd: 0,
         accounts: [],
+        showOpenBalance: showOpenBalance || false,
       },
     };
   }
 
   const accountIds = accounts.map(account => account.id);
 
-  // Step 1: Calculate Opening Balance (vouchers before startDate)
+  let vouchers = [];
   let openingGold = 0;
   let openingKwd = 0;
 
-  if (startDate) {
-    const previousVouchers = await prisma.voucher.findMany({
+  if (showOpenBalance) {
+    // Special handling for Open Balance ledger
+    // Get Market REC vouchers with goldRate and GFV vouchers
+    const marketAccountIds = accounts.filter(a => a.type === "Market").map(a => a.id);
+    const goldFixingAccountIds = accounts.filter(a => a.type === "Gold Fixing").map(a => a.id);
+
+    // Fetch Market REC vouchers with goldRate (Gold Fixing enabled)
+    const marketRecVouchers = await prisma.voucher.findMany({
       where: {
-        accountId: { in: accountIds },
-        date: { lt: startDate },
+        accountId: { in: marketAccountIds },
+        vt: "REC",
+        goldRate: { not: null },
+        ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : 
+           startDate ? { date: { gte: startDate } } :
+           endDate ? { date: { lte: endDate } } : {})
       },
       include: {
         account: {
@@ -93,79 +108,149 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       orderBy: { date: "asc" },
     });
 
-    previousVouchers.forEach((v) => {
-      if (v.vt === "INV") {
-        openingGold += v.gold;
-        openingKwd += v.kwd;
-      } else if (v.vt === "REC") {
-        openingGold -= v.gold;
-        openingKwd -= v.kwd;
-      } else if (v.vt === "GFV") {
-        // GFV: Gold positive, KWD negative
-        openingGold += v.gold;
-        openingKwd -= v.kwd;
-      }
-    });
-  }
-
-  // Step 2: Fetch vouchers within date range
-  const whereClause: any = { 
-    accountId: { in: accountIds }
-  };
-  
-  if (startDate && endDate) {
-    whereClause.date = { gte: startDate, lte: endDate };
-  } else if (startDate) {
-    whereClause.date = { gte: startDate };
-  } else if (endDate) {
-    whereClause.date = { lte: endDate };
-  }
-
-  const vouchers = await prisma.voucher.findMany({
-    where: whereClause,
-    include: {
-      account: {
-        select: {
-          name: true,
-          accountNo: true,
+    // Fetch GFV vouchers from Gold Fixing accounts
+    const gfvVouchers = await prisma.voucher.findMany({
+      where: {
+        accountId: { in: goldFixingAccountIds },
+        vt: "GFV",
+        ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : 
+           startDate ? { date: { gte: startDate } } :
+           endDate ? { date: { lte: endDate } } : {})
+      },
+      include: {
+        account: {
+          select: {
+            name: true,
+            accountNo: true,
+          },
         },
       },
-    },
-    orderBy: { date: "asc" },
-  });
+      orderBy: { date: "asc" },
+    });
 
-  // Step 3: Compute running balances for the entire account type
-  let goldBalance = openingGold;
-  let kwdBalance = openingKwd;
-  
-  const processed = vouchers.map((v) => {
-    if (v.vt === "INV") {
-      goldBalance += v.gold;
-      kwdBalance += v.kwd;
-    } else if (v.vt === "REC") {
-      goldBalance -= v.gold;
-      kwdBalance -= v.kwd;
-    } else if (v.vt === "GFV") {
-      // GFV: Gold positive, KWD negative
-      goldBalance += v.gold;
-      kwdBalance -= v.kwd;
+    // Combine and sort vouchers
+    vouchers = [...marketRecVouchers, ...gfvVouchers].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Calculate running balances for Open Balance ledger
+    let goldBalance = 0;
+    let kwdBalance = 0;
+
+    const processed = vouchers.map((v) => {
+      if (v.vt === "REC" && v.goldRate) {
+        // Market REC with Gold Fixing: Gold and Fixing Amount positive
+        goldBalance += v.gold;
+        kwdBalance += (v.fixingAmount || (v.gold * (v.goldRate || 0)));
+      } else if (v.vt === "GFV") {
+        // GFV: Gold and KWD negative
+        goldBalance -= v.gold;
+        kwdBalance -= v.kwd;
+      }
+      
+      return { 
+        ...v, 
+        goldBalance, 
+        kwdBalance 
+      };
+    });
+
+    vouchers = processed;
+  } else {
+    // Original balance sheet logic
+    // Step 1: Calculate Opening Balance (vouchers before startDate)
+    if (startDate) {
+      const previousVouchers = await prisma.voucher.findMany({
+        where: {
+          accountId: { in: accountIds },
+          date: { lt: startDate },
+        },
+        include: {
+          account: {
+            select: {
+              name: true,
+              accountNo: true,
+            },
+          },
+        },
+        orderBy: { date: "asc" },
+      });
+
+      previousVouchers.forEach((v) => {
+        if (v.vt === "INV") {
+          openingGold += v.gold;
+          openingKwd += v.kwd;
+        } else if (v.vt === "REC") {
+          openingGold -= v.gold;
+          openingKwd -= v.kwd;
+        } else if (v.vt === "GFV") {
+          // GFV: Gold positive, KWD negative
+          openingGold += v.gold;
+          openingKwd -= v.kwd;
+        }
+      });
     }
-    return { 
-      ...v, 
-      goldBalance, 
-      kwdBalance 
+
+    // Step 2: Fetch vouchers within date range
+    const whereClause: any = { 
+      accountId: { in: accountIds }
     };
-  });
+    
+    if (startDate && endDate) {
+      whereClause.date = { gte: startDate, lte: endDate };
+    } else if (startDate) {
+      whereClause.date = { gte: startDate };
+    } else if (endDate) {
+      whereClause.date = { lte: endDate };
+    }
+
+    const fetchedVouchers = await prisma.voucher.findMany({
+      where: whereClause,
+      include: {
+        account: {
+          select: {
+            name: true,
+            accountNo: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    // Step 3: Compute running balances for the entire account type
+    let goldBalance = openingGold;
+    let kwdBalance = openingKwd;
+    
+    vouchers = fetchedVouchers.map((v) => {
+      if (v.vt === "INV") {
+        goldBalance += v.gold;
+        kwdBalance += v.kwd;
+      } else if (v.vt === "REC") {
+        goldBalance -= v.gold;
+        kwdBalance -= v.kwd;
+      } else if (v.vt === "GFV") {
+        // GFV: Gold positive, KWD negative
+        goldBalance += v.gold;
+        kwdBalance -= v.kwd;
+      }
+      return { 
+        ...v, 
+        goldBalance, 
+        kwdBalance 
+      };
+    });
+  }
 
   return {
     props: {
       accountType: type,
-      vouchers: JSON.parse(JSON.stringify(processed)),
+      vouchers: JSON.parse(JSON.stringify(vouchers)),
       startDate: startDateParam || null,
       endDate: endDateParam || null,
       openingGold,
       openingKwd,
       accounts: JSON.parse(JSON.stringify(accounts)),
+      showOpenBalance: showOpenBalance || false,
     },
   };
 };
@@ -178,17 +263,20 @@ export default function AccountTypeBalanceSheet({
   openingGold,
   openingKwd,
   accounts,
+  showOpenBalance,
 }: Props) {
   const router = useRouter();
   const [start, setStart] = useState(startDate || "");
   const [end, setEnd] = useState(endDate || "");
   const [isFiltering, setIsFiltering] = useState(false);
+  const [openBalanceMode, setOpenBalanceMode] = useState(showOpenBalance);
 
   const handleFilter = async () => {
     setIsFiltering(true);
     const params = new URLSearchParams();
     if (start) params.append("startDate", start);
     if (end) params.append("endDate", end);
+    if (openBalanceMode) params.append("openBalance", "true");
     
     await router.push(`/balance-sheet/type/${accountType}?${params.toString()}`);
     setIsFiltering(false);
@@ -200,53 +288,89 @@ export default function AccountTypeBalanceSheet({
     setIsFiltering(false);
   };
 
-  // Calculate totals
+  const toggleOpenBalance = () => {
+    setOpenBalanceMode(!openBalanceMode);
+  };
+
+  // Calculate totals based on mode
   const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
   const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
 
-  // Calculate period totals with GFV handling
+  // Calculate period totals
   const periodGold = vouchers.reduce((sum, v) => {
-    if (v.vt === "INV") return sum + v.gold;
-    if (v.vt === "REC") return sum - v.gold;
-    if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+    if (openBalanceMode) {
+      if (v.vt === "REC" && v.goldRate) return sum + v.gold; // Market REC: Gold positive
+      if (v.vt === "GFV") return sum - v.gold; // GFV: Gold negative
+    } else {
+      if (v.vt === "INV") return sum + v.gold;
+      if (v.vt === "REC") return sum - v.gold;
+      if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+    }
     return sum;
   }, 0);
 
   const periodKwd = vouchers.reduce((sum, v) => {
-    if (v.vt === "INV") return sum + v.kwd;
-    if (v.vt === "REC") return sum - v.kwd;
-    if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+    if (openBalanceMode) {
+      if (v.vt === "REC" && v.goldRate) return sum + (v.fixingAmount || (v.gold * (v.goldRate || 0))); // Market REC: Fixing Amount positive
+      if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+    } else {
+      if (v.vt === "INV") return sum + v.kwd;
+      if (v.vt === "REC") return sum - v.kwd;
+      if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+    }
     return sum;
   }, 0);
 
-  // Helper function to get display amount with proper sign for GFV
-  const getDisplayAmount = (voucher: Voucher, field: 'gold' | 'kwd') => {
-    const value = voucher[field];
-    if (voucher.vt === 'GFV') {
-      // For GFV: Gold shows positive, KWD shows negative
-      if (field === 'gold') return value;
-      if (field === 'kwd') return -value;
+  // Helper function to get display amount with proper sign
+  const getDisplayAmount = (voucher: Voucher, field: 'gold' | 'kwd' | 'fixingAmount') => {
+    if (openBalanceMode) {
+      if (voucher.vt === "REC" && voucher.goldRate) {
+        // Market REC with Gold Fixing: All amounts positive
+        if (field === 'gold') return voucher.gold;
+        if (field === 'fixingAmount') return voucher.fixingAmount || (voucher.gold * (voucher.goldRate || 0));
+        return voucher[field];
+      } else if (voucher.vt === "GFV") {
+        // GFV: All amounts negative
+        if (field === 'gold') return -voucher.gold;
+        if (field === 'kwd') return -voucher.kwd;
+        return - (voucher[field] || 0);
+      }
     } else {
-      // For INV and REC: Normal display
-      return value;
+      // Original logic
+      if (voucher.vt === 'GFV') {
+        if (field === 'gold') return voucher.gold;
+        if (field === 'kwd') return -voucher.kwd;
+      } else {
+        return voucher[field];
+      }
     }
-    return value;
+    return voucher[field];
   };
 
-  // Calculate totals by account with GFV handling
+  // Calculate totals by account
   const accountTotals = accounts.map(account => {
     const accountVouchers = vouchers.filter(v => v.accountId === account.id);
     const goldTotal = accountVouchers.reduce((sum, v) => {
-      if (v.vt === "INV") return sum + v.gold;
-      if (v.vt === "REC") return sum - v.gold;
-      if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+      if (openBalanceMode) {
+        if (v.vt === "REC" && v.goldRate) return sum + v.gold;
+        if (v.vt === "GFV") return sum - v.gold;
+      } else {
+        if (v.vt === "INV") return sum + v.gold;
+        if (v.vt === "REC") return sum - v.gold;
+        if (v.vt === "GFV") return sum + v.gold;
+      }
       return sum;
     }, 0);
     
     const kwdTotal = accountVouchers.reduce((sum, v) => {
-      if (v.vt === "INV") return sum + v.kwd;
-      if (v.vt === "REC") return sum - v.kwd;
-      if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+      if (openBalanceMode) {
+        if (v.vt === "REC" && v.goldRate) return sum + (v.fixingAmount || (v.gold * (v.goldRate || 0)));
+        if (v.vt === "GFV") return sum - v.kwd;
+      } else {
+        if (v.vt === "INV") return sum + v.kwd;
+        if (v.vt === "REC") return sum - v.kwd;
+        if (v.vt === "GFV") return sum - v.kwd;
+      }
       return sum;
     }, 0);
     
@@ -282,11 +406,17 @@ export default function AccountTypeBalanceSheet({
   };
 
   // Helper function to get voucher type styling
-  const getVoucherTypeStyle = (vt: string) => {
+  const getVoucherTypeStyle = (vt: string, hasGoldRate?: boolean) => {
+    if (vt === 'REC' && hasGoldRate) return 'bg-orange-100 text-orange-800';
     if (vt === 'REC') return 'bg-green-100 text-green-800';
     if (vt === 'INV') return 'bg-blue-100 text-blue-800';
     if (vt === 'GFV') return 'bg-yellow-100 text-yellow-800';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const getVoucherTypeLabel = (voucher: Voucher) => {
+    if (voucher.vt === 'REC' && voucher.goldRate) return 'REC (Gold Fixing)';
+    return voucher.vt;
   };
 
   return (
@@ -297,18 +427,38 @@ export default function AccountTypeBalanceSheet({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
             <div className="text-left">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {accountType} Balance Sheet
+                {openBalanceMode ? 'Open Balance Ledger' : `${accountType} Balance Sheet`}
               </h1>
               <div className="flex items-center space-x-3">
                 <span className={`inline-flex px-4 py-2 rounded-full text-sm font-medium ${getTypeColor(accountType)}`}>
                   {accountType} Accounts
                 </span>
+                {openBalanceMode && (
+                  <span className="inline-flex px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                    Open Balance Mode
+                  </span>
+                )}
                 <span className="text-lg text-gray-600">
-                  Combined Ledger for {accounts.length} Account{accounts.length !== 1 ? 's' : ''}
+                  {openBalanceMode 
+                    ? 'Market REC (Gold Fixing) & GFV Vouchers' 
+                    : `Combined Ledger for ${accounts.length} Account${accounts.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
+              <button
+                onClick={toggleOpenBalance}
+                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-lg transition-colors ${
+                  openBalanceMode
+                    ? 'border-orange-300 bg-orange-100 text-orange-700 hover:bg-orange-200'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {openBalanceMode ? 'Standard View' : 'Open Balance View'}
+              </button>
               <Link 
                 href="/vouchers/list" 
                 className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
@@ -397,7 +547,7 @@ export default function AccountTypeBalanceSheet({
         </div>
 
         {/* Account Summary */}
-        {accounts.length > 0 && (
+        {accounts.length > 0 && !openBalanceMode && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               {accountType} Accounts Summary
@@ -508,8 +658,13 @@ export default function AccountTypeBalanceSheet({
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Combined {accountType} Ledger
+              {openBalanceMode ? 'Open Balance Ledger' : `Combined ${accountType} Ledger`}
             </h2>
+            {openBalanceMode && (
+              <p className="text-sm text-gray-600 mt-1">
+                Showing Market REC (Gold Fixing) vouchers as positive and GFV vouchers as negative
+              </p>
+            )}
           </div>
 
           {vouchers.length === 0 ? (
@@ -531,31 +686,42 @@ export default function AccountTypeBalanceSheet({
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gold</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">KWD</th>
+                    {openBalanceMode && (
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gold Rate</th>
+                    )}
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {openBalanceMode ? 'Gold' : 'Gold'}
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {openBalanceMode ? 'Fixing Amount / KWD' : 'KWD'}
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gold Balance</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">KWD Balance</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {openBalanceMode ? 'Amount Balance' : 'KWD Balance'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {/* Opening Balance Row */}
-                  <tr className="bg-yellow-50 font-semibold">
-                    <td className="px-6 py-4 text-sm text-gray-900" colSpan={4}>
-                      Opening Balance (All {accountType} Accounts)
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                      {formatCurrency(openingGold)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                      {formatCurrency(openingKwd)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                      {formatCurrency(openingGold)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                      {formatCurrency(openingKwd)}
-                    </td>
-                  </tr>
+                  {!openBalanceMode && (
+                    <tr className="bg-yellow-50 font-semibold">
+                      <td className="px-6 py-4 text-sm text-gray-900" colSpan={openBalanceMode ? 5 : 4}>
+                        Opening Balance (All {accountType} Accounts)
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                        {formatCurrency(openingGold)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                        {formatCurrency(openingKwd)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                        {formatCurrency(openingGold)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                        {formatCurrency(openingKwd)}
+                      </td>
+                    </tr>
+                  )}
 
                   {vouchers.map((v, index) => (
                     <tr key={v.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
@@ -570,15 +736,23 @@ export default function AccountTypeBalanceSheet({
                         <div>{v.mvn || v.description}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getVoucherTypeStyle(v.vt)}`}>
-                          {v.vt}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getVoucherTypeStyle(v.vt, v.goldRate)}`}>
+                          {getVoucherTypeLabel(v)}
                         </span>
                       </td>
+                      {openBalanceMode && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {v.goldRate ? formatCurrency(v.goldRate) : '-'}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         {formatCurrency(getDisplayAmount(v, 'gold'))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(getDisplayAmount(v, 'kwd'))}
+                        {openBalanceMode && v.vt === "REC" && v.goldRate ? 
+                          formatCurrency(getDisplayAmount(v, 'fixingAmount')) : 
+                          formatCurrency(getDisplayAmount(v, 'kwd'))
+                        }
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                         {formatCurrency(v.goldBalance)}
@@ -591,8 +765,8 @@ export default function AccountTypeBalanceSheet({
 
                   {/* Closing Balance Row */}
                   <tr className="bg-green-50 font-bold">
-                    <td className="px-6 py-4 text-sm text-gray-900" colSpan={4}>
-                      Closing Balance (All {accountType} Accounts)
+                    <td className="px-6 py-4 text-sm text-gray-900" colSpan={openBalanceMode ? 5 : 4}>
+                      {openBalanceMode ? 'Open Balance Total' : `Closing Balance (All ${accountType} Accounts)`}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 text-right">
                       {formatCurrency(periodGold)}
@@ -615,8 +789,14 @@ export default function AccountTypeBalanceSheet({
 
         {/* Summary Footer */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
-            <h3 className="text-lg font-semibold mb-2">{accountType} Summary</h3>
+          <div className={`rounded-2xl p-6 text-white ${
+            openBalanceMode 
+              ? 'bg-gradient-to-r from-orange-500 to-red-600' 
+              : 'bg-gradient-to-r from-blue-500 to-purple-600'
+          }`}>
+            <h3 className="text-lg font-semibold mb-2">
+              {openBalanceMode ? 'Open Balance Summary' : `${accountType} Summary`}
+            </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm opacity-90">Opening Balance</p>
@@ -655,7 +835,7 @@ export default function AccountTypeBalanceSheet({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Net Change KWD:</span>
+                <span className="text-gray-600">Net Change {openBalanceMode ? 'Amount' : 'KWD'}:</span>
                 <span className={`font-semibold ${periodKwd >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {periodKwd >= 0 ? '+' : ''}{formatCurrency(periodKwd)}
                 </span>
