@@ -11,7 +11,7 @@ export default function Header() {
     { name: 'Accounts', href: '/accounts', current: router.pathname === '/accounts' },
     { name: 'Create Vouchers', href: '/vouchers/create', current: router.pathname === '/vouchers/create' },
     { name: 'View Vouchers', href: '/vouchers/list', current: router.pathname === '/vouchers/list' },
-    { name: 'Type Summary', href: '/accounts/summary', current: router.pathname === '/accounts/summary' },
+    { name: 'Type Summary', href: '/balance-sheet/type-summary', current: router.pathname === '/balance-sheet/type-summary' },
   ];
 
   const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
