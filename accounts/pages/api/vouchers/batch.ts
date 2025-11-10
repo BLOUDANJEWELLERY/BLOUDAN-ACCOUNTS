@@ -21,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           accountId: voucher.accountId,
           gold: parseFloat(voucher.gold) || 0,
           kwd: parseFloat(voucher.kwd) || 0,
+          goldRate: parseFloat(voucher.goldRate) || 0, // Include goldRate
           mvn: voucher.mvn || null,
           description: voucher.description || null,
         };
