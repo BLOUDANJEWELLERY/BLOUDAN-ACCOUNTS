@@ -18,6 +18,7 @@ type VoucherForm = {
   accountId: string;
   gold: number;
   kwd: number;
+  goldRate?: number; // New field for GFV
 };
 
 type Props = {
@@ -71,7 +72,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       accountId: "",
       mvn: "",
       description: "",
-      vt: "" // Reset voucher type when account type changes
+      vt: "", // Reset voucher type when account type changes
+      goldRate: undefined // Reset gold rate
     })));
   }, [selectedType]);
 
@@ -85,6 +87,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   }, [selectedAccountId]);
 
+  // Calculate KWD from gold and gold rate for GFV vouchers
+  const calculateKwdFromGoldRate = (gold: number, goldRate: number | undefined): number => {
+    if (!goldRate || goldRate <= 0) return 0;
+    return gold * goldRate;
+  };
+
   const addVoucherForm = () => {
     setVoucherForms(forms => [
       ...forms,
@@ -93,7 +101,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         vt: forms[0]?.vt || "", 
         accountId: selectedAccountId, 
         gold: 0, 
-        kwd: 0 
+        kwd: 0,
+        goldRate: forms[0]?.vt === "GFV" ? forms[0]?.goldRate || 0 : undefined
       }
     ]);
   };
@@ -105,9 +114,25 @@ export default function CreateVouchersPage({ accounts }: Props) {
   };
 
   const updateVoucherForm = (index: number, field: keyof VoucherForm, value: any) => {
-    setVoucherForms(forms => forms.map((form, i) => 
-      i === index ? { ...form, [field]: value } : form
-    ));
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        const updatedForm = { ...form, [field]: value };
+        
+        // If this is a GFV voucher and gold or goldRate is updated, recalculate KWD
+        if (updatedForm.vt === "GFV") {
+          if (field === 'gold' || field === 'goldRate') {
+            const calculatedKwd = calculateKwdFromGoldRate(
+              field === 'gold' ? value : updatedForm.gold,
+              field === 'goldRate' ? value : updatedForm.goldRate
+            );
+            updatedForm.kwd = calculatedKwd;
+          }
+        }
+        
+        return updatedForm;
+      }
+      return form;
+    }));
   };
 
   const handleBatchSubmit = async () => {
@@ -123,6 +148,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
       ) {
         return alert(`Missing required fields in voucher ${i + 1}`);
       }
+      
+      // Additional validation for GFV vouchers
+      if (form.vt === "GFV" && (!form.goldRate || form.goldRate <= 0)) {
+        return alert(`Gold Rate is required and must be greater than 0 for GFV voucher ${i + 1}`);
+      }
     }
 
     setIsSubmitting(true);
@@ -136,6 +166,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           accountId: form.accountId,
           gold: parseFloat(form.gold.toString()) || 0,
           kwd: parseFloat(form.kwd.toString()) || 0,
+          goldRate: form.vt === "GFV" ? (parseFloat(form.goldRate?.toString() || "0") || 0) : 0,
           mvn: selectedType === "Market" ? (form.mvn || null) : null,
           description: selectedType !== "Market" ? (form.description || null) : null,
         };
@@ -263,7 +294,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   )}
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className={`grid grid-cols-1 ${
+                  form.vt === "GFV" ? "sm:grid-cols-2 lg:grid-cols-5" : "sm:grid-cols-2 lg:grid-cols-4"
+                } gap-3`}>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
                     <input
@@ -326,6 +359,29 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     />
                   </div>
 
+                  {/* Gold Rate Field - Only show for GFV vouchers */}
+                  {form.vt === "GFV" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Gold Rate *
+                        {form.goldRate && form.gold > 0 && (
+                          <span className="text-green-600 ml-1">
+                            (Total: {(form.gold * form.goldRate).toFixed(2)} KWD)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value={form.goldRate || ""}
+                        onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
                     <input
@@ -334,8 +390,16 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       step="0.01"
                       value={form.kwd}
                       onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                        form.vt === "GFV" 
+                          ? 'bg-gray-100 text-gray-600 cursor-not-allowed border-gray-300' 
+                          : 'border-gray-300'
+                      }`}
+                      readOnly={form.vt === "GFV"}
                     />
+                    {form.vt === "GFV" && (
+                      <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                    )}
                   </div>
                 </div>
               </div>
