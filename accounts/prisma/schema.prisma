@@ -26,16 +26,17 @@ model Account {
 }
 
 model Voucher {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  date        DateTime
-  mvn         String?   // Manual Voucher Number
-  description     String?
-vt          String   // Voucher Type (REC, INV, etc.)
-  gold        Float
-  kwd         Float
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  date         DateTime
+  mvn          String?    // Manual Voucher Number
+  description  String?
+  vt           String     // Voucher Type (REC, INV, etc.)
+  gold         Float
+  kwd          Float
+  goldRate     Float      // New field added
 
-	accountId   String   @db.ObjectId
-  account     Account  @relation(fields: [accountId], references: [id])
+  accountId    String     @db.ObjectId
+  account      Account    @relation(fields: [accountId], references: [id])
 
- createdAt   DateTime @default(now())
+  createdAt    DateTime   @default(now())
 }
