@@ -10,8 +10,17 @@ type AccountTypeSummary = {
   kwdBalance: number;
 };
 
+type OpenBalanceSummary = {
+  goldBalance: number;
+  kwdBalance: number;
+  totalTransactions: number;
+  marketRecCount: number;
+  gfvCount: number;
+};
+
 type Props = {
   typeSummaries: AccountTypeSummary[];
+  openBalance: OpenBalanceSummary;
   overallGold: number;
   overallKwd: number;
   totalAccounts: number;
@@ -43,6 +52,13 @@ export const getServerSideProps: GetServerSideProps = async () => {
         vt: true,
         gold: true,
         kwd: true,
+        goldRate: true,
+        fixingAmount: true,
+        account: {
+          select: {
+            type: true,
+          },
+        },
       },
     });
 
@@ -82,6 +98,35 @@ export const getServerSideProps: GetServerSideProps = async () => {
       };
     });
 
+    // Calculate Open Balance (Market REC with Gold Fixing + GFV vouchers)
+    let openBalanceGold = 0;
+    let openBalanceKwd = 0;
+    let marketRecCount = 0;
+    let gfvCount = 0;
+
+    allVouchers.forEach(voucher => {
+      // Market REC with Gold Fixing (goldRate exists)
+      if (voucher.vt === "REC" && voucher.account.type === "Market" && voucher.goldRate) {
+        openBalanceGold += voucher.gold; // Positive
+        openBalanceKwd += voucher.fixingAmount || 0; // Positive
+        marketRecCount++;
+      }
+      // GFV vouchers
+      else if (voucher.vt === "GFV") {
+        openBalanceGold -= voucher.gold; // Negative
+        openBalanceKwd -= voucher.kwd; // Negative
+        gfvCount++;
+      }
+    });
+
+    const openBalance: OpenBalanceSummary = {
+      goldBalance: openBalanceGold,
+      kwdBalance: openBalanceKwd,
+      totalTransactions: marketRecCount + gfvCount,
+      marketRecCount,
+      gfvCount,
+    };
+
     // Calculate overall totals
     const overallGold = typeSummaries.reduce((sum, summary) => sum + summary.goldBalance, 0);
     const overallKwd = typeSummaries.reduce((sum, summary) => sum + summary.kwdBalance, 0);
@@ -91,6 +136,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
     return {
       props: {
         typeSummaries,
+        openBalance,
         overallGold,
         overallKwd,
         totalAccounts,
@@ -102,6 +148,13 @@ export const getServerSideProps: GetServerSideProps = async () => {
     return {
       props: {
         typeSummaries: [],
+        openBalance: {
+          goldBalance: 0,
+          kwdBalance: 0,
+          totalTransactions: 0,
+          marketRecCount: 0,
+          gfvCount: 0,
+        },
         overallGold: 0,
         overallKwd: 0,
         totalAccounts: 0,
@@ -114,6 +167,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
 export default function TypeSummaryPage({
   typeSummaries,
+  openBalance,
   overallGold,
   overallKwd,
   totalAccounts,
@@ -160,6 +214,13 @@ export default function TypeSummaryPage({
         text: 'text-yellow-800',
         border: 'border-yellow-200',
         gradient: 'from-yellow-500 to-yellow-600',
+      },
+      'Open Balance': {
+        bg: 'bg-orange-500',
+        lightBg: 'bg-orange-50',
+        text: 'text-orange-800',
+        border: 'border-orange-200',
+        gradient: 'from-orange-500 to-orange-600',
       },
     };
     return colors[type as keyof typeof colors] || {
@@ -381,6 +442,64 @@ export default function TypeSummaryPage({
                   </div>
                 );
               })}
+
+              {/* Open Balance Card */}
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-orange-200">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4 text-white">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold">Open Balance</h2>
+                    <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-medium">
+                      {openBalance.totalTransactions} transactions
+                    </span>
+                  </div>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className={`text-2xl font-bold ${getBalanceColor(openBalance.goldBalance)}`}>
+                        {formatCurrency(openBalance.goldBalance)}
+                      </div>
+                      <div className="text-sm text-gray-600">Gold Balance</div>
+                    </div>
+                    <div className="text-center">
+                      <div className={`text-2xl font-bold ${getBalanceColor(openBalance.kwdBalance)}`}>
+                        {formatCurrency(openBalance.kwdBalance)}
+                      </div>
+                      <div className="text-sm text-gray-600">KWD Balance</div>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-gray-600 mb-3">
+                    <div className="flex justify-between mb-1">
+                      <span>Market REC (Gold Fixing):</span>
+                      <span className="font-medium">{openBalance.marketRecCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>GFV Vouchers:</span>
+                      <span className="font-medium">{openBalance.gfvCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-500 mb-4 p-2 bg-orange-50 rounded-lg">
+                    <div className="font-medium mb-1">Sign Convention:</div>
+                    <div>• Market REC (Gold Fixing): Gold (+), Fixing Amount (+)</div>
+                    <div>• GFV: Gold (-), KWD (-)</div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex gap-2">
+                    <Link
+                      href="/open-balance"
+                      className="flex-1 text-center bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                    >
+                      View Open Balance
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Detailed Summary Table */}
@@ -464,6 +583,42 @@ export default function TypeSummaryPage({
                         </tr>
                       );
                     })}
+                    
+                    {/* Open Balance Row */}
+                    <tr className="hover:bg-orange-50 transition-colors border-t-2 border-orange-200">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="w-3 h-3 rounded-full bg-orange-500 mr-3"></div>
+                          <div className="text-sm font-semibold text-gray-900">Open Balance</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="text-sm text-gray-500 font-medium">-</div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="text-sm text-gray-900 font-medium">{openBalance.totalTransactions}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className={`text-sm font-semibold ${getBalanceColor(openBalance.goldBalance)}`}>
+                          {formatCurrency(openBalance.goldBalance)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className={`text-sm font-semibold ${getBalanceColor(openBalance.kwdBalance)}`}>
+                          {formatCurrency(openBalance.kwdBalance)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Link
+                            href="/open-balance"
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+                          >
+                            View Open Balance
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
                   </tbody>
                   {/* Footer with totals */}
                   <tfoot>
