@@ -1,6 +1,7 @@
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import Header from '../components/Header'
 
 type DashboardStats = {
   totalAccounts: number;
@@ -139,6 +140,8 @@ export default function HomePage({ stats }: Props) {
   const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
   return (
+<>
+<Header />
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-16">
@@ -359,5 +362,6 @@ export default function HomePage({ stats }: Props) {
         </div>
       </div>
     </main>
+</>
   );
 }
