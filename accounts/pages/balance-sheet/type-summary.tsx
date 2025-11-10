@@ -21,8 +21,8 @@ type Props = {
 
 export const getServerSideProps: GetServerSideProps = async () => {
   try {
-    // Define the account types we want to summarize
-    const accountTypes = ["Market", "Casting", "Faceting", "Project"];
+    // Define the account types we want to summarize - Added "Gold Fixing"
+    const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
     // Get all accounts grouped by type
     const accountsByType = await prisma.account.findMany({
@@ -46,7 +46,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
       },
     });
 
-    // Calculate balances for each account type
+    // Calculate balances for each account type with GFV handling
     const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
       const typeAccountIds = accountsByType
         .filter(account => account.type === type)
@@ -65,6 +65,10 @@ export const getServerSideProps: GetServerSideProps = async () => {
           kwdBalance += voucher.kwd;
         } else if (voucher.vt === "REC") {
           goldBalance -= voucher.gold;
+          kwdBalance -= voucher.kwd;
+        } else if (voucher.vt === "GFV") {
+          // GFV: Gold positive, KWD negative
+          goldBalance += voucher.gold;
           kwdBalance -= voucher.kwd;
         }
       });
@@ -149,6 +153,13 @@ export default function TypeSummaryPage({
         text: 'text-green-800',
         border: 'border-green-200',
         gradient: 'from-green-500 to-green-600',
+      },
+      'Gold Fixing': {
+        bg: 'bg-yellow-500',
+        lightBg: 'bg-yellow-50',
+        text: 'text-yellow-800',
+        border: 'border-yellow-200',
+        gradient: 'from-yellow-500 to-yellow-600',
       },
     };
     return colors[type as keyof typeof colors] || {
@@ -314,7 +325,7 @@ export default function TypeSummaryPage({
         ) : (
           <>
             {/* Account Type Summary Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-8">
               {typeSummaries.map((summary) => {
                 const typeColor = getTypeColor(summary.type);
                 return (
