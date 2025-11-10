@@ -90,6 +90,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return gold * goldRate;
   };
 
+  // Calculate KWD for GFV vouchers
+  const calculateKwdForGFV = (gold: number, goldRate: number | undefined): number => {
+    if (!goldRate || goldRate <= 0) return 0;
+    return gold * goldRate;
+  };
+
   // Reset account when type changes
   useEffect(() => {
     setSelectedAccountId("");
@@ -148,6 +154,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
+        
+        // Handle GFV voucher calculations
+        if (updatedForm.vt === "GFV") {
+          if (field === 'gold' || field === 'goldRate') {
+            const calculatedKwd = calculateKwdForGFV(
+              field === 'gold' ? value : updatedForm.gold,
+              field === 'goldRate' ? value : updatedForm.goldRate
+            );
+            updatedForm.kwd = calculatedKwd;
+          }
+        }
         
         // Handle Gold Fixing calculations
         if (shouldShowGoldFixing(updatedForm) && updatedForm.isGoldFixing) {
@@ -397,7 +414,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                 {/* Basic Voucher Fields */}
                 <div className={`grid grid-cols-1 ${
                   shouldShowGoldFixing(form) && form.isGoldFixing 
-                    ? "sm:grid-cols-2 lg:grid-cols-5" 
+                    ? "sm:grid-cols-2 lg:grid-cols-4" 
+                    : form.vt === "GFV"
+                    ? "sm:grid-cols-2 lg:grid-cols-3"
                     : "sm:grid-cols-2 lg:grid-cols-4"
                 } gap-4 mb-4`}>
                   <div>
@@ -462,18 +481,20 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     />
                   </div>
 
-                  {/* KWD Field - Always show, but position changes based on Gold Fixing */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      step="0.01"
-                      value={form.kwd}
-                      onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    />
-                  </div>
+                  {/* KWD Field - Show only for non-GFV vouchers */}
+                  {form.vt !== "GFV" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        value={form.kwd}
+                        onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Gold Fixing Section - Only for Market REC */}
@@ -524,7 +545,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   </div>
                 )}
 
-                {/* GFV Voucher Type - Keep existing functionality */}
+                {/* GFV Voucher Type - Show only one KWD field inside container */}
                 {form.vt === "GFV" && (
                   <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -544,7 +565,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          KWD
+                          {form.goldRate && form.gold > 0 && (
+                            <span className="text-green-600 ml-1">
+                              (Gold {form.gold} × Rate {form.goldRate})
+                            </span>
+                          )}
+                        </label>
                         <input
                           type="number"
                           placeholder="0.00"
