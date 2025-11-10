@@ -7,8 +7,8 @@ type AccountBalance = {
   accountNo: number;
   name: string;
   type: string;
-  phone: string | null; // Changed from string | undefined
-  crOrCivilIdNo: string | null; // Changed from string | undefined
+  phone: string | null;
+  crOrCivilIdNo: string | null;
   goldBalance: number;
   kwdBalance: number;
   transactionCount: number;
@@ -26,8 +26,8 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const type = context.params?.type as string;
 
-  // Validate account type
-  const validTypes = ["Market", "Casting", "Finishing", "Project"];
+  // Validate account type - Added "Gold Fixing"
+  const validTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
   if (!validTypes.includes(type)) {
     return { notFound: true };
   }
@@ -69,7 +69,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  // Calculate balances for each account
+  // Calculate balances for each account with GFV handling
   const accountsWithBalances: AccountBalance[] = accounts.map(account => {
     const accountVouchers = vouchers.filter(v => v.accountId === account.id);
     let goldBalance = 0;
@@ -81,6 +81,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         kwdBalance += v.kwd;
       } else if (v.vt === "REC") {
         goldBalance -= v.gold;
+        kwdBalance -= v.kwd;
+      } else if (v.vt === "GFV") {
+        // GFV: Gold positive, KWD negative
+        goldBalance += v.gold;
         kwdBalance -= v.kwd;
       }
     });
@@ -126,8 +130,9 @@ export default function AccountBalancesPage({
     const colors = {
       Market: 'bg-blue-100 text-blue-800 border-blue-200',
       Casting: 'bg-purple-100 text-purple-800 border-purple-200',
-      Finishing: 'bg-amber-100 text-amber-800 border-amber-200',
+      Faceting: 'bg-amber-100 text-amber-800 border-amber-200',
       Project: 'bg-green-100 text-green-800 border-green-200',
+      'Gold Fixing': 'bg-yellow-100 text-yellow-800 border-yellow-200',
     };
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
@@ -297,7 +302,14 @@ export default function AccountBalancesPage({
                     <tr key={account.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm ${getTypeColor(accountType).replace('text-', 'bg-').split(' ')[0]}`}>
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
+                            accountType === 'Market' ? 'bg-blue-500' :
+                            accountType === 'Casting' ? 'bg-purple-500' :
+                            accountType === 'Faceting' ? 'bg-amber-500' :
+                            accountType === 'Project' ? 'bg-green-500' :
+                            accountType === 'Gold Fixing' ? 'bg-yellow-500' :
+                            'bg-gray-500'
+                          }`}>
                             {account.accountNo}
                           </div>
                           <div className="ml-4">
