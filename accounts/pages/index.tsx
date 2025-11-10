@@ -273,7 +273,7 @@ export default function HomePage({ stats }: Props) {
               </Link>
 
               <Link
-                href="/accounts/summary"
+                href="/balance-sheet/type-summary"
                 className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition-all group"
               >
                 <div className="flex items-center">
