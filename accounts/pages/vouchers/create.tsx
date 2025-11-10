@@ -175,7 +175,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 py-8 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -184,7 +184,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           <div className="flex justify-center gap-4 mt-4">
             <Link 
               href="/vouchers/list" 
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-amber-700 bg-amber-100 hover:bg-amber-200 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
             >
               View All Vouchers
             </Link>
@@ -201,7 +201,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Create Multiple Vouchers</h2>
-            <span className="bg-amber-100 text-amber-800 text-sm font-medium px-3 py-1 rounded-full">
+            <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
               {voucherForms.length} voucher{voucherForms.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -215,7 +215,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="">Select Account Type</option>
                 {[...new Set(accounts.map((a) => a.type))].map((t) => (
@@ -231,7 +231,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
               <select
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                 disabled={!selectedType}
               >
                 <option value="">Select Account</option>
@@ -247,7 +247,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           {/* Voucher Forms */}
           <div className="space-y-4">
             {voucherForms.map((form, index) => (
-              <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white hover:border-amber-300 transition-colors">
+              <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white hover:border-blue-300 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                   <h3 className="font-semibold text-gray-700 mb-2 sm:mb-0">Voucher #{index + 1}</h3>
                   {voucherForms.length > 1 && (
@@ -270,7 +270,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       type="date"
                       value={form.date}
                       onChange={(e) => updateVoucherForm(index, 'date', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
 
@@ -282,7 +282,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="Enter MVN"
                         value={form.mvn || ""}
                         onChange={(e) => updateVoucherForm(index, 'mvn', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                     </div>
                   ) : (
@@ -293,7 +293,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="Enter description"
                         value={form.description || ""}
                         onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                     </div>
                   )}
@@ -303,7 +303,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     <select
                       value={form.vt}
                       onChange={(e) => updateVoucherForm(index, 'vt', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
                       <option value="">Select Type</option>
                       {getVoucherTypes().map((voucherType) => (
@@ -322,7 +322,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       step="0.01"
                       value={form.gold}
                       onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
 
@@ -334,7 +334,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       step="0.01"
                       value={form.kwd}
                       onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -346,7 +346,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-6 border-t border-gray-200">
             <button
               onClick={addVoucherForm}
-              className="flex items-center justify-center px-6 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-amber-400 hover:text-amber-700 transition-colors font-medium"
+              className="flex items-center justify-center px-6 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-400 hover:text-blue-700 transition-colors font-medium"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -357,7 +357,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
             <button
               onClick={handleBatchSubmit}
               disabled={!selectedType || !selectedAccountId || isSubmitting}
-              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center"
             >
               {isSubmitting ? (
                 <>
@@ -377,7 +377,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         {/* Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="text-2xl font-bold text-amber-600">{voucherForms.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{voucherForms.length}</div>
             <div className="text-sm text-gray-600">Vouchers Ready</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -387,7 +387,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
             <div className="text-sm text-gray-600">Total Gold</div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-purple-600">
               {voucherForms.reduce((sum, form) => sum + form.kwd, 0).toFixed(2)}
             </div>
             <div className="text-sm text-gray-600">Total KWD</div>
