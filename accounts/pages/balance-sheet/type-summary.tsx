@@ -335,7 +335,7 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Overall Gold Balance</p>
+                <p className="text-sm font-medium text-gray-600">Account Types Gold</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(overallGold)}`}>
                   {formatCurrency(overallGold)}
                 </p>
@@ -351,7 +351,7 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Overall KWD Balance</p>
+                <p className="text-sm font-medium text-gray-600">Account Types KWD</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(overallKwd)}`}>
                   {formatCurrency(overallKwd)}
                 </p>
@@ -369,47 +369,6 @@ export default function TypeSummaryPage({
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Transactions</p>
                 <p className="text-2xl font-bold text-gray-900">{totalTransactions}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Grand Total Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-white bg-opacity-20 rounded-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium opacity-90">Grand Total Gold</p>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(grandTotalGold)}
-                </p>
-                <p className="text-xs opacity-80 mt-1">
-                  Account Types: {formatCurrency(overallGold)} + Open Balance: {formatCurrency(openBalance.goldBalance)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-white bg-opacity-20 rounded-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium opacity-90">Grand Total KWD</p>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(grandTotalKwd)}
-                </p>
-                <p className="text-xs opacity-80 mt-1">
-                  Account Types: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
-                </p>
               </div>
             </div>
           </div>
@@ -525,7 +484,7 @@ export default function TypeSummaryPage({
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-600 mb-3">
+                  <div className="text-sm text-gray-600 mb-4">
                     <div className="flex justify-between mb-1">
                       <span>Market REC (Gold Fixing):</span>
                       <span className="font-medium">{openBalance.marketRecCount}</span>
@@ -534,12 +493,6 @@ export default function TypeSummaryPage({
                       <span>GFV Vouchers:</span>
                       <span className="font-medium">{openBalance.gfvCount}</span>
                     </div>
-                  </div>
-
-                  <div className="text-xs text-gray-500 mb-4 p-2 bg-orange-50 rounded-lg">
-                    <div className="font-medium mb-1">Sign Convention:</div>
-                    <div>• Market REC (Gold Fixing): Gold (+), Fixing Amount (+)</div>
-                    <div>• GFV: Gold (-), KWD (-)</div>
                   </div>
 
                   {/* Quick Actions */}
@@ -556,7 +509,7 @@ export default function TypeSummaryPage({
             </div>
 
             {/* Detailed Summary Table */}
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">
                   Detailed Account Type Summary
@@ -637,8 +590,32 @@ export default function TypeSummaryPage({
                       );
                     })}
                     
+                    {/* Account Types Total Row */}
+                    <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        Account Types Total
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {totalAccounts}
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                        {totalTransactions}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(overallGold)}>
+                          {formatCurrency(overallGold)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(overallKwd)}>
+                          {formatCurrency(overallKwd)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4"></td>
+                    </tr>
+
                     {/* Open Balance Row */}
-                    <tr className="hover:bg-orange-50 transition-colors border-t-2 border-orange-200">
+                    <tr className="hover:bg-orange-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-3 h-3 rounded-full bg-orange-500 mr-3"></div>
@@ -672,34 +649,11 @@ export default function TypeSummaryPage({
                         </div>
                       </td>
                     </tr>
-                  </tbody>
-                  {/* Footer with totals */}
-                  <tfoot>
-                    <tr className="bg-gray-50 font-bold">
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        Account Types Total
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
-                        {totalAccounts}
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
-                        {totalTransactions}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
-                        <span className={getBalanceColor(overallGold)}>
-                          {formatCurrency(overallGold)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
-                        <span className={getBalanceColor(overallKwd)}>
-                          {formatCurrency(overallKwd)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4"></td>
-                    </tr>
+
+                    {/* Grand Total Row */}
                     <tr className="bg-green-50 font-bold border-t-2 border-green-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        GRAND TOTAL (Including Open Balance)
+                        GRAND TOTAL
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-gray-900">
                         -
@@ -719,8 +673,49 @@ export default function TypeSummaryPage({
                       </td>
                       <td className="px-6 py-4"></td>
                     </tr>
-                  </tfoot>
+                  </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Grand Total Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex items-center">
+                  <div className="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium opacity-90">Grand Total Gold</p>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(grandTotalGold)}
+                    </p>
+                    <p className="text-xs opacity-80 mt-1">
+                      Account Types: {formatCurrency(overallGold)} + Open Balance: {formatCurrency(openBalance.goldBalance)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex items-center">
+                  <div className="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium opacity-90">Grand Total KWD</p>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(grandTotalKwd)}
+                    </p>
+                    <p className="text-xs opacity-80 mt-1">
+                      Account Types: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </>
