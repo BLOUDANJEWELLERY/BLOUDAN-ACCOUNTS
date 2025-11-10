@@ -9,7 +9,7 @@ type Voucher = {
   date: string;
   mvn?: string;
   description?: string;
-  vt: "REC" | "INV";
+  vt: "REC" | "INV" | "GFV";
   accountId: string;
   gold: number;
   kwd: number;
@@ -62,6 +62,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       } else if (v.vt === "REC") {
         openingGold -= v.gold;
         openingKwd -= v.kwd;
+      } else if (v.vt === "GFV") {
+        // GFV: Gold positive, KWD negative
+        openingGold += v.gold;
+        openingKwd -= v.kwd;
       }
     });
   }
@@ -86,6 +90,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       kwdBalance += v.kwd;
     } else if (v.vt === "REC") {
       goldBalance -= v.gold;
+      kwdBalance -= v.kwd;
+    } else if (v.vt === "GFV") {
+      // GFV: Gold positive, KWD negative
+      goldBalance += v.gold;
       kwdBalance -= v.kwd;
     }
     return { ...v, goldBalance, kwdBalance };
@@ -141,8 +149,19 @@ export default function BalanceSheetPage({
   const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance ?? openingKwd : openingKwd;
 
   // Calculate totals for the period
-  const periodGold = vouchers.reduce((sum, v) => sum + (v.vt === "INV" ? v.gold : -v.gold), 0);
-  const periodKwd = vouchers.reduce((sum, v) => sum + (v.vt === "INV" ? v.kwd : -v.kwd), 0);
+  const periodGold = vouchers.reduce((sum, v) => {
+    if (v.vt === "INV") return sum + v.gold;
+    if (v.vt === "REC") return sum - v.gold;
+    if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+    return sum;
+  }, 0);
+
+  const periodKwd = vouchers.reduce((sum, v) => {
+    if (v.vt === "INV") return sum + v.kwd;
+    if (v.vt === "REC") return sum - v.kwd;
+    if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+    return sum;
+  }, 0);
 
   const formatCurrency = (value: number) => {
     return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -154,6 +173,28 @@ export default function BalanceSheetPage({
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  // Helper function to get voucher type styling
+  const getVoucherTypeStyle = (vt: string) => {
+    if (vt === 'REC') return 'bg-green-100 text-green-800';
+    if (vt === 'INV') return 'bg-blue-100 text-blue-800';
+    if (vt === 'GFV') return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  // Helper function to display transaction amounts with proper signs
+  const getDisplayAmount = (voucher: Voucher, field: 'gold' | 'kwd') => {
+    const value = voucher[field];
+    if (voucher.vt === 'GFV') {
+      // For GFV: Gold shows positive, KWD shows negative
+      if (field === 'gold') return value;
+      if (field === 'kwd') return -value;
+    } else {
+      // For INV and REC: Normal display
+      return value;
+    }
+    return value;
   };
 
   return (
@@ -380,19 +421,15 @@ export default function BalanceSheetPage({
                         <div className="font-medium">{v.mvn || v.description}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          v.vt === 'REC' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getVoucherTypeStyle(v.vt)}`}>
                           {v.vt}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(v.gold)}
+                        {formatCurrency(getDisplayAmount(v, 'gold'))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(v.kwd)}
+                        {formatCurrency(getDisplayAmount(v, 'kwd'))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                         {formatCurrency(v.goldBalance || 0)}
