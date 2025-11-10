@@ -36,7 +36,8 @@ model Voucher {
   goldRate       Float?       // Optional
 
   // Optional monetary and banking details
-  fixingAmount   Float?
+  paymentMethod  String?      // Optional: "cash", "cheque", "transfer", etc.
+	fixingAmount   Float?
   bankName       String?
   branch         String?
   chequeNo       String?
