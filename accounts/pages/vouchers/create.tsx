@@ -18,7 +18,7 @@ type VoucherForm = {
   accountId: string;
   gold: number;
   kwd: number;
-  goldRate?: number; // New field for GFV
+  goldRate?: number;
 };
 
 type Props = {
@@ -72,8 +72,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       accountId: "",
       mvn: "",
       description: "",
-      vt: "", // Reset voucher type when account type changes
-      goldRate: undefined // Reset gold rate
+      vt: "",
+      goldRate: undefined
     })));
   }, [selectedType]);
 
@@ -160,16 +160,31 @@ export default function CreateVouchersPage({ accounts }: Props) {
       const payload = voucherForms.map(form => {
         const date = new Date(form.date);
         
-        return {
+        // Create base voucher object with required fields
+        const baseVoucher: any = {
           date: date.toISOString(),
           vt: form.vt,
           accountId: form.accountId,
           gold: parseFloat(form.gold.toString()) || 0,
           kwd: parseFloat(form.kwd.toString()) || 0,
-          goldRate: form.vt === "GFV" ? (parseFloat(form.goldRate?.toString() || "0") || 0) : 0,
-          mvn: selectedType === "Market" ? (form.mvn || null) : null,
-          description: selectedType !== "Market" ? (form.description || null) : null,
         };
+
+        // Only include mvn for Market accounts
+        if (selectedType === "Market" && form.mvn?.trim()) {
+          baseVoucher.mvn = form.mvn;
+        }
+
+        // Only include description for non-Market accounts
+        if (selectedType !== "Market" && form.description?.trim()) {
+          baseVoucher.description = form.description;
+        }
+
+        // Only include goldRate for GFV vouchers
+        if (form.vt === "GFV" && form.goldRate) {
+          baseVoucher.goldRate = parseFloat(form.goldRate.toString()) || 0;
+        }
+
+        return baseVoucher;
       });
 
       const res = await fetch("/api/vouchers/batch", {
