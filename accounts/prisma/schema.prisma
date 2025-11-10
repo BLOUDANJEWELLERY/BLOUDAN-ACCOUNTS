@@ -26,17 +26,25 @@ model Account {
 }
 
 model Voucher {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  date         DateTime
-  mvn          String?    // Manual Voucher Number
-  description  String?
-  vt           String     // Voucher Type (REC, INV, etc.)
-  gold         Float
-  kwd          Float
-  goldRate     Float?      // New field added
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  date           DateTime
+  mvn            String?      // Manual Voucher Number
+  description    String?
+  vt             String       // Voucher Type (REC, INV, etc.)
+  gold           Float
+  kwd            Float
+  goldRate       Float?       // Optional
 
-  accountId    String     @db.ObjectId
-  account      Account    @relation(fields: [accountId], references: [id])
+  // Optional monetary and banking details
+  fixingAmount   Float?
+  bankName       String?
+  branch         String?
+  chequeNo       String?
+  chequeDate     DateTime?
+  chequeAmount   Float?
 
-  createdAt    DateTime   @default(now())
+  accountId      String      @db.ObjectId
+  account        Account     @relation(fields: [accountId], references: [id])
+
+  createdAt      DateTime    @default(now())
 }
