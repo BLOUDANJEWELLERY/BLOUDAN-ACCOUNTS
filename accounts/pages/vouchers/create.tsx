@@ -158,7 +158,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
             );
             updatedForm.fixingAmount = calculatedFixingAmount;
             
-            // If payment method is cheque, update cheque amount too
+            // Update cheque amount if payment method is cheque
             if (updatedForm.paymentMethod === 'cheque') {
               updatedForm.chequeAmount = calculatedFixingAmount;
             }
@@ -172,6 +172,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
           updatedForm.chequeNo = "";
           updatedForm.chequeDate = "";
           updatedForm.chequeAmount = 0;
+        }
+
+        // When switching to cheque, set cheque amount to fixing amount
+        if (field === 'paymentMethod' && value === 'cheque' && updatedForm.isGoldFixing) {
+          updatedForm.chequeAmount = updatedForm.fixingAmount || 0;
         }
 
         // Update cheque amount when fixing amount changes and payment method is cheque
@@ -390,7 +395,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
                 </div>
                 
                 {/* Basic Voucher Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className={`grid grid-cols-1 ${
+                  shouldShowGoldFixing(form) && form.isGoldFixing 
+                    ? "sm:grid-cols-2 lg:grid-cols-5" 
+                    : "sm:grid-cols-2 lg:grid-cols-4"
+                } gap-4 mb-4`}>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
                     <input
@@ -452,6 +461,19 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
+
+                  {/* KWD Field - Always show, but position changes based on Gold Fixing */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      step="0.01"
+                      value={form.kwd}
+                      onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 {/* Gold Fixing Section - Only for Market REC */}
@@ -471,7 +493,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     </div>
 
                     {form.isGoldFixing && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-1">Gold Rate *</label>
                           <input
@@ -495,18 +517,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             readOnly
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
                           />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            value={form.kwd}
-                            onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                          />
+                          <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                         </div>
                       </div>
                     )}
@@ -516,7 +527,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                 {/* GFV Voucher Type - Keep existing functionality */}
                 {form.vt === "GFV" && (
                   <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">
                           Gold Rate *
@@ -543,25 +554,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
                         />
                         <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Regular KWD field for non-GFV and non-GoldFixing */}
-                {form.vt !== "GFV" && !(shouldShowGoldFixing(form) && form.isGoldFixing) && (
-                  <div className="mb-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
-                        <input
-                          type="number"
-                          placeholder="0.00"
-                          step="0.01"
-                          value={form.kwd}
-                          onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
                       </div>
                     </div>
                   </div>
@@ -652,6 +644,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             readOnly
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
                           />
+                          <p className="text-xs text-gray-500 mt-1">Same as Fixing Amount</p>
                         </div>
                       </div>
                     )}
