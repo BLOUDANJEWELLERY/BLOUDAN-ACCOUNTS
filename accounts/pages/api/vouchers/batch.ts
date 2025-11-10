@@ -22,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           accountId: voucher.accountId,
           gold: parseFloat(voucher.gold) || 0,
           kwd: parseFloat(voucher.kwd) || 0,
+          paymentMethod: voucher.paymentMethod || 'cash',
         };
 
         // Only include mvn if it exists and is not empty
@@ -34,9 +35,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data.description = voucher.description;
         }
 
-        // Only include goldRate for GFV vouchers and if it exists
-        if (voucher.vt === "GFV" && voucher.goldRate !== undefined) {
+        // Include goldRate for GFV vouchers or when Gold Fixing is applicable
+        if (voucher.goldRate !== undefined) {
           data.goldRate = parseFloat(voucher.goldRate) || 0;
+        }
+
+        // Include fixing amount if it exists
+        if (voucher.fixingAmount !== undefined) {
+          data.fixingAmount = parseFloat(voucher.fixingAmount) || 0;
+        }
+
+        // Include cheque details if payment method is cheque
+        if (voucher.paymentMethod === 'cheque') {
+          if (voucher.bankName && voucher.bankName.trim()) {
+            data.bankName = voucher.bankName;
+          }
+          if (voucher.branch && voucher.branch.trim()) {
+            data.branch = voucher.branch;
+          }
+          if (voucher.chequeNo && voucher.chequeNo.trim()) {
+            data.chequeNo = voucher.chequeNo;
+          }
+          if (voucher.chequeDate) {
+            data.chequeDate = new Date(voucher.chequeDate);
+          }
+          if (voucher.chequeAmount !== undefined) {
+            data.chequeAmount = parseFloat(voucher.chequeAmount) || 0;
+          }
         }
 
         return data;
