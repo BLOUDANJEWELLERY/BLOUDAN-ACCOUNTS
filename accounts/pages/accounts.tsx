@@ -10,14 +10,15 @@ type Account = {
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
-  createdAt: string;
+  createdAt: string; // Added for sorting by creation date
 };
 
 type Props = { accounts: Account[] };
 
 export const getServerSideProps: GetServerSideProps = async () => {
   const accounts = await prisma.account.findMany({ 
-    orderBy: { accountNo: "asc" }
+    orderBy: { accountNo: "asc" },
+    include: { createdAt: true } // Make sure to include createdAt
   });
   return { props: { accounts: JSON.parse(JSON.stringify(accounts)) } };
 };
@@ -29,7 +30,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState({ type: "", search: "" });
   const [sortBy, setSortBy] = useState<{ field: string; direction: 'asc' | 'desc' }>({
-    field: 'type',
+    field: 'type', // Default sort by account type
     direction: 'asc'
   });
 
@@ -94,7 +95,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     setForm({});
   };
 
-  // Filtering logic - removed accountNo and crOrCivilIdNo from search
+  // Filtering logic - Removed accountNo from search
   const filteredAccounts = accounts.filter((acc) => {
     const matchesType = filter.type
       ? acc.type.toLowerCase() === filter.type.toLowerCase()
@@ -103,60 +104,49 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     const searchTerm = filter.search.toLowerCase();
     const matchesSearch =
       acc.name.toLowerCase().includes(searchTerm) ||
-      acc.phone?.toLowerCase().includes(searchTerm);
+      acc.phone?.toLowerCase().includes(searchTerm) ||
+      acc.crOrCivilIdNo?.toLowerCase().includes(searchTerm);
 
     return matchesType && matchesSearch;
   });
 
-  // Sorting logic
-  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
-    let aValue: any = a[sortBy.field as keyof Account];
-    let bValue: any = b[sortBy.field as keyof Account];
-    
-    // Handle undefined values
-    if (aValue === undefined || aValue === null) aValue = '';
-    if (bValue === undefined || bValue === null) bValue = '';
-    
-    // For type sorting, group by type then by account number
-    if (sortBy.field === 'type') {
-      if (a.type !== b.type) {
-        const result = a.type.localeCompare(b.type);
-        return sortBy.direction === 'asc' ? result : -result;
+  // Sorting function
+  const getSortedAccounts = (accountsToSort: Account[]) => {
+    return [...accountsToSort].sort((a, b) => {
+      let aValue: any = a[sortBy.field as keyof Account];
+      let bValue: any = b[sortBy.field as keyof Account];
+      
+      // Handle undefined values
+      if (aValue === undefined || aValue === null) aValue = '';
+      if (bValue === undefined || bValue === null) bValue = '';
+      
+      // For type sorting, we want to group by type first
+      if (sortBy.field === 'type') {
+        if (aValue === bValue) {
+          // If same type, sort by account number within the type
+          return a.accountNo - b.accountNo;
+        }
       }
-      // Same type - sort by account number
-      return a.accountNo - b.accountNo;
-    }
-    
-    // For account number sorting
-    if (sortBy.field === 'accountNo') {
-      return sortBy.direction === 'asc' 
-        ? a.accountNo - b.accountNo 
-        : b.accountNo - a.accountNo;
-    }
-    
-    // For name sorting
-    if (sortBy.field === 'name') {
-      const result = a.name.localeCompare(b.name);
-      return sortBy.direction === 'asc' ? result : -result;
-    }
-    
-    // For date sorting (createdAt only)
-    if (sortBy.field === 'createdAt') {
-      const aDate = new Date(aValue).getTime();
-      const bDate = new Date(bValue).getTime();
-      return sortBy.direction === 'asc' ? aDate - bDate : bDate - aDate;
-    }
-    
-    // Default string comparison
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-    
-    if (aValue < bValue) return sortBy.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortBy.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+
+      // For createdAt sorting (recently created)
+      if (sortBy.field === 'createdAt') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      // String comparison for text fields
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortBy.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortBy.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const sortedAccounts = getSortedAccounts(filteredAccounts);
 
   // Statistics
   const totalAccounts = accounts.length;
@@ -343,16 +333,16 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   ))}
                 </select>
 
-                {/* Search - removed account ID search */}
+                {/* Search - Removed accountNo search */}
                 <input
                   type="text"
-                  placeholder="Search by name or phone..."
+                  placeholder="Search by name, phone, or ID..."
                   value={filter.search}
                   onChange={(e) => setFilter({ ...filter, search: e.target.value })}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors min-w-[200px]"
                 />
 
-                {/* Sort Options - removed updatedAt options */}
+                {/* Sort Options */}
                 <select
                   value={`${sortBy.field}-${sortBy.direction}`}
                   onChange={(e) => {
@@ -361,14 +351,14 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   }}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 >
-                  <option value="type-asc">Type: A to Z</option>
-                  <option value="type-desc">Type: Z to A</option>
+                  <option value="type-asc">Type (A-Z)</option>
+                  <option value="type-desc">Type (Z-A)</option>
                   <option value="accountNo-asc">Account No: Low to High</option>
                   <option value="accountNo-desc">Account No: High to Low</option>
                   <option value="name-asc">Name: A to Z</option>
                   <option value="name-desc">Name: Z to A</option>
-                  <option value="createdAt-desc">Recently Created</option>
-                  <option value="createdAt-asc">Oldest First</option>
+                  <option value="createdAt-desc">Recently Created: Newest</option>
+                  <option value="createdAt-asc">Recently Created: Oldest</option>
                 </select>
               </div>
             </div>
