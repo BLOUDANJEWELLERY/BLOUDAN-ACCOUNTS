@@ -47,6 +47,22 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
+  // Get available voucher types based on account type
+  const getVoucherTypes = () => {
+    if (selectedType === "Gold Fixing") {
+      return [
+        { value: "INV", label: "INV (Invoice)" },
+        { value: "REC", label: "REC (Receipt)" },
+        { value: "GFV", label: "GFV (Gold Fixing)" }
+      ];
+    } else {
+      return [
+        { value: "INV", label: "INV (Invoice)" },
+        { value: "REC", label: "REC (Receipt)" }
+      ];
+    }
+  };
+
   // Reset account when type changes
   useEffect(() => {
     setSelectedAccountId("");
@@ -54,7 +70,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       ...form,
       accountId: "",
       mvn: "",
-      description: ""
+      description: "",
+      vt: "" // Reset voucher type when account type changes
     })));
   }, [selectedType]);
 
@@ -289,8 +306,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
                     >
                       <option value="">Select Type</option>
-                      <option value="REC">REC (Receipt)</option>
-                      <option value="INV">INV (Invoice)</option>
+                      {getVoucherTypes().map((voucherType) => (
+                        <option key={voucherType.value} value={voucherType.value}>
+                          {voucherType.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
