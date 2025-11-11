@@ -127,22 +127,23 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   }, [selectedAccountId]);
 
-  const addVoucherForm = () => {
-    setVoucherForms(forms => [
-      ...forms,
-      { 
-        date: new Date().toISOString().split('T')[0], 
-        vt: forms[0]?.vt || "", 
-        accountId: selectedAccountId, 
-        gold: 0, 
-        kwd: 0,
-        paymentMethod: 'cash',
-        isGoldFixing: forms[0]?.isGoldFixing || false,
-        goldRate: forms[0]?.goldRate || 0,
-        fixingAmount: forms[0]?.fixingAmount || 0
-      }
-    ]);
-  };
+const addVoucherForm = () => {
+  setVoucherForms(forms => [
+    ...forms,
+    { 
+      date: new Date().toISOString().split('T')[0], 
+      vt: "", 
+      accountId: selectedAccountId, 
+      gold: 0, 
+      kwd: 0,
+      paymentMethod: 'cash',
+      isGoldFixing: false,
+      goldRate: undefined,
+      fixingAmount: 0
+    }
+  ]);
+};
+
 
   const removeVoucherForm = (index: number) => {
     if (voucherForms.length > 1) {
