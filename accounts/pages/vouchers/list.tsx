@@ -1,7 +1,9 @@
+// pages/vouchers/list.tsx
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 type Voucher = {
   id: string;
@@ -68,9 +70,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
 export default function VouchersListPage({ vouchers: initialVouchers, accounts }: Props) {
   const [vouchers] = useState<Voucher[]>(initialVouchers);
-  const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdditionalFields, setShowAdditionalFields] = useState(false);
+  const router = useRouter();
 
   // Search and Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -170,62 +170,8 @@ export default function VouchersListPage({ vouchers: initialVouchers, accounts }
     setSortOption("newest");
   };
 
-  const handleEdit = (voucher: Voucher) => {
-    setEditingVoucher(voucher);
-    setShowAdditionalFields(false);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingVoucher(null);
-    setShowAdditionalFields(false);
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingVoucher) return;
-
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        date: editingVoucher.date,
-        vt: editingVoucher.vt,
-        accountId: editingVoucher.accountId,
-        gold: editingVoucher.gold,
-        kwd: editingVoucher.kwd,
-        mvn: editingVoucher.mvn,
-        description: editingVoucher.description,
-        goldRate: editingVoucher.goldRate,
-        paymentMethod: editingVoucher.paymentMethod,
-        fixingAmount: editingVoucher.fixingAmount,
-        bankName: editingVoucher.bankName,
-        branch: editingVoucher.branch,
-        chequeNo: editingVoucher.chequeNo,
-        chequeDate: editingVoucher.chequeDate,
-        chequeAmount: editingVoucher.chequeAmount,
-      };
-
-      const res = await fetch(`/api/vouchers/${editingVoucher.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        return alert(errorData?.message || "Error updating voucher");
-      }
-
-      const updated = await res.json();
-      // Update the local state with the updated voucher
-      const updatedVouchers = vouchers.map(v => v.id === updated.id ? { ...updated, account: editingVoucher.account } : v);
-      // Note: Since we're using initialVouchers prop and local state, we need to refresh the page to see changes
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      alert("Error updating voucher");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleEdit = (id: string) => {
+    router.push(`/vouchers/${id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -249,18 +195,6 @@ export default function VouchersListPage({ vouchers: initialVouchers, accounts }
 
   const formatCurrency = (value: number) => {
     return value.toFixed(3);
-  };
-
-  // Check which additional fields have values
-  const hasAdditionalFields = (voucher: Voucher) => {
-    return voucher.goldRate !== null || 
-           voucher.paymentMethod !== null ||
-           voucher.fixingAmount !== null ||
-           voucher.bankName !== null ||
-           voucher.branch !== null ||
-           voucher.chequeNo !== null ||
-           voucher.chequeDate !== null ||
-           voucher.chequeAmount !== null;
   };
 
   return (
@@ -422,243 +356,6 @@ export default function VouchersListPage({ vouchers: initialVouchers, accounts }
           </div>
         </div>
 
-        {/* Edit Modal */}
-        {editingVoucher && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-gray-900">Edit Voucher</h3>
-                  <div className="flex gap-2">
-                    {hasAdditionalFields(editingVoucher) && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                        Has Additional Fields
-                      </span>
-                    )}
-                    <button
-                      onClick={() => setShowAdditionalFields(!showAdditionalFields)}
-                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      {showAdditionalFields ? 'Hide Additional Fields' : 'Show Additional Fields'}
-                    </button>
-                  </div>
-                </div>
-                
-                <form onSubmit={handleUpdate} className="space-y-4">
-                  {/* Basic Fields - Always Visible */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                      <input
-                        type="date"
-                        value={editingVoucher.date.split('T')[0]}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, date: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Type *</label>
-                      <select
-                        value={editingVoucher.vt}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, vt: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        <option value="REC">REC (Receipt)</option>
-                        <option value="INV">INV (Invoice)</option>
-                        <option value="GFV">GFV (Gold Fixing)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Account *</label>
-                      <select
-                        value={editingVoucher.accountId}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, accountId: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        {accounts.map(account => (
-                          <option key={account.id} value={account.id}>
-                            {account.accountNo} - {account.name} ({account.type})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Manual Voucher No</label>
-                      <input
-                        type="text"
-                        value={editingVoucher.mvn || ""}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, mvn: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="MVN"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <input
-                        type="text"
-                        value={editingVoucher.description || ""}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, description: e.target.value})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Voucher description"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Gold *</label>
-                      <input
-                        type="number"
-                        step="0.001"
-                        value={editingVoucher.gold}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, gold: parseFloat(e.target.value) || 0})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">KWD *</label>
-                      <input
-                        type="number"
-                        step="0.001"
-                        value={editingVoucher.kwd}
-                        onChange={(e) => setEditingVoucher({...editingVoucher, kwd: parseFloat(e.target.value) || 0})}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Additional Fields - Conditionally Visible */}
-                  {showAdditionalFields && (
-                    <div className="border-t pt-4 mt-4">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Additional Fields</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Gold Rate</label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            value={editingVoucher.goldRate || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, goldRate: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Gold rate"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                          <select
-                            value={editingVoucher.paymentMethod || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, paymentMethod: e.target.value || null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="">Select Payment Method</option>
-                            <option value="cash">Cash</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="transfer">Transfer</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Fixing Amount</label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            value={editingVoucher.fixingAmount || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, fixingAmount: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Fixing amount"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                          <input
-                            type="text"
-                            value={editingVoucher.bankName || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, bankName: e.target.value || null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Bank name"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                          <input
-                            type="text"
-                            value={editingVoucher.branch || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, branch: e.target.value || null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Branch"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Cheque No</label>
-                          <input
-                            type="text"
-                            value={editingVoucher.chequeNo || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, chequeNo: e.target.value || null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Cheque number"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Cheque Date</label>
-                          <input
-                            type="date"
-                            value={editingVoucher.chequeDate ? editingVoucher.chequeDate.split('T')[0] : ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, chequeDate: e.target.value || null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Cheque Amount</label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            value={editingVoucher.chequeAmount || ""}
-                            onChange={(e) => setEditingVoucher({...editingVoucher, chequeAmount: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Cheque amount"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 pt-4 border-t">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-                    >
-                      {isSubmitting ? 'Updating...' : 'Update Voucher'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Vouchers Table */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -709,11 +406,6 @@ export default function VouchersListPage({ vouchers: initialVouchers, accounts }
                         {voucher.mvn && voucher.description && (
                           <div className="text-xs text-gray-500 mt-1">{voucher.description}</div>
                         )}
-                        {hasAdditionalFields(voucher) && (
-                          <div className="text-xs text-yellow-600 mt-1 font-medium">
-                            Has additional fields
-                          </div>
-                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -747,7 +439,7 @@ export default function VouchersListPage({ vouchers: initialVouchers, accounts }
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEdit(voucher)}
+                          onClick={() => handleEdit(voucher.id)}
                           className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
                         >
                           Edit
