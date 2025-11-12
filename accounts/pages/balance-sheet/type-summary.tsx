@@ -8,6 +8,7 @@ type AccountTypeSummary = {
   totalTransactions: number;
   goldBalance: number;
   kwdBalance: number;
+  lockerGold: number; // New field
 };
 
 type OpenBalanceSummary = {
@@ -27,6 +28,7 @@ type Props = {
   totalTransactions: number;
   grandTotalGold: number;
   grandTotalKwd: number;
+  lockerTotalGold: number; // New field
   error?: string;
 };
 
@@ -46,7 +48,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
       },
     });
 
-    // Get all vouchers
+    // Get all vouchers with paymentMethod included
     const allVouchers = await prisma.voucher.findMany({
       select: {
         id: true,
@@ -56,6 +58,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         kwd: true,
         goldRate: true,
         fixingAmount: true,
+        paymentMethod: true, // Added for locker calculation
         account: {
           select: {
             type: true,
@@ -76,18 +79,43 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
       let goldBalance = 0;
       let kwdBalance = 0;
+      let lockerGold = 0; // Initialize locker gold
 
       typeVouchers.forEach(voucher => {
+        // Skip GFV vouchers for all calculations
+        if (voucher.vt === "GFV") return;
+
+        // Regular balance calculations
         if (voucher.vt === "INV") {
           goldBalance += voucher.gold;
           kwdBalance += voucher.kwd;
         } else if (voucher.vt === "REC") {
           goldBalance -= voucher.gold;
           kwdBalance -= voucher.kwd;
-        } else if (voucher.vt === "GFV") {
-          // GFV: Gold positive, KWD negative
-          goldBalance += voucher.gold;
-          kwdBalance -= voucher.kwd;
+        }
+
+        // Locker gold calculations
+        if (type === "Market") {
+          if (voucher.vt === "INV") {
+            lockerGold -= voucher.gold; // INV negative
+          } else if (voucher.vt === "REC") {
+            // For REC vouchers, only count if payment method is NOT cheque
+            if (voucher.paymentMethod !== "cheque") {
+              lockerGold += voucher.gold; // REC positive (only non-cheque)
+            }
+            // If payment method is cheque, don't count for locker
+          }
+        } else if (type === "Casting" || type === "Faceting" || type === "Project") {
+          if (voucher.vt === "INV") {
+            lockerGold -= voucher.gold; // INV negative
+          } else if (voucher.vt === "REC") {
+            lockerGold += voucher.gold; // REC positive
+          }
+        } else if (type === "Gold Fixing") {
+          // Only count REC vouchers for Gold Fixing
+          if (voucher.vt === "REC") {
+            lockerGold += voucher.gold; // REC positive
+          }
         }
       });
 
@@ -97,6 +125,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         totalTransactions: typeVouchers.length,
         goldBalance,
         kwdBalance,
+        lockerGold, // Add locker gold to summary
       };
     });
 
@@ -135,6 +164,9 @@ export const getServerSideProps: GetServerSideProps = async () => {
     const totalAccounts = typeSummaries.reduce((sum, summary) => sum + summary.totalAccounts, 0);
     const totalTransactions = typeSummaries.reduce((sum, summary) => sum + summary.totalTransactions, 0);
 
+    // Calculate Locker Total Gold
+    const lockerTotalGold = typeSummaries.reduce((sum, summary) => sum + summary.lockerGold, 0);
+
     // Calculate GRAND TOTALS (including Open Balance)
     const grandTotalGold = overallGold + openBalanceGold;
     const grandTotalKwd = overallKwd + openBalanceKwd;
@@ -149,6 +181,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         totalTransactions,
         grandTotalGold,
         grandTotalKwd,
+        lockerTotalGold, // Add locker total
       },
     };
   } catch (error) {
@@ -169,6 +202,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         totalTransactions: 0,
         grandTotalGold: 0,
         grandTotalKwd: 0,
+        lockerTotalGold: 0,
         error: 'Failed to load account type summary data. Please check if you have accounts and vouchers in the database.'
       },
     };
@@ -184,6 +218,7 @@ export default function TypeSummaryPage({
   totalTransactions,
   grandTotalGold,
   grandTotalKwd,
+  lockerTotalGold,
   error,
 }: Props) {
   const formatCurrency = (value: number) => {
@@ -233,6 +268,13 @@ export default function TypeSummaryPage({
         text: 'text-orange-800',
         border: 'border-orange-200',
         gradient: 'from-orange-500 to-orange-600',
+      },
+      'Locker': {
+        bg: 'bg-red-500',
+        lightBg: 'bg-red-50',
+        text: 'text-red-800',
+        border: 'border-red-200',
+        gradient: 'from-red-500 to-red-600',
       },
     };
     return colors[type as keyof typeof colors] || {
@@ -312,7 +354,7 @@ export default function TypeSummaryPage({
         </div>
 
         {/* Overall Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
@@ -372,6 +414,24 @@ export default function TypeSummaryPage({
               </div>
             </div>
           </div>
+
+          {/* Locker Gold Card */}
+          <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-red-200">
+            <div className="flex items-center">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Locker Gold</p>
+                <p className={`text-2xl font-bold ${getBalanceColor(lockerTotalGold)}`}>
+                  {formatCurrency(lockerTotalGold)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Physical Gold Balance</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Check if we have data */}
@@ -415,18 +475,24 @@ export default function TypeSummaryPage({
 
                     {/* Summary Stats */}
                     <div className="p-6">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-3 gap-4 mb-4">
                         <div className="text-center">
-                          <div className={`text-2xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
+                          <div className={`text-xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
                             {formatCurrency(summary.goldBalance)}
                           </div>
-                          <div className="text-sm text-gray-600">Gold Balance</div>
+                          <div className="text-xs text-gray-600">Gold Balance</div>
                         </div>
                         <div className="text-center">
-                          <div className={`text-2xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
+                          <div className={`text-xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
                             {formatCurrency(summary.kwdBalance)}
                           </div>
-                          <div className="text-sm text-gray-600">KWD Balance</div>
+                          <div className="text-xs text-gray-600">KWD Balance</div>
+                        </div>
+                        <div className="text-center border-l border-gray-200 pl-4">
+                          <div className={`text-xl font-bold ${getBalanceColor(summary.lockerGold)}`}>
+                            {formatCurrency(summary.lockerGold)}
+                          </div>
+                          <div className="text-xs text-gray-600">Locker Gold</div>
                         </div>
                       </div>
 
@@ -539,6 +605,9 @@ export default function TypeSummaryPage({
                         KWD Balance
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Locker Gold
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -568,6 +637,11 @@ export default function TypeSummaryPage({
                           <td className="px-6 py-4 text-right">
                             <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)}`}>
                               {formatCurrency(summary.kwdBalance)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className={`text-sm font-semibold ${getBalanceColor(summary.lockerGold)}`}>
+                              {formatCurrency(summary.lockerGold)}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -611,6 +685,11 @@ export default function TypeSummaryPage({
                           {formatCurrency(overallKwd)}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(lockerTotalGold)}>
+                          {formatCurrency(lockerTotalGold)}
+                        </span>
+                      </td>
                       <td className="px-6 py-4"></td>
                     </tr>
 
@@ -637,6 +716,9 @@ export default function TypeSummaryPage({
                         <div className={`text-sm font-semibold ${getBalanceColor(openBalance.kwdBalance)}`}>
                           {formatCurrency(openBalance.kwdBalance)}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="text-sm text-gray-500">-</div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-2">
@@ -671,6 +753,11 @@ export default function TypeSummaryPage({
                           {formatCurrency(grandTotalKwd)}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <span className={getBalanceColor(lockerTotalGold)}>
+                          {formatCurrency(lockerTotalGold)}
+                        </span>
+                      </td>
                       <td className="px-6 py-4"></td>
                     </tr>
                   </tbody>
@@ -679,7 +766,7 @@ export default function TypeSummaryPage({
             </div>
 
             {/* Grand Total Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
                 <div className="flex items-center">
                   <div className="p-3 bg-white bg-opacity-20 rounded-lg">
@@ -713,6 +800,25 @@ export default function TypeSummaryPage({
                     </p>
                     <p className="text-xs opacity-80 mt-1">
                       Account Types: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex items-center">
+                  <div className="p-3 bg-white bg-opacity-20 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium opacity-90">Total Locker Gold</p>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(lockerTotalGold)}
+                    </p>
+                    <p className="text-xs opacity-80 mt-1">
+                      Physical gold available in locker
                     </p>
                   </div>
                 </div>
