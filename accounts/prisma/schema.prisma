@@ -43,6 +43,7 @@ model Voucher {
   chequeNo       String?
   chequeDate     DateTime?
   chequeAmount   Float?
+	cashedDate    DateTime?  // Add this field
 
   accountId      String      @db.ObjectId
   account        Account     @relation(fields: [accountId], references: [id])
