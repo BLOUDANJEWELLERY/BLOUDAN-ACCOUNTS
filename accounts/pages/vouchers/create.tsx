@@ -69,6 +69,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Predefined descriptions for faceting
   const facetingDescriptions = ["Bangles", "Kids Bangles", "Gold Powder"];
 
+  // Predefined descriptions for Casting
+  const castingInvDescriptions = ["Gold", "Scrap", "Casting Return", "Payment of"];
+  const castingRecDescriptions = ["Casting", "Scrap"];
+
+  // Predefined rates for Casting
+  const castingRates = [0, 0.08];
+
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
   // Get available voucher types based on account type
@@ -97,31 +104,61 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Faceting" && form.vt === "REC";
   };
 
+  // Check if should show casting gold and rate section
+  const shouldShowCastingFields = (form: VoucherForm) => {
+    return selectedType === "Casting" && form.vt === "REC";
+  };
+
   // Check if should show faceting description quick select
   const shouldShowFacetingDescription = () => {
     return selectedType === "Faceting";
   };
 
-  // Get available descriptions based on voucher type
-  const getAvailableDescriptions = (vt: string) => {
-    if (vt === "INV") {
-      return ["Bangles", "Kids Bangles"];
-    }
-    return facetingDescriptions; // For REC and other types, show all
+  // Check if should show casting description quick select
+  const shouldShowCastingDescription = () => {
+    return selectedType === "Casting";
   };
 
-  // Get default rate based on description
-  const getDefaultRateForDescription = (description: string): number => {
-    switch (description) {
-      case "Bangles":
-        return 0.25;
-      case "Kids Bangles":
-        return 0.2;
-      case "Gold Powder":
-        return 0;
-      default:
-        return 0.25;
+  // Get available descriptions based on account type and voucher type
+  const getAvailableDescriptions = (vt: string) => {
+    if (selectedType === "Faceting") {
+      if (vt === "INV") {
+        return ["Bangles", "Kids Bangles"];
+      }
+      return facetingDescriptions; // For REC and other types, show all
+    } else if (selectedType === "Casting") {
+      if (vt === "INV") {
+        return castingInvDescriptions;
+      }
+      return castingRecDescriptions; // For REC, show Casting and Scrap only
     }
+    return [];
+  };
+
+  // Get default rate based on description and account type
+  const getDefaultRateForDescription = (description: string): number => {
+    if (selectedType === "Faceting") {
+      switch (description) {
+        case "Bangles":
+          return 0.25;
+        case "Kids Bangles":
+          return 0.2;
+        case "Gold Powder":
+          return 0;
+        default:
+          return 0.25;
+      }
+    } else if (selectedType === "Casting") {
+      switch (description) {
+        case "Casting":
+          return 0.08;
+        case "Scrap":
+          return 0;
+        default:
+          return 0;
+      }
+    }
+    return 0;
   };
 
   // Calculate fixing amount
@@ -140,6 +177,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const calculateKwdForFaceting = (quantity: number | undefined, rate: number | undefined): number => {
     if (!quantity || quantity <= 0 || !rate || rate < 0) return 0;
     return quantity * rate;
+  };
+
+  // Calculate KWD for Casting REC vouchers
+  const calculateKwdForCasting = (gold: number | undefined, rate: number | undefined): number => {
+    if (!gold || gold <= 0 || !rate || rate < 0) return 0;
+    return gold * rate;
   };
 
   // Reset account when type changes
@@ -161,7 +204,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       chequeDate: "",
       chequeAmount: 0,
       quantity: undefined,
-      rate: selectedType === "Faceting" ? 0.25 : undefined // Set default rate for faceting
+      rate: selectedType === "Faceting" ? 0.25 : 
+            selectedType === "Casting" ? 0 : undefined // Set default rate based on type
     })));
   }, [selectedType]);
 
@@ -190,7 +234,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         goldRate: undefined,
         fixingAmount: 0,
         quantity: undefined,
-        rate: selectedType === "Faceting" ? 0.25 : undefined // Set default rate for new faceting forms
+        rate: selectedType === "Faceting" ? 0.25 : 
+              selectedType === "Casting" ? 0 : undefined // Set default rate for new forms
       }
     ]);
   };
@@ -210,9 +255,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
         if (field === 'description' && value) {
           const defaultRate = getDefaultRateForDescription(value);
           updatedForm.rate = defaultRate;
-          // Recalculate KWD if quantity exists
-          if (updatedForm.quantity) {
+          
+          // Recalculate KWD based on account type
+          if (selectedType === "Faceting" && updatedForm.quantity) {
             updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
+          } else if (selectedType === "Casting" && updatedForm.gold) {
+            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, defaultRate);
           }
         }
         
@@ -248,6 +296,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
           if (field === 'quantity' || field === 'rate') {
             const calculatedKwd = calculateKwdForFaceting(
               field === 'quantity' ? value : updatedForm.quantity,
+              field === 'rate' ? value : updatedForm.rate
+            );
+            updatedForm.kwd = calculatedKwd;
+          }
+        }
+
+        // Handle Casting calculations
+        if (shouldShowCastingFields(updatedForm)) {
+          if (field === 'gold' || field === 'rate') {
+            const calculatedKwd = calculateKwdForCasting(
+              field === 'gold' ? value : updatedForm.gold,
               field === 'rate' ? value : updatedForm.rate
             );
             updatedForm.kwd = calculatedKwd;
@@ -290,9 +349,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
           rate: defaultRate
         };
         
-        // Recalculate KWD if quantity exists
-        if (updatedForm.quantity) {
+        // Recalculate KWD based on account type
+        if (selectedType === "Faceting" && updatedForm.quantity) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
+        } else if (selectedType === "Casting" && updatedForm.gold) {
+          updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, defaultRate);
         }
         
         return updatedForm;
@@ -307,9 +368,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, rate: value };
         
-        // Recalculate KWD if quantity exists
-        if (updatedForm.quantity !== undefined) {
+        // Recalculate KWD based on account type
+        if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
+        } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
+          updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
         }
         
         return updatedForm;
@@ -349,6 +412,16 @@ export default function CreateVouchersPage({ accounts }: Props) {
         }
         if (form.rate === undefined || form.rate < 0) {
           return alert(`Rate is required and must be non-negative for Faceting REC voucher ${i + 1}`);
+        }
+      }
+
+      // Additional validation for Casting REC vouchers
+      if (shouldShowCastingFields(form)) {
+        if (!form.gold || form.gold <= 0) {
+          return alert(`Gold is required and must be greater than 0 for Casting REC voucher ${i + 1}`);
+        }
+        if (form.rate === undefined || form.rate < 0) {
+          return alert(`Rate is required and must be non-negative for Casting REC voucher ${i + 1}`);
         }
       }
 
@@ -402,6 +475,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
         // Include rate for Faceting REC vouchers (can be 0)
         if (shouldShowFacetingFields(form) && form.rate !== undefined) {
+          baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
+        }
+
+        // Include rate for Casting REC vouchers (can be 0)
+        if (shouldShowCastingFields(form) && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
@@ -548,7 +626,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     ? "sm:grid-cols-2 lg:grid-cols-4" 
                     : form.vt === "GFV"
                     ? "sm:grid-cols-2 lg:grid-cols-3"
-                    : shouldShowFacetingFields(form)
+                    : shouldShowFacetingFields(form) || shouldShowCastingFields(form)
                     ? "sm:grid-cols-2 lg:grid-cols-4"
                     : "sm:grid-cols-2 lg:grid-cols-4"
                 } gap-4 mb-4`}>
@@ -584,8 +662,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                       
-                      {/* Description Quick Select for Faceting */}
-                      {shouldShowFacetingDescription() && (
+                      {/* Description Quick Select for Faceting and Casting */}
+                      {(shouldShowFacetingDescription() || shouldShowCastingDescription()) && (
                         <div className="mt-2">
                           <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
                           <div className="flex flex-wrap gap-2">
@@ -646,10 +724,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="0.00"
                         step="0.01"
                         value={form.kwd}
-                        readOnly={shouldShowFacetingFields(form)}
+                        readOnly={shouldShowFacetingFields(form) || shouldShowCastingFields(form)}
                         onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
                         className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                          shouldShowFacetingFields(form) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                          (shouldShowFacetingFields(form) || shouldShowCastingFields(form)) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -733,9 +811,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Type custom rate (0 is allowed)
-                        </p>
                       </div>
                     </div>
                     
@@ -759,18 +834,59 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         ))}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Casting Section - Only for Casting REC */}
+                {shouldShowCastingFields(form) && (
+                  <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-orange-800 mb-3">Casting Calculation</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Gold *</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          value={form.gold}
+                          onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.001"
+                          min="0"
+                          value={form.rate !== undefined ? form.rate : 0}
+                          onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                        />
+                      </div>
+                    </div>
                     
-                    {/* Calculation Display */}
-                    <div className="mt-3 p-3 bg-white rounded-lg border border-purple-100">
-                      <div className="text-xs text-gray-600 mb-1">Calculation:</div>
-                      <div className="text-sm font-medium text-purple-700">
-                        {form.quantity && form.rate !== undefined ? (
-                          <>
-                            {form.quantity} × {form.rate.toFixed(3)} = {form.kwd.toFixed(3)} KWD
-                          </>
-                        ) : (
-                          "Enter quantity and rate to calculate KWD"
-                        )}
+                    {/* Casting Rates Quick Select */}
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Rates:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {castingRates.map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handleRateSelect(index, rate)}
+                            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                              form.rate === rate
+                                ? 'bg-orange-600 text-white border-orange-600'
+                                : 'bg-white text-orange-700 border-orange-300 hover:bg-orange-50'
+                            }`}
+                          >
+                            {rate}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
