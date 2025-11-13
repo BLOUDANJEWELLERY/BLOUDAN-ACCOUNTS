@@ -327,7 +327,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
         // Handle Casting calculations for INV vouchers (auto-calculate KWD but allow manual override)
         if (shouldShowCastingCalculation(updatedForm) && updatedForm.vt === "INV") {
-          if ((field === 'gold' || field === 'rate') && field !== 'kwd') {
+          if (field === 'gold' || field === 'rate') {
             const calculatedKwd = calculateKwdForCasting(
               field === 'gold' ? value : updatedForm.gold,
               field === 'rate' ? value : updatedForm.rate
