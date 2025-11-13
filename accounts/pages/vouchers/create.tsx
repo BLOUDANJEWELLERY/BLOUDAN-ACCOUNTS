@@ -27,8 +27,8 @@ type VoucherForm = {
   chequeNo?: string;
   chequeDate?: string;
   chequeAmount?: number;
-  quantity?: number; // New field for faceting
-  rate?: number;     // New field for faceting
+  quantity?: number;
+  rate?: number;
 };
 
 type Props = {
@@ -63,6 +63,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Predefined rates for faceting
+  const predefinedRates = [0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
+  
+  // Predefined descriptions for faceting
+  const facetingDescriptions = ["Bangles", "Kids Bangles", "Gold Powder"];
+
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
   // Get available voucher types based on account type
@@ -89,6 +95,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Check if should show faceting quantity and rate section
   const shouldShowFacetingFields = (form: VoucherForm) => {
     return selectedType === "Faceting" && form.vt === "REC";
+  };
+
+  // Check if should show faceting description dropdown
+  const shouldShowFacetingDescription = () => {
+    return selectedType === "Faceting";
   };
 
   // Calculate fixing amount
@@ -127,8 +138,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       chequeNo: "",
       chequeDate: "",
       chequeAmount: 0,
-      quantity: undefined, // Reset faceting fields
-      rate: undefined      // Reset faceting fields
+      quantity: undefined,
+      rate: selectedType === "Faceting" ? 0.25 : undefined // Set default rate for faceting
     })));
   }, [selectedType]);
 
@@ -142,25 +153,25 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   }, [selectedAccountId]);
 
-const addVoucherForm = () => {
-  setVoucherForms(forms => [
-    ...forms,
-    { 
-      date: new Date().toISOString().split('T')[0], 
-      vt: "", 
-      accountId: selectedAccountId, 
-      gold: 0, 
-      kwd: 0,
-      paymentMethod: 'cash',
-      isGoldFixing: false,
-      goldRate: undefined,
-      fixingAmount: 0,
-      quantity: undefined,
-      rate: undefined
-    }
-  ]);
-};
-
+  // Set default rate when faceting is selected and form is added
+  const addVoucherForm = () => {
+    setVoucherForms(forms => [
+      ...forms,
+      { 
+        date: new Date().toISOString().split('T')[0], 
+        vt: "", 
+        accountId: selectedAccountId, 
+        gold: 0, 
+        kwd: 0,
+        paymentMethod: 'cash',
+        isGoldFixing: false,
+        goldRate: undefined,
+        fixingAmount: 0,
+        quantity: undefined,
+        rate: selectedType === "Faceting" ? 0.25 : undefined // Set default rate for new faceting forms
+      }
+    ]);
+  };
 
   const removeVoucherForm = (index: number) => {
     if (voucherForms.length > 1) {
@@ -230,6 +241,33 @@ const addVoucherForm = () => {
           updatedForm.chequeAmount = value;
         }
 
+        return updatedForm;
+      }
+      return form;
+    }));
+  };
+
+  // Handle description selection from dropdown
+  const handleDescriptionSelect = (index: number, value: string) => {
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        return { ...form, description: value };
+      }
+      return form;
+    }));
+  };
+
+  // Handle rate selection from dropdown
+  const handleRateSelect = (index: number, value: number) => {
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        const updatedForm = { ...form, rate: value };
+        
+        // Recalculate KWD if quantity exists
+        if (updatedForm.quantity && updatedForm.rate) {
+          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, updatedForm.rate);
+        }
+        
         return updatedForm;
       }
       return form;
@@ -489,13 +527,35 @@ const addVoucherForm = () => {
                   ) : (
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Description *</label>
-                      <input
-                        type="text"
-                        placeholder="Enter description"
-                        value={form.description || ""}
-                        onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Enter description"
+                          value={form.description || ""}
+                          onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
+                          list={shouldShowFacetingDescription() ? `description-options-${index}` : undefined}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors pr-10"
+                        />
+                        {shouldShowFacetingDescription() && (
+                          <>
+                            <datalist id={`description-options-${index}`}>
+                              {facetingDescriptions.map((desc) => (
+                                <option key={desc} value={desc} />
+                              ))}
+                            </datalist>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {shouldShowFacetingDescription() && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Select from dropdown or type custom description
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -536,7 +596,7 @@ const addVoucherForm = () => {
                         placeholder="0.00"
                         step="0.01"
                         value={form.kwd}
-                        readOnly={shouldShowFacetingFields(form)} // Read-only for faceting REC
+                        readOnly={shouldShowFacetingFields(form)}
                         onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
                         className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                           shouldShowFacetingFields(form) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
@@ -614,16 +674,52 @@ const addVoucherForm = () => {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
-                        <input
-                          type="number"
-                          placeholder="0.00"
-                          step="0.001"
-                          min="0"
-                          value={form.rate || ""}
-                          onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Rate per piece (KWD)</p>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.001"
+                            min="0"
+                            value={form.rate || 0.25}
+                            onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
+                            list={`rate-options-${index}`}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors pr-10"
+                          />
+                          <datalist id={`rate-options-${index}`}>
+                            {predefinedRates.map((rate) => (
+                              <option key={rate} value={rate} />
+                            ))}
+                          </datalist>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Select from common rates or type custom rate
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Common Rates Quick Select */}
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Rates:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {predefinedRates.map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handleRateSelect(index, rate)}
+                            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                              form.rate === rate
+                                ? 'bg-purple-600 text-white border-purple-600'
+                                : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'
+                            }`}
+                          >
+                            {rate}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     
