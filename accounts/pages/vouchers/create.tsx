@@ -104,9 +104,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Faceting" && form.vt === "REC";
   };
 
-  // Check if should show casting gold and rate section
-  const shouldShowCastingFields = (form: VoucherForm) => {
-    return selectedType === "Casting" && form.vt === "REC";
+  // Check if should show casting calculation section
+  const shouldShowCastingCalculation = (form: VoucherForm) => {
+    return selectedType === "Casting" && (form.vt === "REC" || form.vt === "INV");
   };
 
   // Check if should show faceting description quick select
@@ -127,7 +127,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       }
       return facetingDescriptions; // For REC and other types, show all
     } else if (selectedType === "Casting") {
-      if (vt === "INV") {
+      // When no voucher type is selected or for INV, show all four capsules
+      if (!vt || vt === "INV") {
         return castingInvDescriptions;
       }
       return castingRecDescriptions; // For REC, show Casting and Scrap only
@@ -136,7 +137,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
   };
 
   // Get default rate based on description and account type
-  const getDefaultRateForDescription = (description: string): number => {
+  const getDefaultRateForDescription = (description: string, vt: string): number => {
     if (selectedType === "Faceting") {
       switch (description) {
         case "Bangles":
@@ -149,6 +150,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
           return 0.25;
       }
     } else if (selectedType === "Casting") {
+      // For Casting INV, set default rate based on description
+      if (vt === "INV") {
+        switch (description) {
+          case "Casting Return":
+          case "Scrap":
+            return 0.08;
+          default:
+            return 0;
+        }
+      }
+      // For Casting REC
       switch (description) {
         case "Casting":
           return 0.08;
@@ -179,7 +191,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return quantity * rate;
   };
 
-  // Calculate KWD for Casting REC vouchers
+  // Calculate KWD for Casting vouchers
   const calculateKwdForCasting = (gold: number | undefined, rate: number | undefined): number => {
     if (!gold || gold <= 0 || !rate || rate < 0) return 0;
     return gold * rate;
@@ -253,7 +265,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         
         // Handle description change - set rate based on description
         if (field === 'description' && value) {
-          const defaultRate = getDefaultRateForDescription(value);
+          const defaultRate = getDefaultRateForDescription(value, updatedForm.vt);
           updatedForm.rate = defaultRate;
           
           // Recalculate KWD based on account type
@@ -302,9 +314,20 @@ export default function CreateVouchersPage({ accounts }: Props) {
           }
         }
 
-        // Handle Casting calculations
-        if (shouldShowCastingFields(updatedForm)) {
+        // Handle Casting calculations for REC vouchers (auto-calculate KWD)
+        if (shouldShowCastingCalculation(updatedForm) && updatedForm.vt === "REC") {
           if (field === 'gold' || field === 'rate') {
+            const calculatedKwd = calculateKwdForCasting(
+              field === 'gold' ? value : updatedForm.gold,
+              field === 'rate' ? value : updatedForm.rate
+            );
+            updatedForm.kwd = calculatedKwd;
+          }
+        }
+
+        // Handle Casting calculations for INV vouchers (auto-calculate KWD but allow manual override)
+        if (shouldShowCastingCalculation(updatedForm) && updatedForm.vt === "INV") {
+          if ((field === 'gold' || field === 'rate') && field !== 'kwd') {
             const calculatedKwd = calculateKwdForCasting(
               field === 'gold' ? value : updatedForm.gold,
               field === 'rate' ? value : updatedForm.rate
@@ -342,7 +365,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
-        const defaultRate = getDefaultRateForDescription(value);
+        const defaultRate = getDefaultRateForDescription(value, form.vt);
         const updatedForm = { 
           ...form, 
           description: value,
@@ -368,11 +391,18 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, rate: value };
         
-        // Recalculate KWD based on account type
+        // Recalculate KWD based on account type and voucher type
         if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
         } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
-          updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+          // For Casting REC, auto-calculate KWD
+          if (updatedForm.vt === "REC") {
+            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+          }
+          // For Casting INV, auto-calculate but user can still manually override
+          else if (updatedForm.vt === "INV") {
+            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+          }
         }
         
         return updatedForm;
@@ -416,7 +446,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
       }
 
       // Additional validation for Casting REC vouchers
-      if (shouldShowCastingFields(form)) {
+      if (shouldShowCastingCalculation(form) && form.vt === "REC") {
         if (!form.gold || form.gold <= 0) {
           return alert(`Gold is required and must be greater than 0 for Casting REC voucher ${i + 1}`);
         }
@@ -478,8 +508,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
-        // Include rate for Casting REC vouchers (can be 0)
-        if (shouldShowCastingFields(form) && form.rate !== undefined) {
+        // Include rate for Casting vouchers (can be 0)
+        if (shouldShowCastingCalculation(form) && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
@@ -626,7 +656,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     ? "sm:grid-cols-2 lg:grid-cols-4" 
                     : form.vt === "GFV"
                     ? "sm:grid-cols-2 lg:grid-cols-3"
-                    : shouldShowFacetingFields(form) || shouldShowCastingFields(form)
+                    : shouldShowFacetingFields(form) || shouldShowCastingCalculation(form)
                     ? "sm:grid-cols-2 lg:grid-cols-4"
                     : "sm:grid-cols-2 lg:grid-cols-4"
                 } gap-4 mb-4`}>
@@ -715,7 +745,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     />
                   </div>
 
-                  {/* KWD Field - Show only for non-GFV vouchers */}
+                  {/* KWD Field - Show for all non-GFV vouchers */}
                   {form.vt !== "GFV" && (
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
@@ -724,10 +754,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="0.00"
                         step="0.01"
                         value={form.kwd}
-                        readOnly={shouldShowFacetingFields(form) || shouldShowCastingFields(form)}
+                        readOnly={shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")}
                         onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
                         className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                          (shouldShowFacetingFields(form) || shouldShowCastingFields(form)) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                          (shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
                         }`}
                       />
                     </div>
@@ -797,7 +827,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           onChange={(e) => updateVoucherForm(index, 'quantity', parseInt(e.target.value) || 0)}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Number of pieces</p>
                       </div>
 
                       <div>
@@ -837,24 +866,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   </div>
                 )}
 
-                {/* Casting Section - Only for Casting REC */}
-                {shouldShowCastingFields(form) && (
+                {/* Casting Section - For Casting INV and REC */}
+                {shouldShowCastingCalculation(form) && (
                   <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-orange-800 mb-3">Casting Calculation</h4>
+                    <h4 className="text-sm font-medium text-orange-800 mb-3">
+                      {form.vt === "INV" ? "Casting Invoice Calculation" : "Casting Calculation"}
+                    </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Gold *</label>
-                        <input
-                          type="number"
-                          placeholder="0.00"
-                          step="0.01"
-                          min="0"
-                          value={form.gold}
-                          onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-                        />
-                      </div>
-
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
                         <input
