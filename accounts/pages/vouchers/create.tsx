@@ -97,7 +97,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Faceting" && form.vt === "REC";
   };
 
-  // Check if should show faceting description dropdown
+  // Check if should show faceting description quick select
   const shouldShowFacetingDescription = () => {
     return selectedType === "Faceting";
   };
@@ -118,11 +118,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const calculateKwdForFaceting = (quantity: number | undefined, rate: number | undefined): number => {
     if (!quantity || quantity <= 0 || !rate || rate < 0) return 0;
     return quantity * rate;
-  };
-
-  // Get default rate based on description
-  const getDefaultRateForDescription = (description: string | undefined): number => {
-    return description === "Gold Powder" ? 0 : 0.25;
   };
 
   // Reset account when type changes
@@ -261,7 +256,28 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle rate selection from dropdown
+  // Handle description selection from quick select
+  const handleDescriptionSelect = (index: number, value: string) => {
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        const updatedForm = { ...form, description: value };
+        
+        // Automatically set rate to 0 if Gold Powder is selected
+        if (value === "Gold Powder") {
+          updatedForm.rate = 0;
+          // Recalculate KWD if quantity exists
+          if (updatedForm.quantity) {
+            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, 0);
+          }
+        }
+        
+        return updatedForm;
+      }
+      return form;
+    }));
+  };
+
+  // Handle rate selection from quick select
   const handleRateSelect = (index: number, value: number) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -536,34 +552,38 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   ) : (
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Description *</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Enter description"
-                          value={form.description || ""}
-                          onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
-                          list={shouldShowFacetingDescription() ? `description-options-${index}` : undefined}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors pr-10"
-                        />
-                        {shouldShowFacetingDescription() && (
-                          <>
-                            <datalist id={`description-options-${index}`}>
-                              {facetingDescriptions.map((desc) => (
-                                <option key={desc} value={desc} />
-                              ))}
-                            </datalist>
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-2">
-                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      <input
+                        type="text"
+                        placeholder="Enter description"
+                        value={form.description || ""}
+                        onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      />
+                      
+                      {/* Description Quick Select for Faceting */}
                       {shouldShowFacetingDescription() && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Selecting "Gold Powder" will automatically set rate to 0
-                        </p>
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
+                          <div className="flex flex-wrap gap-2">
+                            {facetingDescriptions.map((desc) => (
+                              <button
+                                key={desc}
+                                type="button"
+                                onClick={() => handleDescriptionSelect(index, desc)}
+                                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                  form.description === desc
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                                }`}
+                              >
+                                {desc}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Selecting "Gold Powder" will automatically set rate to 0
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
@@ -683,30 +703,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.001"
-                            min="0"
-                            value={form.rate !== undefined ? form.rate : 0.25}
-                            onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                            list={`rate-options-${index}`}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors pr-10"
-                          />
-                          <datalist id={`rate-options-${index}`}>
-                            {predefinedRates.map((rate) => (
-                              <option key={rate} value={rate} />
-                            ))}
-                          </datalist>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.001"
+                          min="0"
+                          value={form.rate !== undefined ? form.rate : 0.25}
+                          onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                        />
                         <p className="text-xs text-gray-500 mt-1">
-                          Select from common rates or type custom rate (0 is allowed)
+                          Type custom rate (0 is allowed)
                         </p>
                       </div>
                     </div>
