@@ -73,6 +73,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const castingInvDescriptions = ["Gold", "Scrap", "Casting Return", "Payment of"];
   const castingRecDescriptions = ["Casting", "Scrap"];
 
+  // Predefined descriptions for Gold Fixing
+  const goldFixingGFVDescriptions = ["Gold Fixing @"];
+  const goldFixingRecDescriptions = ["Gold"];
+  const goldFixingInvDescriptions = ["Cash", "K-Net"];
+
   // Predefined rates for Casting
   const castingRates = [0, 0.08];
 
@@ -119,6 +124,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Casting";
   };
 
+  // Check if should show gold fixing description quick select
+  const shouldShowGoldFixingDescription = () => {
+    return selectedType === "Gold Fixing";
+  };
+
   // Get available descriptions based on account type and voucher type
   const getAvailableDescriptions = (vt: string) => {
     if (selectedType === "Faceting") {
@@ -132,6 +142,16 @@ export default function CreateVouchersPage({ accounts }: Props) {
         return castingInvDescriptions;
       }
       return castingRecDescriptions; // For REC, show Casting and Scrap only
+    } else if (selectedType === "Gold Fixing") {
+      if (vt === "GFV") {
+        return goldFixingGFVDescriptions;
+      } else if (vt === "REC") {
+        return goldFixingRecDescriptions;
+      } else if (vt === "INV") {
+        return goldFixingInvDescriptions;
+      }
+      // When no voucher type is selected, show all descriptions
+      return [...goldFixingGFVDescriptions, ...goldFixingRecDescriptions, ...goldFixingInvDescriptions];
     }
     return [];
   };
@@ -692,8 +712,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                       
-                      {/* Description Quick Select for Faceting and Casting */}
-                      {(shouldShowFacetingDescription() || shouldShowCastingDescription()) && (
+                      {/* Description Quick Select for Faceting, Casting, and Gold Fixing */}
+                      {(shouldShowFacetingDescription() || shouldShowCastingDescription() || shouldShowGoldFixingDescription()) && (
                         <div className="mt-2">
                           <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
                           <div className="flex flex-wrap gap-2">
