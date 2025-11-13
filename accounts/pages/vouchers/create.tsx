@@ -63,8 +63,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Predefined rates for faceting
-  const predefinedRates = [0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
+  // Predefined rates for faceting - including 0 as requested
+  const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
   
   // Predefined descriptions for faceting
   const facetingDescriptions = ["Bangles", "Kids Bangles", "Gold Powder"];
@@ -116,8 +116,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   // Calculate KWD for Faceting REC vouchers
   const calculateKwdForFaceting = (quantity: number | undefined, rate: number | undefined): number => {
-    if (!quantity || !rate || quantity <= 0 || rate <= 0) return 0;
+    if (!quantity || quantity <= 0 || !rate || rate < 0) return 0;
     return quantity * rate;
+  };
+
+  // Get default rate based on description
+  const getDefaultRateForDescription = (description: string | undefined): number => {
+    return description === "Gold Powder" ? 0 : 0.25;
   };
 
   // Reset account when type changes
@@ -184,6 +189,15 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
+        // Handle description change - set rate to 0 if Gold Powder is selected
+        if (field === 'description' && value === "Gold Powder") {
+          updatedForm.rate = 0;
+          // Recalculate KWD if quantity exists
+          if (updatedForm.quantity) {
+            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, 0);
+          }
+        }
+        
         // Handle GFV voucher calculations
         if (updatedForm.vt === "GFV") {
           if (field === 'gold' || field === 'goldRate') {
@@ -247,16 +261,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle description selection from dropdown
-  const handleDescriptionSelect = (index: number, value: string) => {
-    setVoucherForms(forms => forms.map((form, i) => {
-      if (i === index) {
-        return { ...form, description: value };
-      }
-      return form;
-    }));
-  };
-
   // Handle rate selection from dropdown
   const handleRateSelect = (index: number, value: number) => {
     setVoucherForms(forms => forms.map((form, i) => {
@@ -264,8 +268,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         const updatedForm = { ...form, rate: value };
         
         // Recalculate KWD if quantity exists
-        if (updatedForm.quantity && updatedForm.rate) {
-          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, updatedForm.rate);
+        if (updatedForm.quantity !== undefined) {
+          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
         }
         
         return updatedForm;
@@ -303,8 +307,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         if (!form.quantity || form.quantity <= 0) {
           return alert(`Quantity is required and must be greater than 0 for Faceting REC voucher ${i + 1}`);
         }
-        if (!form.rate || form.rate <= 0) {
-          return alert(`Rate is required and must be greater than 0 for Faceting REC voucher ${i + 1}`);
+        if (form.rate === undefined || form.rate < 0) {
+          return alert(`Rate is required and must be non-negative for Faceting REC voucher ${i + 1}`);
         }
       }
 
@@ -354,6 +358,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
         // Include quantity for Faceting REC vouchers
         if (shouldShowFacetingFields(form) && form.quantity) {
           baseVoucher.quantity = parseInt(form.quantity.toString()) || 0;
+        }
+
+        // Include rate for Faceting REC vouchers (can be 0)
+        if (shouldShowFacetingFields(form) && form.rate !== undefined) {
+          baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
         // Include cheque details if payment method is cheque
@@ -553,7 +562,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
                       {shouldShowFacetingDescription() && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Select from dropdown or type custom description
+                          Selecting "Gold Powder" will automatically set rate to 0
                         </p>
                       )}
                     </div>
@@ -680,7 +689,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             placeholder="0.00"
                             step="0.001"
                             min="0"
-                            value={form.rate || 0.25}
+                            value={form.rate !== undefined ? form.rate : 0.25}
                             onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
                             list={`rate-options-${index}`}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors pr-10"
@@ -697,7 +706,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          Select from common rates or type custom rate
+                          Select from common rates or type custom rate (0 is allowed)
                         </p>
                       </div>
                     </div>
@@ -727,7 +736,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     <div className="mt-3 p-3 bg-white rounded-lg border border-purple-100">
                       <div className="text-xs text-gray-600 mb-1">Calculation:</div>
                       <div className="text-sm font-medium text-purple-700">
-                        {form.quantity && form.rate ? (
+                        {form.quantity && form.rate !== undefined ? (
                           <>
                             {form.quantity} × {form.rate.toFixed(3)} = {form.kwd.toFixed(3)} KWD
                           </>
