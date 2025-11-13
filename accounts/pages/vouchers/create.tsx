@@ -27,6 +27,8 @@ type VoucherForm = {
   chequeNo?: string;
   chequeDate?: string;
   chequeAmount?: number;
+  quantity?: number; // New field for faceting
+  rate?: number;     // New field for faceting
 };
 
 type Props = {
@@ -84,6 +86,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Market" && form.vt === "REC";
   };
 
+  // Check if should show faceting quantity and rate section
+  const shouldShowFacetingFields = (form: VoucherForm) => {
+    return selectedType === "Faceting" && form.vt === "REC";
+  };
+
   // Calculate fixing amount
   const calculateFixingAmount = (gold: number, goldRate: number | undefined): number => {
     if (!goldRate || goldRate <= 0) return 0;
@@ -94,6 +101,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const calculateKwdForGFV = (gold: number, goldRate: number | undefined): number => {
     if (!goldRate || goldRate <= 0) return 0;
     return gold * goldRate;
+  };
+
+  // Calculate KWD for Faceting REC vouchers
+  const calculateKwdForFaceting = (quantity: number | undefined, rate: number | undefined): number => {
+    if (!quantity || !rate || quantity <= 0 || rate <= 0) return 0;
+    return quantity * rate;
   };
 
   // Reset account when type changes
@@ -113,7 +126,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
       branch: "",
       chequeNo: "",
       chequeDate: "",
-      chequeAmount: 0
+      chequeAmount: 0,
+      quantity: undefined, // Reset faceting fields
+      rate: undefined      // Reset faceting fields
     })));
   }, [selectedType]);
 
@@ -139,7 +154,9 @@ const addVoucherForm = () => {
       paymentMethod: 'cash',
       isGoldFixing: false,
       goldRate: undefined,
-      fixingAmount: 0
+      fixingAmount: 0,
+      quantity: undefined,
+      rate: undefined
     }
   ]);
 };
@@ -180,6 +197,17 @@ const addVoucherForm = () => {
             if (updatedForm.paymentMethod === 'cheque') {
               updatedForm.chequeAmount = calculatedFixingAmount;
             }
+          }
+        }
+
+        // Handle Faceting calculations
+        if (shouldShowFacetingFields(updatedForm)) {
+          if (field === 'quantity' || field === 'rate') {
+            const calculatedKwd = calculateKwdForFaceting(
+              field === 'quantity' ? value : updatedForm.quantity,
+              field === 'rate' ? value : updatedForm.rate
+            );
+            updatedForm.kwd = calculatedKwd;
           }
         }
 
@@ -232,6 +260,16 @@ const addVoucherForm = () => {
         return alert(`Gold Rate is required when Gold Fixing is checked for voucher ${i + 1}`);
       }
 
+      // Additional validation for Faceting REC vouchers
+      if (shouldShowFacetingFields(form)) {
+        if (!form.quantity || form.quantity <= 0) {
+          return alert(`Quantity is required and must be greater than 0 for Faceting REC voucher ${i + 1}`);
+        }
+        if (!form.rate || form.rate <= 0) {
+          return alert(`Rate is required and must be greater than 0 for Faceting REC voucher ${i + 1}`);
+        }
+      }
+
       // Validation for cheque payments
       if (form.paymentMethod === 'cheque') {
         if (!form.bankName?.trim() || !form.branch?.trim() || !form.chequeNo?.trim() || !form.chequeDate) {
@@ -273,6 +311,11 @@ const addVoucherForm = () => {
         // Include fixing amount when Gold Fixing is checked
         if (shouldShowGoldFixing(form) && form.isGoldFixing && form.fixingAmount) {
           baseVoucher.fixingAmount = parseFloat(form.fixingAmount.toString()) || 0;
+        }
+
+        // Include quantity for Faceting REC vouchers
+        if (shouldShowFacetingFields(form) && form.quantity) {
+          baseVoucher.quantity = parseInt(form.quantity.toString()) || 0;
         }
 
         // Include cheque details if payment method is cheque
@@ -418,6 +461,8 @@ const addVoucherForm = () => {
                     ? "sm:grid-cols-2 lg:grid-cols-4" 
                     : form.vt === "GFV"
                     ? "sm:grid-cols-2 lg:grid-cols-3"
+                    : shouldShowFacetingFields(form)
+                    ? "sm:grid-cols-2 lg:grid-cols-4"
                     : "sm:grid-cols-2 lg:grid-cols-4"
                 } gap-4 mb-4`}>
                   <div>
@@ -491,8 +536,11 @@ const addVoucherForm = () => {
                         placeholder="0.00"
                         step="0.01"
                         value={form.kwd}
+                        readOnly={shouldShowFacetingFields(form)} // Read-only for faceting REC
                         onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                          shouldShowFacetingFields(form) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                        }`}
                       />
                     </div>
                   )}
@@ -543,6 +591,55 @@ const addVoucherForm = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Faceting Section - Only for Faceting REC */}
+                {shouldShowFacetingFields(form) && (
+                  <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-purple-800 mb-3">Faceting Calculation</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Quantity *</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          min="1"
+                          value={form.quantity || ""}
+                          onChange={(e) => updateVoucherForm(index, 'quantity', parseInt(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Number of pieces</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.001"
+                          min="0"
+                          value={form.rate || ""}
+                          onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Rate per piece (KWD)</p>
+                      </div>
+                    </div>
+                    
+                    {/* Calculation Display */}
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-purple-100">
+                      <div className="text-xs text-gray-600 mb-1">Calculation:</div>
+                      <div className="text-sm font-medium text-purple-700">
+                        {form.quantity && form.rate ? (
+                          <>
+                            {form.quantity} × {form.rate.toFixed(3)} = {form.kwd.toFixed(3)} KWD
+                          </>
+                        ) : (
+                          "Enter quantity and rate to calculate KWD"
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
