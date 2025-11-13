@@ -102,6 +102,28 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Faceting";
   };
 
+  // Get available descriptions based on voucher type
+  const getAvailableDescriptions = (vt: string) => {
+    if (vt === "INV") {
+      return ["Bangles", "Kids Bangles"];
+    }
+    return facetingDescriptions; // For REC and other types, show all
+  };
+
+  // Get default rate based on description
+  const getDefaultRateForDescription = (description: string): number => {
+    switch (description) {
+      case "Bangles":
+        return 0.25;
+      case "Kids Bangles":
+        return 0.2;
+      case "Gold Powder":
+        return 0;
+      default:
+        return 0.25;
+    }
+  };
+
   // Calculate fixing amount
   const calculateFixingAmount = (gold: number, goldRate: number | undefined): number => {
     if (!goldRate || goldRate <= 0) return 0;
@@ -184,12 +206,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
-        // Handle description change - set rate to 0 if Gold Powder is selected
-        if (field === 'description' && value === "Gold Powder") {
-          updatedForm.rate = 0;
+        // Handle description change - set rate based on description
+        if (field === 'description' && value) {
+          const defaultRate = getDefaultRateForDescription(value);
+          updatedForm.rate = defaultRate;
           // Recalculate KWD if quantity exists
           if (updatedForm.quantity) {
-            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, 0);
+            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
           }
         }
         
@@ -260,15 +283,16 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
-        const updatedForm = { ...form, description: value };
+        const defaultRate = getDefaultRateForDescription(value);
+        const updatedForm = { 
+          ...form, 
+          description: value,
+          rate: defaultRate
+        };
         
-        // Automatically set rate to 0 if Gold Powder is selected
-        if (value === "Gold Powder") {
-          updatedForm.rate = 0;
-          // Recalculate KWD if quantity exists
-          if (updatedForm.quantity) {
-            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, 0);
-          }
+        // Recalculate KWD if quantity exists
+        if (updatedForm.quantity) {
+          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
         }
         
         return updatedForm;
@@ -565,7 +589,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         <div className="mt-2">
                           <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
                           <div className="flex flex-wrap gap-2">
-                            {facetingDescriptions.map((desc) => (
+                            {getAvailableDescriptions(form.vt).map((desc) => (
                               <button
                                 key={desc}
                                 type="button"
@@ -580,9 +604,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               </button>
                             ))}
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Selecting "Gold Powder" will automatically set rate to 0
-                          </p>
                         </div>
                       )}
                     </div>
