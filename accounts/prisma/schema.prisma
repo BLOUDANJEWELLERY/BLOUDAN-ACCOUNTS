@@ -35,6 +35,7 @@ model Voucher {
   kwd            Float
   goldRate       Float?       // Optional
 
+	quantity       Int?         // Optional whole number
   // Optional monetary and banking details
   paymentMethod  String?      // Optional: "cash", "cheque", "transfer", etc.
 	fixingAmount   Float?
