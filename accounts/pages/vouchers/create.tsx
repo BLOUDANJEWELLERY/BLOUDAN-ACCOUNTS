@@ -63,28 +63,34 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Prevent zooming on keyboard interactions and pinch-to-zoom
+  // Prevent zooming on keyboard interactions and pinch-to-zoom without affecting scrolling
   useEffect(() => {
-    const preventZoom = (e: WheelEvent | TouchEvent) => {
-      if (e.ctrlKey || (e as WheelEvent).deltaY % 1 !== 0) {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
         e.preventDefault();
       }
     };
 
-    const preventKeyZoom = (e: KeyboardEvent) => {
-      if ((e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) || e.key === '0') {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) {
         e.preventDefault();
       }
     };
 
-    document.addEventListener('wheel', preventZoom, { passive: false });
-    document.addEventListener('touchmove', preventZoom, { passive: false });
-    document.addEventListener('keydown', preventKeyZoom);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
-      document.removeEventListener('wheel', preventZoom);
-      document.removeEventListener('touchmove', preventZoom);
-      document.removeEventListener('keydown', preventKeyZoom);
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('touchmove', handleTouchMove);
     };
   }, []);
 
@@ -681,9 +687,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Viewport meta tag for preventing zoom */}
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
