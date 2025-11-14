@@ -82,6 +82,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Predefined rates for Casting
   const castingRates = [0, 0.08];
 
+  // Predefined bank names
+  const bankNames = ["Al-Ahli", "NBK", "CBK", "Gulf Bank"];
+
+  // Predefined branch names
+  const branchNames = ["Hawalli", "Farwaniya", "Jabriya"];
+
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
   // Get available voucher types based on account type
@@ -312,7 +318,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         
         // Handle description change - set rate based on description
         if (field === 'description' && value) {
-          const defaultRate = getDefaultRateForDescription(value, updatedForm.vt);
+          const defaultVoucherType = getDefaultVoucherType(value, selectedType);
+          const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
           updatedForm.rate = defaultRate;
           
           // Recalculate KWD based on account type
@@ -456,6 +463,26 @@ export default function CreateVouchersPage({ accounts }: Props) {
         }
         
         return updatedForm;
+      }
+      return form;
+    }));
+  };
+
+  // Handle bank name selection from quick select
+  const handleBankNameSelect = (index: number, value: string) => {
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        return { ...form, bankName: value };
+      }
+      return form;
+    }));
+  };
+
+  // Handle branch selection from quick select
+  const handleBranchSelect = (index: number, value: string) => {
+    setVoucherForms(forms => forms.map((form, i) => {
+      if (i === index) {
+        return { ...form, branch: value };
       }
       return form;
     }));
@@ -1043,6 +1070,27 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             onChange={(e) => updateVoucherForm(index, 'bankName', e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           />
+                          
+                          {/* Bank Name Quick Select */}
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Banks:</label>
+                            <div className="flex flex-wrap gap-2">
+                              {bankNames.map((bank) => (
+                                <button
+                                  key={bank}
+                                  type="button"
+                                  onClick={() => handleBankNameSelect(index, bank)}
+                                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                    form.bankName === bank
+                                      ? 'bg-green-600 text-white border-green-600'
+                                      : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+                                  }`}
+                                >
+                                  {bank}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
 
                         <div>
@@ -1054,6 +1102,27 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             onChange={(e) => updateVoucherForm(index, 'branch', e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           />
+                          
+                          {/* Branch Quick Select */}
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Branches:</label>
+                            <div className="flex flex-wrap gap-2">
+                              {branchNames.map((branch) => (
+                                <button
+                                  key={branch}
+                                  type="button"
+                                  onClick={() => handleBranchSelect(index, branch)}
+                                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                                    form.branch === branch
+                                      ? 'bg-green-600 text-white border-green-600'
+                                      : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+                                  }`}
+                                >
+                                  {branch}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
 
                         <div>
