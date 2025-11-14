@@ -83,6 +83,28 @@ export default function CreateVouchersPage({ accounts }: Props) {
       }
     };
 
+    // Prevent zoom on input focus for mobile devices
+    const preventZoomOnFocus = () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+    };
+
+    const restoreViewport = () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      }
+    };
+
+    // Add event listeners to all input elements
+    const inputs = document.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+      input.addEventListener('focus', preventZoomOnFocus);
+      input.addEventListener('blur', restoreViewport);
+    });
+
     document.addEventListener('wheel', handleWheel, { passive: false });
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -91,8 +113,44 @@ export default function CreateVouchersPage({ accounts }: Props) {
       document.removeEventListener('wheel', handleWheel);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('touchmove', handleTouchMove);
+      
+      // Clean up input event listeners
+      inputs.forEach(input => {
+        input.removeEventListener('focus', preventZoomOnFocus);
+        input.removeEventListener('blur', restoreViewport);
+      });
     };
   }, []);
+
+  // Update input event listeners when forms change
+  useEffect(() => {
+    const preventZoomOnFocus = () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+    };
+
+    const restoreViewport = () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      }
+    };
+
+    const inputs = document.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+      input.addEventListener('focus', preventZoomOnFocus);
+      input.addEventListener('blur', restoreViewport);
+    });
+
+    return () => {
+      inputs.forEach(input => {
+        input.removeEventListener('focus', preventZoomOnFocus);
+        input.removeEventListener('blur', restoreViewport);
+      });
+    };
+  }, [voucherForms, selectedType, selectedAccountId]);
 
   // Predefined rates for faceting - including 0 as requested
   const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
@@ -687,6 +745,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Add viewport meta tag to control zoom behavior */}
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -726,7 +787,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
               >
                 <option value="">Select Account Type</option>
                 {[...new Set(accounts.map((a) => a.type))].map((t) => (
@@ -742,7 +803,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
               <select
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed text-base"
                 disabled={!selectedType}
               >
                 <option value="">Select Account</option>
@@ -791,7 +852,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       type="date"
                       value={form.date}
                       onChange={(e) => updateVoucherForm(index, 'date', e.target.value)}
-                      className="w-full min-w-[140px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full min-w-[140px] border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                     />
                   </div>
 
@@ -803,7 +864,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="Enter MVN"
                         value={form.mvn || ""}
                         onChange={(e) => updateVoucherForm(index, 'mvn', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                       />
                     </div>
                   ) : (
@@ -814,7 +875,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         placeholder="Enter description"
                         value={form.description || ""}
                         onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                       />
                       
                       {/* Description Quick Select for Project, Faceting, Casting, and Gold Fixing */}
@@ -847,7 +908,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     <select
                       value={form.vt}
                       onChange={(e) => updateVoucherForm(index, 'vt', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                     >
                       <option value="">Select Type</option>
                       {getVoucherTypes().map((voucherType) => (
@@ -866,7 +927,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       step="0.01"
                       value={form.gold}
                       onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                     />
                   </div>
 
@@ -881,7 +942,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         value={form.kwd}
                         readOnly={shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")}
                         onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
                           (shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
                         }`}
                       />
@@ -916,7 +977,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             min="0"
                             value={form.goldRate || ""}
                             onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                         </div>
 
@@ -928,7 +989,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             step="0.01"
                             value={form.fixingAmount || 0}
                             readOnly
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                           />
                           <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                         </div>
@@ -950,7 +1011,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           min="1"
                           value={form.quantity || ""}
                           onChange={(e) => updateVoucherForm(index, 'quantity', parseInt(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
                         />
                       </div>
 
@@ -963,7 +1024,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           min="0"
                           value={form.rate !== undefined ? form.rate : 0.25}
                           onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
                         />
                       </div>
                     </div>
@@ -1007,7 +1068,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           min="0"
                           value={form.rate !== undefined ? form.rate : 0}
                           onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors text-base"
                         />
                       </div>
                     </div>
@@ -1050,7 +1111,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           min="0"
                           value={form.goldRate || ""}
                           onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                         />
                       </div>
 
@@ -1069,7 +1130,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           step="0.01"
                           value={form.kwd}
                           readOnly
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                         />
                         <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                       </div>
@@ -1116,7 +1177,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             placeholder="Enter bank name"
                             value={form.bankName || ""}
                             onChange={(e) => updateVoucherForm(index, 'bankName', e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                           
                           {/* Bank Name Quick Select */}
@@ -1148,7 +1209,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             placeholder="Enter branch"
                             value={form.branch || ""}
                             onChange={(e) => updateVoucherForm(index, 'branch', e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                           
                           {/* Branch Quick Select */}
@@ -1180,7 +1241,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             placeholder="Enter cheque number"
                             value={form.chequeNo || ""}
                             onChange={(e) => updateVoucherForm(index, 'chequeNo', e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                         </div>
 
@@ -1190,7 +1251,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             type="date"
                             value={form.chequeDate || ""}
                             onChange={(e) => updateVoucherForm(index, 'chequeDate', e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                         </div>
 
@@ -1202,7 +1263,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             step="0.01"
                             value={form.chequeAmount || 0}
                             readOnly
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                           />
                           <p className="text-xs text-gray-500 mt-1">Same as Fixing Amount</p>
                         </div>
