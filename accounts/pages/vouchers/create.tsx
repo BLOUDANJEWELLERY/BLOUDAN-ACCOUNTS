@@ -70,7 +70,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const facetingDescriptions = ["Bangles", "Kids Bangles", "Gold Powder"];
 
   // Predefined descriptions for Casting
-  const castingInvDescriptions = ["Gold", "Scrap", "Casting Return", "Payment of"];
+  const castingAllDescriptions = ["Gold", "Scrap", "Casting", "Casting Return", "Payment of"];
+  const castingInvDescriptions = ["Gold", "Casting Return", "Payment of"];
   const castingRecDescriptions = ["Casting", "Scrap"];
 
   // Predefined descriptions for Gold Fixing
@@ -97,6 +98,30 @@ export default function CreateVouchersPage({ accounts }: Props) {
         { value: "REC", label: "REC (Receipt)" }
       ];
     }
+  };
+
+  // Get default voucher type based on description and account type
+  const getDefaultVoucherType = (description: string, accountType: string): string => {
+    if (accountType === "Casting") {
+      if (["Gold", "Casting Return", "Payment of"].includes(description)) {
+        return "INV";
+      } else if (["Casting", "Scrap"].includes(description)) {
+        return "REC";
+      }
+    } else if (accountType === "Faceting") {
+      if (description === "Gold Powder") {
+        return "REC";
+      }
+    } else if (accountType === "Gold Fixing") {
+      if (description === "Gold Fixing @") {
+        return "GFV";
+      } else if (description === "Gold") {
+        return "REC";
+      } else if (["Cash", "K-Net"].includes(description)) {
+        return "INV";
+      }
+    }
+    return ""; // No default if no match
   };
 
   // Check if should show gold fixing section
@@ -137,8 +162,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
       }
       return facetingDescriptions; // For REC and other types, show all
     } else if (selectedType === "Casting") {
-      // When no voucher type is selected or for INV, show all four capsules
-      if (!vt || vt === "INV") {
+      // When no voucher type is selected, show all five descriptions
+      if (!vt) {
+        return castingAllDescriptions;
+      } else if (vt === "INV") {
         return castingInvDescriptions;
       }
       return castingRecDescriptions; // For REC, show Casting and Scrap only
@@ -385,10 +412,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
-        const defaultRate = getDefaultRateForDescription(value, form.vt);
+        const defaultVoucherType = getDefaultVoucherType(value, selectedType);
+        const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
+        
         const updatedForm = { 
           ...form, 
           description: value,
+          vt: defaultVoucherType || form.vt, // Only set if there's a default, otherwise keep current
           rate: defaultRate
         };
         
