@@ -63,10 +63,40 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Prevent zooming on keyboard interactions and pinch-to-zoom
+  useEffect(() => {
+    const preventZoom = (e: WheelEvent | TouchEvent) => {
+      if (e.ctrlKey || (e as WheelEvent).deltaY % 1 !== 0) {
+        e.preventDefault();
+      }
+    };
+
+    const preventKeyZoom = (e: KeyboardEvent) => {
+      if ((e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) || e.key === '0') {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('wheel', preventZoom, { passive: false });
+    document.addEventListener('touchmove', preventZoom, { passive: false });
+    document.addEventListener('keydown', preventKeyZoom);
+
+    return () => {
+      document.removeEventListener('wheel', preventZoom);
+      document.removeEventListener('touchmove', preventZoom);
+      document.removeEventListener('keydown', preventKeyZoom);
+    };
+  }, []);
+
   // Predefined rates for faceting - including 0 as requested
   const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
   
-  // Predefined descriptions for faceting
+  // Predefined descriptions for Project account type
+  const projectInvDescriptions = ["Reni", "KDM", "Gold", "Casting"];
+  const projectRecDescriptions = ["Bangles", "Kids Bangles", "Tanka", "Parchoon", "Sawan", "Casting Return", "Gold", "Reni"];
+  const projectAllDescriptions = [...new Set([...projectInvDescriptions, ...projectRecDescriptions])];
+
+  // Predefined descriptions for Faceting
   const facetingDescriptions = ["Bangles", "Kids Bangles", "Gold Powder"];
 
   // Predefined descriptions for Casting
@@ -108,7 +138,13 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   // Get default voucher type based on description and account type
   const getDefaultVoucherType = (description: string, accountType: string): string => {
-    if (accountType === "Casting") {
+    if (accountType === "Project") {
+      if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
+        return "REC";
+      } else if (["Gold", "KDM", "Casting"].includes(description)) {
+        return "INV";
+      }
+    } else if (accountType === "Casting") {
       if (["Gold", "Casting Return", "Payment of"].includes(description)) {
         return "INV";
       } else if (["Casting", "Scrap"].includes(description)) {
@@ -145,36 +181,36 @@ export default function CreateVouchersPage({ accounts }: Props) {
     return selectedType === "Casting" && (form.vt === "REC" || form.vt === "INV");
   };
 
-  // Check if should show faceting description quick select
-  const shouldShowFacetingDescription = () => {
-    return selectedType === "Faceting";
-  };
-
-  // Check if should show casting description quick select
-  const shouldShowCastingDescription = () => {
-    return selectedType === "Casting";
-  };
-
-  // Check if should show gold fixing description quick select
-  const shouldShowGoldFixingDescription = () => {
-    return selectedType === "Gold Fixing";
+  // Check if should show description quick select
+  const shouldShowDescriptionQuickSelect = () => {
+    return selectedType === "Project" || selectedType === "Faceting" || 
+           selectedType === "Casting" || selectedType === "Gold Fixing";
   };
 
   // Get available descriptions based on account type and voucher type
   const getAvailableDescriptions = (vt: string) => {
-    if (selectedType === "Faceting") {
+    if (selectedType === "Project") {
+      // When no voucher type is selected, show all descriptions
+      if (!vt) {
+        return projectAllDescriptions;
+      } else if (vt === "INV") {
+        return projectInvDescriptions;
+      } else if (vt === "REC") {
+        return projectRecDescriptions;
+      }
+      return projectAllDescriptions;
+    } else if (selectedType === "Faceting") {
       if (vt === "INV") {
         return ["Bangles", "Kids Bangles"];
       }
-      return facetingDescriptions; // For REC and other types, show all
+      return facetingDescriptions;
     } else if (selectedType === "Casting") {
-      // When no voucher type is selected, show all five descriptions
       if (!vt) {
         return castingAllDescriptions;
       } else if (vt === "INV") {
         return castingInvDescriptions;
       }
-      return castingRecDescriptions; // For REC, show Casting and Scrap only
+      return castingRecDescriptions;
     } else if (selectedType === "Gold Fixing") {
       if (vt === "GFV") {
         return goldFixingGFVDescriptions;
@@ -183,7 +219,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
       } else if (vt === "INV") {
         return goldFixingInvDescriptions;
       }
-      // When no voucher type is selected, show all descriptions
       return [...goldFixingGFVDescriptions, ...goldFixingRecDescriptions, ...goldFixingInvDescriptions];
     }
     return [];
@@ -191,7 +226,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   // Get default rate based on description and account type
   const getDefaultRateForDescription = (description: string, vt: string): number => {
-    if (selectedType === "Faceting") {
+    if (selectedType === "Project") {
+      // Default rate for Project account type
+      return 0;
+    } else if (selectedType === "Faceting") {
       switch (description) {
         case "Bangles":
           return 0.25;
@@ -203,7 +241,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
           return 0.25;
       }
     } else if (selectedType === "Casting") {
-      // For Casting INV, set default rate based on description
       if (vt === "INV") {
         switch (description) {
           case "Casting Return":
@@ -213,7 +250,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
             return 0;
         }
       }
-      // For Casting REC
       switch (description) {
         case "Casting":
           return 0.08;
@@ -270,7 +306,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       chequeAmount: 0,
       quantity: undefined,
       rate: selectedType === "Faceting" ? 0.25 : 
-            selectedType === "Casting" ? 0 : undefined // Set default rate based on type
+            selectedType === "Casting" ? 0 : 
+            selectedType === "Project" ? 0 : undefined
     })));
   }, [selectedType]);
 
@@ -284,7 +321,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   }, [selectedAccountId]);
 
-  // Set default rate when faceting is selected and form is added
+  // Set default rate when account type is selected and form is added
   const addVoucherForm = () => {
     setVoucherForms(forms => [
       ...forms,
@@ -300,7 +337,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         fixingAmount: 0,
         quantity: undefined,
         rate: selectedType === "Faceting" ? 0.25 : 
-              selectedType === "Casting" ? 0 : undefined // Set default rate for new forms
+              selectedType === "Casting" ? 0 : 
+              selectedType === "Project" ? 0 : undefined
       }
     ]);
   };
@@ -316,10 +354,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
-        // Handle description change - set rate based on description
+        // Handle description change - set voucher type and rate based on description
         if (field === 'description' && value) {
           const defaultVoucherType = getDefaultVoucherType(value, selectedType);
           const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
+          updatedForm.vt = defaultVoucherType || form.vt;
           updatedForm.rate = defaultRate;
           
           // Recalculate KWD based on account type
@@ -425,7 +464,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         const updatedForm = { 
           ...form, 
           description: value,
-          vt: defaultVoucherType || form.vt, // Only set if there's a default, otherwise keep current
+          vt: defaultVoucherType || form.vt,
           rate: defaultRate
         };
         
@@ -452,12 +491,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
         if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
         } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
-          // For Casting REC, auto-calculate KWD
           if (updatedForm.vt === "REC") {
             updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
-          }
-          // For Casting INV, auto-calculate but user can still manually override
-          else if (updatedForm.vt === "INV") {
+          } else if (updatedForm.vt === "INV") {
             updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
           }
         }
@@ -590,6 +626,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
+        // Include rate for Project vouchers (can be 0)
+        if (selectedType === "Project" && form.rate !== undefined) {
+          baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
+        }
+
         // Include cheque details if payment method is cheque
         if (form.paymentMethod === 'cheque') {
           baseVoucher.bankName = form.bankName;
@@ -640,6 +681,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Viewport meta tag for preventing zoom */}
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -737,13 +781,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     ? "sm:grid-cols-2 lg:grid-cols-4"
                     : "sm:grid-cols-2 lg:grid-cols-4"
                 } gap-4 mb-4`}>
-                  <div>
+                  {/* Date Field - Fixed width to prevent overflow */}
+                  <div className="min-w-[140px]">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
                     <input
                       type="date"
                       value={form.date}
                       onChange={(e) => updateVoucherForm(index, 'date', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full min-w-[140px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
                   </div>
 
@@ -769,8 +814,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       />
                       
-                      {/* Description Quick Select for Faceting, Casting, and Gold Fixing */}
-                      {(shouldShowFacetingDescription() || shouldShowCastingDescription() || shouldShowGoldFixingDescription()) && (
+                      {/* Description Quick Select for Project, Faceting, Casting, and Gold Fixing */}
+                      {shouldShowDescriptionQuickSelect() && (
                         <div className="mt-2">
                           <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
                           <div className="flex flex-wrap gap-2">
