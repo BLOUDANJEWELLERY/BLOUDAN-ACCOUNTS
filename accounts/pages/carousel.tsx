@@ -2,130 +2,86 @@ import { useEffect, useRef, useState } from "react";
 
 export default function TestCarousel() {
   const carouselRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [cards, setCards] = useState<string[]>([]);
 
-  const updateActive = () => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-
-    const cards = Array.from(carousel.children) as HTMLElement[];
-    const center = window.innerWidth / 2;
-
-    let closestIndex = 0;
-    let closestDist = Infinity;
-
-    cards.forEach((card, index) => {
-      const rect = card.getBoundingClientRect();
-      const cardCenter = rect.left + rect.width / 2;
-      const dist = Math.abs(cardCenter - center);
-
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestIndex = index;
-      }
-    });
-
-    setActiveIndex(closestIndex);
-  };
+  const original = ["Customer", "Supplier", "Wholesaler", "Investor", "Internal"];
 
   useEffect(() => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-
-    let timeout: NodeJS.Timeout;
-
-    const onScroll = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(updateActive, 120);
-    };
-
-    carousel.addEventListener("scroll", onScroll);
-    updateActive();
-
-    return () => carousel.removeEventListener("scroll", onScroll);
+    // Duplicate array to fake infinite loop
+    setCards([...original, ...original]);
   }, []);
 
-  const accountTypes = [
-    { title: "Customer", desc: "For regular buyers and clients." },
-    { title: "Supplier", desc: "For vendors and gold traders." },
-    { title: "Wholesaler", desc: "For large-scale distribution." },
-    { title: "Investor", desc: "For high-volume gold holders." },
-    { title: "Internal", desc: "For staff and internal accounts." },
-  ];
+  useEffect(() => {
+    const container = carouselRef.current;
+    if (!container) return;
+
+    // start scrolling from middle (for seamless loop)
+    container.scrollLeft = container.scrollWidth / 2;
+  }, [cards]);
+
+  const handleScroll = () => {
+    const container = carouselRef.current;
+    if (!container) return;
+
+    const half = container.scrollWidth / 2;
+
+    // Adjust to maintain infinite loop illusion
+    if (container.scrollLeft <= 10) {
+      container.scrollLeft = half - 20;
+    } else if (container.scrollLeft >= half * 1.5) {
+      container.scrollLeft = half + 20;
+    }
+  };
 
   return (
     <div
       style={{
         background: "#f7f2e9",
         minHeight: "100vh",
-        margin: 0,
-        padding: 0,
+        padding: "30px 0",
+        display: "flex",
+        justifyContent: "center",
         fontFamily: "sans-serif",
       }}
     >
-      <h2
-        style={{
-          textAlign: "center",
-          marginTop: "25px",
-          color: "#5a3e1b",
-          fontWeight: 600,
-        }}
-      >
-        Select Account Type
-      </h2>
-
       <div
         ref={carouselRef}
+        onScroll={handleScroll}
         style={{
-          marginTop: "30px",
-          padding: "0 10px",
-          overflowX: "auto",
           display: "flex",
-          gap: "20px",
-          scrollSnapType: "x mandatory",
+          overflowX: "auto",
+          gap: "15px",
+          padding: "10px",
           scrollBehavior: "smooth",
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
         }}
       >
-        {accountTypes.map((item, index) => (
+        {/* hide scrollbar */}
+        <style>
+          {`
+            div::-webkit-scrollbar { display: none; }
+          `}
+        </style>
+
+        {cards.map((name, i) => (
           <div
-            key={index}
+            key={i}
             style={{
-              flex: "0 0 80%",
+              width: "110px",
+              height: "110px",
               background: "white",
               borderRadius: "12px",
-              padding: "25px",
-              border: activeIndex === index
-                ? "1px solid #d4a64d"
-                : "1px solid #d9c7a6",
-              scrollSnapAlign: "center",
-              textAlign: "center",
-              transform: activeIndex === index ? "scale(1.04)" : "scale(1)",
-              transition: "transform 0.25s ease, box-shadow 0.25s ease",
-              boxShadow:
-                activeIndex === index
-                  ? "0 6px 14px rgba(0,0,0,0.15)"
-                  : "none",
+              border: "1px solid #d4a64d",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              fontWeight: "700",
+              color: "#5a3e1b",
+              flexShrink: 0,
             }}
           >
-            <div
-              style={{
-                fontSize: "20px",
-                marginBottom: "10px",
-                color: "#5a3e1b",
-                fontWeight: 700,
-              }}
-            >
-              {item.title}
-            </div>
-            <div
-              style={{
-                fontSize: "15px",
-                color: "#7d674c",
-              }}
-            >
-              {item.desc}
-            </div>
+            {name}
           </div>
         ))}
       </div>
