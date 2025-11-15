@@ -1,15 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 
+// Define types for the card position
+interface CardPosition {
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+  zIndex: number;
+  opacity: number;
+}
+
 export default function WheelCarousel() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const autoPlayRef = useRef(null);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
+  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
-  const cards = [1, 2, 3, 4, 5];
+  const cards: number[] = [1, 2, 3, 4, 5];
 
-  // Calculate positions for wheel arrangement
-  const getCardPosition = (index, total = cards.length) => {
+  // Calculate positions for wheel arrangement with proper typing
+  const getCardPosition = (index: number, total: number = cards.length): CardPosition => {
     const angle = (index * 360) / total;
     const radius = 120; // Distance from center
     const radian = (angle * Math.PI) / 180;
@@ -18,11 +28,18 @@ export default function WheelCarousel() {
       x: Math.sin(radian) * radius,
       y: -Math.cos(radian) * radius,
       rotation: angle,
-      scale: index === currentIndex % total ? 1.2 : 0.9,
-      zIndex: index === currentIndex % total ? 10 : 1,
-      opacity: index === currentIndex % total ? 1 : 0.7
+      scale: index === 2 ? 1.2 : 0.9, // Center card is at index 2 in displayedCards
+      zIndex: index === 2 ? 10 : 1,
+      opacity: index === 2 ? 1 : 0.7
     };
   };
+
+  // Define type for displayed cards
+  interface DisplayedCard {
+    number: number;
+    position: CardPosition;
+    key: string;
+  }
 
   // Auto-play functionality
   useEffect(() => {
@@ -31,14 +48,20 @@ export default function WheelCarousel() {
         setCurrentIndex(prev => prev + 1);
       }, 2000);
     } else {
-      clearInterval(autoPlayRef.current);
+      if (autoPlayRef.current) {
+        clearInterval(autoPlayRef.current);
+      }
     }
 
-    return () => clearInterval(autoPlayRef.current);
+    return () => {
+      if (autoPlayRef.current) {
+        clearInterval(autoPlayRef.current);
+      }
+    };
   }, [isAutoPlaying]);
 
   // Handle manual navigation
-  const navigate = (direction) => {
+  const navigate = (direction: number): void => {
     setIsAutoPlaying(false);
     setCurrentIndex(prev => prev + direction);
   };
@@ -51,8 +74,8 @@ export default function WheelCarousel() {
     return () => clearTimeout(timer);
   }, [currentIndex]);
 
-  const displayedCards = [];
-  const totalCards = cards.length;
+  const displayedCards: DisplayedCard[] = [];
+  const totalCards: number = cards.length;
 
   // Create infinite loop by displaying multiple sets
   for (let i = -2; i <= 2; i++) {
@@ -120,6 +143,7 @@ export default function WheelCarousel() {
           <button
             onClick={() => navigate(-1)}
             className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+            aria-label="Previous card"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -129,6 +153,7 @@ export default function WheelCarousel() {
           <button
             onClick={() => setIsAutoPlaying(!isAutoPlaying)}
             className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+            aria-label={isAutoPlaying ? "Pause auto-play" : "Start auto-play"}
           >
             {isAutoPlaying ? (
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,6 +170,7 @@ export default function WheelCarousel() {
           <button
             onClick={() => navigate(1)}
             className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+            aria-label="Next card"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -166,6 +192,7 @@ export default function WheelCarousel() {
                   ? 'bg-white w-8' 
                   : 'bg-white/50'
               }`}
+              aria-label={`Go to card ${index + 1}`}
             />
           ))}
         </div>
