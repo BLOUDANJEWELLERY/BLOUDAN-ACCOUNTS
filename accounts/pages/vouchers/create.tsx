@@ -928,64 +928,53 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     )}
                   </div>
                   
-                  {/* Basic Voucher Fields */}
-                  <div className={`grid grid-cols-1 ${
-                    shouldShowGoldFixing(form) && form.isGoldFixing 
-                      ? "sm:grid-cols-2 lg:grid-cols-4" 
-                      : form.vt === "GFV"
-                      ? "sm:grid-cols-2 lg:grid-cols-3"
-                      : shouldShowFacetingFields(form) || shouldShowCastingCalculation(form)
-                      ? "sm:grid-cols-2 lg:grid-cols-4"
-                      : "sm:grid-cols-2 lg:grid-cols-4"
-                  } gap-4 mb-4`}>
-                    {/* Date Field - Fixed width to prevent overflow */}
-                    <div className="min-w-[140px]">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
+                  {/* Basic Voucher Fields - One field per row */}
+                  <div className="space-y-4 mb-4">
+                    {/* Date Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
                       <input
                         type="date"
                         value={form.date}
                         onChange={(e) => updateVoucherForm(index, 'date', e.target.value)}
-                        className="w-full min-w-[140px] border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                       />
                     </div>
 
+                    {/* MVN or Description Field */}
                     {selectedType === "Market" ? (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Manual Voucher No *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Manual Voucher No *</label>
                         <input
                           type="text"
                           placeholder="Enter MVN"
                           value={form.mvn || ""}
                           onChange={(e) => updateVoucherForm(index, 'mvn', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                         />
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Description *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                         <input
                           type="text"
                           placeholder="Enter description"
                           value={form.description || ""}
                           onChange={(e) => updateVoucherForm(index, 'description', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                         />
                         
                         {/* Description Quick Select for Project, Faceting, Casting, and Gold Fixing */}
                         {shouldShowDescriptionQuickSelect() && (
-                          <div className="mt-2">
-                            <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Descriptions:</label>
+                          <div className="mt-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Descriptions:</label>
                             <div className="flex flex-wrap gap-2">
                               {getAvailableDescriptions(form.vt).map((desc) => (
                                 <button
                                   key={desc}
                                   type="button"
                                   onClick={() => handleDescriptionSelect(index, desc)}
-                                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                    form.description?.includes(desc)
-                                      ? 'bg-blue-600 text-white border-blue-600'
-                                      : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
-                                  }`}
+                                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-200 transition-colors font-medium"
                                 >
                                   {desc}
                                 </button>
@@ -996,38 +985,44 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
                     )}
 
+                    {/* Voucher Type Selection - Button Group */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Type *</label>
-                      <select
-                        value={form.vt}
-                        onChange={(e) => updateVoucherForm(index, 'vt', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
-                      >
-                        <option value="">Select Type</option>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Voucher Type *</label>
+                      <div className="flex flex-wrap gap-3">
                         {getVoucherTypes().map((voucherType) => (
-                          <option key={voucherType.value} value={voucherType.value}>
+                          <button
+                            key={voucherType.value}
+                            type="button"
+                            onClick={() => updateVoucherForm(index, 'vt', voucherType.value)}
+                            className={`px-6 py-3 rounded-lg border-2 font-medium transition-all ${
+                              form.vt === voucherType.value
+                                ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
                             {voucherType.label}
-                          </option>
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
 
+                    {/* Gold Field */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Gold</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Gold</label>
                       <input
                         type="number"
                         placeholder="0.00"
                         step="0.01"
                         value={form.gold}
                         onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                       />
                     </div>
 
                     {/* KWD Field - Show for all non-GFV vouchers */}
                     {form.vt !== "GFV" && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">KWD</label>
                         <input
                           type="number"
                           placeholder="0.00"
@@ -1035,7 +1030,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           value={form.kwd}
                           readOnly={shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")}
                           onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                          className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
+                          className={`w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
                             (shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
                           }`}
                         />
@@ -1060,9 +1055,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
 
                       {form.isGoldFixing && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                        <div className="space-y-4 mt-3">
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Gold Rate *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Gold Rate *</label>
                             <input
                               type="number"
                               placeholder="0.00"
@@ -1070,21 +1065,21 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               min="0"
                               value={form.goldRate || ""}
                               onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Fixing Amount</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Fixing Amount</label>
                             <input
                               type="number"
                               placeholder="0.00"
                               step="0.01"
                               value={form.fixingAmount || 0}
                               readOnly
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                            <p className="text-sm text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                           </div>
                         </div>
                       )}
@@ -1095,21 +1090,21 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   {shouldShowFacetingFields(form) && (
                     <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
                       <h4 className="text-sm font-medium text-purple-800 mb-3">Faceting Calculation</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Quantity *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
                           <input
                             type="number"
                             placeholder="0"
                             min="1"
                             value={form.quantity || ""}
                             onChange={(e) => updateVoucherForm(index, 'quantity', parseInt(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Rate *</label>
                           <input
                             type="number"
                             placeholder="0.00"
@@ -1117,25 +1112,21 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             min="0"
                             value={form.rate !== undefined ? form.rate : 0.25}
                             onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
                           />
                         </div>
                       </div>
                       
                       {/* Common Rates Quick Select */}
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Rates:</label>
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Rates:</label>
                         <div className="flex flex-wrap gap-2">
                           {predefinedRates.map((rate) => (
                             <button
                               key={rate}
                               type="button"
                               onClick={() => handleRateSelect(index, rate)}
-                              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                form.rate === rate
-                                  ? 'bg-purple-600 text-white border-purple-600'
-                                  : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'
-                              }`}
+                              className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
                             >
                               {rate}
                             </button>
@@ -1151,9 +1142,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       <h4 className="text-sm font-medium text-orange-800 mb-3">
                         {form.vt === "INV" ? "Casting Invoice Calculation" : "Casting Calculation"}
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Rate *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Rate *</label>
                           <input
                             type="number"
                             placeholder="0.00"
@@ -1161,25 +1152,21 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             min="0"
                             value={form.rate !== undefined ? form.rate : 0}
                             onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors text-base"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors text-base"
                           />
                         </div>
                       </div>
                       
                       {/* Casting Rates Quick Select */}
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Rates:</label>
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Rates:</label>
                         <div className="flex flex-wrap gap-2">
                           {castingRates.map((rate) => (
                             <button
                               key={rate}
                               type="button"
                               onClick={() => handleRateSelect(index, rate)}
-                              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                form.rate === rate
-                                  ? 'bg-orange-600 text-white border-orange-600'
-                                  : 'bg-white text-orange-700 border-orange-300 hover:bg-orange-50'
-                              }`}
+                              className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
                             >
                               {rate}
                             </button>
@@ -1192,9 +1179,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   {/* GFV Voucher Type - Show only one KWD field inside container */}
                   {form.vt === "GFV" && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Gold Rate *
                           </label>
                           <input
@@ -1204,15 +1191,15 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             min="0"
                             value={form.goldRate || ""}
                             onChange={(e) => updateVoucherForm(index, 'goldRate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             KWD
                             {form.goldRate && form.gold > 0 && (
-                              <span className="text-green-600 ml-1">
+                              <span className="text-green-600 ml-2">
                                 (Gold {form.gold} × Rate {form.goldRate})
                               </span>
                             )}
@@ -1223,9 +1210,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             step="0.01"
                             value={form.kwd}
                             readOnly
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                          <p className="text-sm text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                         </div>
                       </div>
                     </div>
@@ -1236,7 +1223,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
                       
-                      <div className="flex space-x-4 mb-4">
+                      <div className="flex space-x-6 mb-4">
                         <label className="inline-flex items-center">
                           <input
                             type="radio"
@@ -1244,9 +1231,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             value="cash"
                             checked={form.paymentMethod === 'cash'}
                             onChange={(e) => updateVoucherForm(index, 'paymentMethod', e.target.value)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            className="h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500"
                           />
-                          <span className="ml-2 text-sm text-gray-700">Cash</span>
+                          <span className="ml-3 text-base text-gray-700 font-medium">Cash</span>
                         </label>
                         <label className="inline-flex items-center">
                           <input
@@ -1255,38 +1242,34 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             value="cheque"
                             checked={form.paymentMethod === 'cheque'}
                             onChange={(e) => updateVoucherForm(index, 'paymentMethod', e.target.value)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            className="h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500"
                           />
-                          <span className="ml-2 text-sm text-gray-700">Cheque</span>
+                          <span className="ml-3 text-base text-gray-700 font-medium">Cheque</span>
                         </label>
                       </div>
 
                       {form.paymentMethod === 'cheque' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                        <div className="space-y-4 mt-3">
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Bank Name *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name *</label>
                             <input
                               type="text"
                               placeholder="Enter bank name"
                               value={form.bankName || ""}
                               onChange={(e) => updateVoucherForm(index, 'bankName', e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                             
                             {/* Bank Name Quick Select */}
-                            <div className="mt-2">
-                              <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Banks:</label>
+                            <div className="mt-3">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Banks:</label>
                               <div className="flex flex-wrap gap-2">
                                 {bankNames.map((bank) => (
                                   <button
                                     key={bank}
                                     type="button"
                                     onClick={() => handleBankNameSelect(index, bank)}
-                                    className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                      form.bankName === bank
-                                        ? 'bg-green-600 text-white border-green-600'
-                                        : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
-                                    }`}
+                                    className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
                                   >
                                     {bank}
                                   </button>
@@ -1296,29 +1279,25 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Branch *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
                             <input
                               type="text"
                               placeholder="Enter branch"
                               value={form.branch || ""}
                               onChange={(e) => updateVoucherForm(index, 'branch', e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                             
                             {/* Branch Quick Select */}
-                            <div className="mt-2">
-                              <label className="block text-xs font-medium text-gray-500 mb-2">Quick Select Branches:</label>
+                            <div className="mt-3">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Branches:</label>
                               <div className="flex flex-wrap gap-2">
                                 {branchNames.map((branch) => (
                                   <button
                                     key={branch}
                                     type="button"
                                     onClick={() => handleBranchSelect(index, branch)}
-                                    className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                      form.branch === branch
-                                        ? 'bg-green-600 text-white border-green-600'
-                                        : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
-                                    }`}
+                                    className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
                                   >
                                     {branch}
                                   </button>
@@ -1328,37 +1307,37 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Cheque No *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cheque No *</label>
                             <input
                               type="text"
                               placeholder="Enter cheque number"
                               value={form.chequeNo || ""}
                               onChange={(e) => updateVoucherForm(index, 'chequeNo', e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Cheque Date *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date *</label>
                             <input
                               type="date"
                               value={form.chequeDate || ""}
                               onChange={(e) => updateVoucherForm(index, 'chequeDate', e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Cheque Amount</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Amount</label>
                             <input
                               type="number"
                               placeholder="0.00"
                               step="0.01"
                               value={form.chequeAmount || 0}
                               readOnly
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Same as Fixing Amount</p>
+                            <p className="text-sm text-gray-500 mt-1">Same as Fixing Amount</p>
                           </div>
                         </div>
                       )}
