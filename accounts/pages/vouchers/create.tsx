@@ -793,55 +793,82 @@ export default function CreateVouchersPage({ accounts }: Props) {
             </span>
           </div>
           
-          {/* Account Selection - Combined Cards */}
+          {/* Account Selection - Step by Step */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-4">
               Select Account *
             </label>
             
-            {!selectedAccountId ? (
-              <div className="space-y-4">
-                {[...new Set(accounts.map((a) => a.type))].map((type) => (
-                  <div key={type} className="bg-white rounded-lg border border-gray-200">
+            {/* Step 1: Account Type Selection */}
+            {!selectedType && (
+              <div>
+                <div className="mb-3 flex items-center">
+                  <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-2">
+                    1
+                  </div>
+                  <span className="font-medium text-gray-700">Select Account Type</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[...new Set(accounts.map((a) => a.type))].map((type) => (
                     <button
+                      key={type}
                       onClick={() => setSelectedType(type)}
-                      className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+                      className="p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-gray-900">{type}</span>
-                        <span className="text-sm text-gray-500">
-                          {accounts.filter(a => a.type === type).length} accounts
-                        </span>
+                      <div className="font-medium text-gray-900">{type}</div>
+                      <div className="text-sm text-gray-600">
+                        {accounts.filter(a => a.type === type).length} accounts
                       </div>
                     </button>
-                    
-                    {selectedType === type && (
-                      <div className="border-t border-gray-200 p-4 bg-blue-50">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                          {filteredAccounts.map((account) => (
-                            <button
-                              key={account.id}
-                              onClick={() => setSelectedAccountId(account.id)}
-                              className="p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
-                            >
-                              <div className="font-medium text-gray-900">{account.accountNo}</div>
-                              <div className="text-sm text-gray-600 truncate">{account.name}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div>
-                  <div className="font-medium text-green-900">
-                    {accounts.find(a => a.id === selectedAccountId)?.accountNo} - {accounts.find(a => a.id === selectedAccountId)?.name}
+            )}
+
+            {/* Step 2: Account Selection */}
+            {selectedType && !selectedAccountId && (
+              <div>
+                <div className="mb-3 flex items-center">
+                  <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-2">
+                    2
                   </div>
-                  <div className="text-sm text-green-600">
-                    Type: {selectedType}
+                  <span className="font-medium text-gray-700">Select Account from {selectedType}</span>
+                  <button
+                    onClick={() => setSelectedType("")}
+                    className="ml-auto text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    ← Back to Types
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto p-1">
+                  {filteredAccounts.map((account) => (
+                    <button
+                      key={account.id}
+                      onClick={() => setSelectedAccountId(account.id)}
+                      className="p-4 bg-white border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-left"
+                    >
+                      <div className="font-medium text-gray-900">{account.accountNo}</div>
+                      <div className="text-sm text-gray-600 truncate">{account.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Selected Account Confirmation */}
+            {selectedAccountId && (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center">
+                  <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                    ✓
+                  </div>
+                  <div>
+                    <div className="font-medium text-green-900">
+                      {accounts.find(a => a.id === selectedAccountId)?.accountNo} - {accounts.find(a => a.id === selectedAccountId)?.name}
+                    </div>
+                    <div className="text-sm text-green-600">
+                      Type: {selectedType}
+                    </div>
                   </div>
                 </div>
                 <button
@@ -851,7 +878,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   }}
                   className="text-green-600 hover:text-green-800 text-sm font-medium"
                 >
-                  Change
+                  Change Account
                 </button>
               </div>
             )}
