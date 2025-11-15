@@ -63,6 +63,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Get unique account types
+  const accountTypes = [...new Set(accounts.map((a) => a.type))];
+
   // Prevent zooming on keyboard interactions and pinch-to-zoom without affecting scrolling
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -794,23 +797,34 @@ export default function CreateVouchersPage({ accounts }: Props) {
           </div>
           
           {/* Account Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 gap-6 mb-6 p-4 bg-gray-50 rounded-lg">
+            {/* Account Type Selection - Button Group */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
                 Account Type *
               </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
-              >
-                <option value="">Select Account Type</option>
-                {[...new Set(accounts.map((a) => a.type))].map((t) => (
-                  <option key={t} value={t}>{t}</option>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {accountTypes.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSelectedType(type)}
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 font-medium text-sm ${
+                      selectedType === type
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {type}
+                  </button>
                 ))}
-              </select>
+              </div>
+              {!selectedType && (
+                <p className="text-sm text-gray-500 mt-2">Please select an account type to continue</p>
+              )}
             </div>
 
+            {/* Account Selection Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Account *
@@ -828,6 +842,9 @@ export default function CreateVouchersPage({ accounts }: Props) {
                   </option>
                 ))}
               </select>
+              {selectedType && filteredAccounts.length === 0 && (
+                <p className="text-sm text-red-500 mt-2">No accounts found for the selected type</p>
+              )}
             </div>
           </div>
 
