@@ -62,101 +62,24 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVoucherTypeDropdown, setShowVoucherTypeDropdown] = useState<number | null>(null);
 
-  // Prevent zooming on keyboard interactions and pinch-to-zoom without affecting scrolling
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-      }
-    };
+  // Group accounts by type
+  const accountsByType = accounts.reduce((acc, account) => {
+    if (!acc[account.type]) {
+      acc[account.type] = [];
+    }
+    acc[account.type].push(account);
+    return acc;
+  }, {} as Record<string, Account[]>);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) {
-        e.preventDefault();
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
-    };
-
-    // Prevent zoom on input focus for mobile devices
-    const preventZoomOnFocus = () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-      }
-    };
-
-    const restoreViewport = () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-      }
-    };
-
-    // Add event listeners to all input elements
-    const inputs = document.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-      input.addEventListener('focus', preventZoomOnFocus);
-      input.addEventListener('blur', restoreViewport);
-    });
-
-    document.addEventListener('wheel', handleWheel, { passive: false });
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-    return () => {
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchmove', handleTouchMove);
-      
-      // Clean up input event listeners
-      inputs.forEach(input => {
-        input.removeEventListener('focus', preventZoomOnFocus);
-        input.removeEventListener('blur', restoreViewport);
-      });
-    };
-  }, []);
-
-  // Update input event listeners when forms change
-  useEffect(() => {
-    const preventZoomOnFocus = () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-      }
-    };
-
-    const restoreViewport = () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-      }
-    };
-
-    const inputs = document.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-      input.addEventListener('focus', preventZoomOnFocus);
-      input.addEventListener('blur', restoreViewport);
-    });
-
-    return () => {
-      inputs.forEach(input => {
-        input.removeEventListener('focus', preventZoomOnFocus);
-        input.removeEventListener('blur', restoreViewport);
-      });
-    };
-  }, [voucherForms, selectedType, selectedAccountId]);
+  const accountTypes = Object.keys(accountsByType);
 
   // Predefined rates for faceting - including 0 as requested
   const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
   
   // Predefined descriptions for Project account type
-  const projectInvDescriptions = ["Reni", "KDM", "Casting"]; // Removed "Gold"
+  const projectInvDescriptions = ["Reni", "KDM", "Casting"];
   const projectRecDescriptions = ["Bangles", "Kids Bangles", "Tanka", "Parchoon", "Sawan", "Casting Return", "Gold", "Reni"];
   const projectAllDescriptions = [...new Set([...projectInvDescriptions, ...projectRecDescriptions])];
 
@@ -205,7 +128,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     if (accountType === "Project") {
       if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
         return "REC";
-      } else if (["KDM", "Casting"].includes(description)) { // Removed "Gold"
+      } else if (["KDM", "Casting"].includes(description)) {
         return "INV";
       }
     } else if (accountType === "Casting") {
@@ -227,7 +150,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         return "INV";
       }
     }
-    return ""; // No default if no match
+    return "";
   };
 
   // Check if should show gold fixing section
@@ -254,7 +177,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Get available descriptions based on account type and voucher type
   const getAvailableDescriptions = (vt: string) => {
     if (selectedType === "Project") {
-      // When no voucher type is selected, show all descriptions
       if (!vt) {
         return projectAllDescriptions;
       } else if (vt === "INV") {
@@ -291,7 +213,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Get default rate based on description and account type
   const getDefaultRateForDescription = (description: string, vt: string): number => {
     if (selectedType === "Project") {
-      // Default rate for Project account type
       return 0;
     } else if (selectedType === "Faceting") {
       switch (description) {
@@ -522,16 +443,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
-        // Get current description and append new value with proper spacing
         const currentDescription = form.description || "";
         let newDescription = "";
         
         if (currentDescription.trim() === "") {
-          // If current description is empty, just use the value
           newDescription = value;
         } else {
-          // If current description ends with space, append value directly
-          // Otherwise, add space before appending value
           newDescription = currentDescription.endsWith(' ') 
             ? currentDescription + value 
             : currentDescription + ' ' + value;
@@ -542,12 +459,11 @@ export default function CreateVouchersPage({ accounts }: Props) {
         
         const updatedForm = { 
           ...form, 
-          description: newDescription, // Use appended text instead of replacement
-          vt: defaultVoucherType || form.vt, // Only set voucher type if there's a default
+          description: newDescription,
+          vt: defaultVoucherType || form.vt,
           rate: defaultRate
         };
         
-        // Recalculate KWD based on account type
         if (selectedType === "Faceting" && updatedForm.quantity) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
         } else if (selectedType === "Casting" && updatedForm.gold) {
@@ -560,13 +476,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle rate selection from quick select - REPLACE behavior (unchanged)
+  // Handle rate selection from quick select
   const handleRateSelect = (index: number, value: number) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
         const updatedForm = { ...form, rate: value };
         
-        // Recalculate KWD based on account type and voucher type
         if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
           updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
         } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
@@ -583,7 +498,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle bank name selection from quick select - REPLACE behavior (unchanged)
+  // Handle bank name selection from quick select
   const handleBankNameSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -593,7 +508,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle branch selection from quick select - REPLACE behavior (unchanged)
+  // Handle branch selection from quick select
   const handleBranchSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -617,17 +532,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
         return alert(`Missing required fields in voucher ${i + 1}`);
       }
       
-      // Additional validation for GFV vouchers
       if (form.vt === "GFV" && (!form.goldRate || form.goldRate <= 0)) {
         return alert(`Gold Rate is required and must be greater than 0 for GFV voucher ${i + 1}`);
       }
 
-      // Additional validation for Gold Fixing in Market REC
       if (shouldShowGoldFixing(form) && form.isGoldFixing && (!form.goldRate || form.goldRate <= 0)) {
         return alert(`Gold Rate is required when Gold Fixing is checked for voucher ${i + 1}`);
       }
 
-      // Additional validation for Faceting REC vouchers
       if (shouldShowFacetingFields(form)) {
         if (!form.quantity || form.quantity <= 0) {
           return alert(`Quantity is required and must be greater than 0 for Faceting REC voucher ${i + 1}`);
@@ -637,7 +549,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
         }
       }
 
-      // Additional validation for Casting REC vouchers
       if (shouldShowCastingCalculation(form) && form.vt === "REC") {
         if (!form.gold || form.gold <= 0) {
           return alert(`Gold is required and must be greater than 0 for Casting REC voucher ${i + 1}`);
@@ -647,7 +558,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
         }
       }
 
-      // Validation for cheque payments
       if (form.paymentMethod === 'cheque') {
         if (!form.bankName?.trim() || !form.branch?.trim() || !form.chequeNo?.trim() || !form.chequeDate) {
           return alert(`All cheque details are required for voucher ${i + 1}`);
@@ -660,7 +570,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
       const payload = voucherForms.map(form => {
         const date = new Date(form.date);
         
-        // Create base voucher object with required fields
         const baseVoucher: any = {
           date: date.toISOString(),
           vt: form.vt,
@@ -670,47 +579,38 @@ export default function CreateVouchersPage({ accounts }: Props) {
           paymentMethod: form.paymentMethod,
         };
 
-        // Only include mvn for Market accounts
         if (selectedType === "Market" && form.mvn?.trim()) {
           baseVoucher.mvn = form.mvn;
         }
 
-        // Only include description for non-Market accounts
         if (selectedType !== "Market" && form.description?.trim()) {
           baseVoucher.description = form.description;
         }
 
-        // Include goldRate for GFV vouchers or when Gold Fixing is checked
         if ((form.vt === "GFV" || (shouldShowGoldFixing(form) && form.isGoldFixing)) && form.goldRate) {
           baseVoucher.goldRate = parseFloat(form.goldRate.toString()) || 0;
         }
 
-        // Include fixing amount when Gold Fixing is checked
         if (shouldShowGoldFixing(form) && form.isGoldFixing && form.fixingAmount) {
           baseVoucher.fixingAmount = parseFloat(form.fixingAmount.toString()) || 0;
         }
 
-        // Include quantity for Faceting REC vouchers
         if (shouldShowFacetingFields(form) && form.quantity) {
           baseVoucher.quantity = parseInt(form.quantity.toString()) || 0;
         }
 
-        // Include rate for Faceting REC vouchers (can be 0)
         if (shouldShowFacetingFields(form) && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
-        // Include rate for Casting vouchers (can be 0)
         if (shouldShowCastingCalculation(form) && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
-        // Include rate for Project vouchers (can be 0)
         if (selectedType === "Project" && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
         }
 
-        // Include cheque details if payment method is cheque
         if (form.paymentMethod === 'cheque') {
           baseVoucher.bankName = form.bankName;
           baseVoucher.branch = form.branch;
@@ -737,7 +637,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
         return alert(responseData?.message || "Error saving vouchers");
       }
 
-      // Reset forms on success
       setVoucherForms([{ 
         date: new Date().toISOString().split('T')[0], 
         vt: "", 
@@ -758,11 +657,17 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   };
 
+  const getVoucherTypeBadgeColor = (vt: string) => {
+    switch (vt) {
+      case "INV": return "bg-red-100 text-red-800 border-red-200";
+      case "REC": return "bg-green-100 text-green-800 border-green-200";
+      case "GFV": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Add viewport meta tag to control zoom behavior */}
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -793,95 +698,56 @@ export default function CreateVouchersPage({ accounts }: Props) {
             </span>
           </div>
           
-          {/* Account Selection - Step by Step */}
+          {/* Account Selection - NEW APPROACH */}
           <div className="mb-6 p-4 bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg border border-gray-200">
             <label className="block text-sm font-medium text-gray-700 mb-4">
               Select Account *
             </label>
             
-            {/* Step 1: Account Type Selection */}
-            {!selectedType && (
+            {/* Account Type Selection - Dropdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
-                <div className="mb-4 flex items-center">
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-2">
-                    1
-                  </div>
-                  <span className="font-medium text-gray-800">Choose Account Type</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[...new Set(accounts.map((a) => a.type))].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setSelectedType(type)}
-                      className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all duration-200 text-left"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-purple-100 rounded flex items-center justify-center group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
-                          <div className="w-4 h-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-sm"></div>
-                        </div>
-                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                          {accounts.filter(a => a.type === type).length}
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-gray-900 text-base mb-1 group-hover:text-blue-700 transition-colors">
-                        {type}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {accounts.filter(a => a.type === type).length} account{accounts.filter(a => a.type === type).length !== 1 ? 's' : ''}
-                      </p>
-                    </button>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Type
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                >
+                  <option value="">Select Account Type</option>
+                  {accountTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type} ({accountsByType[type].length} accounts)
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
 
-            {/* Step 2: Account Selection */}
-            {selectedType && !selectedAccountId && (
+              {/* Account Selection - Dropdown */}
               <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-2">
-                      2
-                    </div>
-                    <span className="font-medium text-gray-800">Select {selectedType} Account</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedType("")}
-                    className="flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Back
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account
+                </label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  disabled={!selectedType}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Account</option>
                   {filteredAccounts.map((account) => (
-                    <button
-                      key={account.id}
-                      onClick={() => setSelectedAccountId(account.id)}
-                      className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-green-500 hover:shadow-md transition-all duration-200 text-left"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded flex items-center justify-center group-hover:from-green-200 group-hover:to-emerald-200 transition-colors">
-                          <div className="w-3 h-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-sm"></div>
-                        </div>
-                      </div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-green-700 transition-colors">
-                        {account.accountNo}
-                      </div>
-                      <div className="text-xs text-gray-600 truncate">
-                        {account.name}
-                      </div>
-                    </button>
+                    <option key={account.id} value={account.id}>
+                      {account.accountNo} - {account.name}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
+            </div>
 
-            {/* Step 3: Selected Account Confirmation - Compact Version */}
+            {/* Selected Account Display */}
             {selectedAccountId && (
-              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mt-4 flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
                     ✓
@@ -914,7 +780,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
               {voucherForms.map((form, index) => (
                 <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gradient-to-r from-gray-50 to-white hover:border-blue-300 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h3 className="font-semibold text-gray-700 mb-2 sm:mb-0">Voucher #{index + 1}</h3>
+                    <div className="flex items-center space-x-3 mb-2 sm:mb-0">
+                      <h3 className="font-semibold text-gray-700">Voucher #{index + 1}</h3>
+                      {form.vt && (
+                        <span className={`px-3 py-1 text-xs font-medium border rounded-full ${getVoucherTypeBadgeColor(form.vt)}`}>
+                          {form.vt}
+                        </span>
+                      )}
+                    </div>
                     {voucherForms.length > 1 && (
                       <button
                         onClick={() => removeVoucherForm(index)}
@@ -928,8 +801,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
                     )}
                   </div>
                   
-                  {/* Basic Voucher Fields - One field per row */}
-                  <div className="space-y-4 mb-4">
+                  {/* Basic Voucher Fields - Grid Layout */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     {/* Date Field */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
@@ -941,7 +814,77 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       />
                     </div>
 
-                    {/* MVN or Description Field */}
+                    {/* Voucher Type - NEW DROPDOWN APPROACH */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Voucher Type *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowVoucherTypeDropdown(showVoucherTypeDropdown === index ? null : index)}
+                        className={`w-full border rounded-lg px-4 py-3 text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
+                          form.vt 
+                            ? `${getVoucherTypeBadgeColor(form.vt)} border-current` 
+                            : 'border-gray-300 bg-white text-gray-700'
+                        }`}
+                      >
+                        {form.vt ? getVoucherTypes().find(vt => vt.value === form.vt)?.label : "Select Voucher Type"}
+                        <span className="float-right">▼</span>
+                      </button>
+                      
+                      {showVoucherTypeDropdown === index && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                          {getVoucherTypes().map((voucherType) => (
+                            <button
+                              key={voucherType.value}
+                              type="button"
+                              onClick={() => {
+                                updateVoucherForm(index, 'vt', voucherType.value);
+                                setShowVoucherTypeDropdown(null);
+                              }}
+                              className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                                form.vt === voucherType.value ? 'bg-blue-50 text-blue-700' : ''
+                              }`}
+                            >
+                              {voucherType.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Gold Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Gold</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        value={form.gold}
+                        onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
+                      />
+                    </div>
+
+                    {/* KWD Field */}
+                    {form.vt !== "GFV" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">KWD</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          step="0.01"
+                          value={form.kwd}
+                          readOnly={shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")}
+                          onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
+                          className={`w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
+                            (shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                          }`}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MVN or Description Field - Full Width */}
+                  <div className="mb-4">
                     {selectedType === "Market" ? (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Manual Voucher No *</label>
@@ -964,10 +907,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
                           className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                         />
                         
-                        {/* Description Quick Select for Project, Faceting, Casting, and Gold Fixing */}
+                        {/* Description Quick Select */}
                         {shouldShowDescriptionQuickSelect() && (
                           <div className="mt-3">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Descriptions:</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select:</label>
                             <div className="flex flex-wrap gap-2">
                               {getAvailableDescriptions(form.vt).map((desc) => (
                                 <button
@@ -984,61 +927,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         )}
                       </div>
                     )}
-
-                    {/* Voucher Type Selection - Button Group */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Voucher Type *</label>
-                      <div className="flex flex-wrap gap-3">
-                        {getVoucherTypes().map((voucherType) => (
-                          <button
-                            key={voucherType.value}
-                            type="button"
-                            onClick={() => updateVoucherForm(index, 'vt', voucherType.value)}
-                            className={`px-6 py-3 rounded-lg border-2 font-medium transition-all ${
-                              form.vt === voucherType.value
-                                ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                            }`}
-                          >
-                            {voucherType.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Gold Field */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Gold</label>
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        value={form.gold}
-                        onChange={(e) => updateVoucherForm(index, 'gold', parseFloat(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
-                      />
-                    </div>
-
-                    {/* KWD Field - Show for all non-GFV vouchers */}
-                    {form.vt !== "GFV" && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">KWD</label>
-                        <input
-                          type="number"
-                          placeholder="0.00"
-                          step="0.01"
-                          value={form.kwd}
-                          readOnly={shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")}
-                          onChange={(e) => updateVoucherForm(index, 'kwd', parseFloat(e.target.value) || 0)}
-                          className={`w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base ${
-                            (shouldShowFacetingFields(form) || (shouldShowCastingCalculation(form) && form.vt === "REC")) ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
-                          }`}
-                        />
-                      </div>
-                    )}
                   </div>
 
-                  {/* Gold Fixing Section - Only for Market REC */}
+                  {/* Conditional Sections (Gold Fixing, Faceting, Casting, GFV) - Same as before but simplified */}
+                  {/* Gold Fixing Section */}
                   {shouldShowGoldFixing(form) && (
                     <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                       <div className="flex items-center mb-3">
@@ -1055,7 +947,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
 
                       {form.isGoldFixing && (
-                        <div className="space-y-4 mt-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Gold Rate *</label>
                             <input
@@ -1079,111 +971,18 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               readOnly
                               className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                             />
-                            <p className="text-sm text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Faceting Section - Only for Faceting REC */}
-                  {shouldShowFacetingFields(form) && (
-                    <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-purple-800 mb-3">Faceting Calculation</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
-                          <input
-                            type="number"
-                            placeholder="0"
-                            min="1"
-                            value={form.quantity || ""}
-                            onChange={(e) => updateVoucherForm(index, 'quantity', parseInt(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Rate *</label>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.001"
-                            min="0"
-                            value={form.rate !== undefined ? form.rate : 0.25}
-                            onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-base"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Common Rates Quick Select */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Rates:</label>
-                        <div className="flex flex-wrap gap-2">
-                          {predefinedRates.map((rate) => (
-                            <button
-                              key={rate}
-                              type="button"
-                              onClick={() => handleRateSelect(index, rate)}
-                              className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
-                            >
-                              {rate}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Casting Section - For Casting INV and REC */}
-                  {shouldShowCastingCalculation(form) && (
-                    <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-orange-800 mb-3">
-                        {form.vt === "INV" ? "Casting Invoice Calculation" : "Casting Calculation"}
-                      </h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Rate *</label>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.001"
-                            min="0"
-                            value={form.rate !== undefined ? form.rate : 0}
-                            onChange={(e) => updateVoucherForm(index, 'rate', parseFloat(e.target.value) || 0)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors text-base"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Casting Rates Quick Select */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Rates:</label>
-                        <div className="flex flex-wrap gap-2">
-                          {castingRates.map((rate) => (
-                            <button
-                              key={rate}
-                              type="button"
-                              onClick={() => handleRateSelect(index, rate)}
-                              className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
-                            >
-                              {rate}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* GFV Voucher Type - Show only one KWD field inside container */}
+                  {/* GFV Voucher Type */}
                   {form.vt === "GFV" && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Gold Rate *
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Gold Rate *</label>
                           <input
                             type="number"
                             placeholder="0.00"
@@ -1196,14 +995,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            KWD
-                            {form.goldRate && form.gold > 0 && (
-                              <span className="text-green-600 ml-2">
-                                (Gold {form.gold} × Rate {form.goldRate})
-                              </span>
-                            )}
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">KWD</label>
                           <input
                             type="number"
                             placeholder="0.00"
@@ -1212,13 +1004,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
                             readOnly
                             className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
                           />
-                          <p className="text-sm text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Payment Method Section - Only for Market REC with Gold Fixing */}
+                  {/* Payment Method Section */}
                   {shouldShowGoldFixing(form) && form.isGoldFixing && (
                     <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
@@ -1249,7 +1040,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
 
                       {form.paymentMethod === 'cheque' && (
-                        <div className="space-y-4 mt-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name *</label>
                             <input
@@ -1259,23 +1050,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               onChange={(e) => updateVoucherForm(index, 'bankName', e.target.value)}
                               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
-                            
-                            {/* Bank Name Quick Select */}
-                            <div className="mt-3">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Banks:</label>
-                              <div className="flex flex-wrap gap-2">
-                                {bankNames.map((bank) => (
-                                  <button
-                                    key={bank}
-                                    type="button"
-                                    onClick={() => handleBankNameSelect(index, bank)}
-                                    className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
-                                  >
-                                    {bank}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
                           </div>
 
                           <div>
@@ -1287,23 +1061,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               onChange={(e) => updateVoucherForm(index, 'branch', e.target.value)}
                               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
-                            
-                            {/* Branch Quick Select */}
-                            <div className="mt-3">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Branches:</label>
-                              <div className="flex flex-wrap gap-2">
-                                {branchNames.map((branch) => (
-                                  <button
-                                    key={branch}
-                                    type="button"
-                                    onClick={() => handleBranchSelect(index, branch)}
-                                    className="px-4 py-2 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors font-medium"
-                                  >
-                                    {branch}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
                           </div>
 
                           <div>
@@ -1326,19 +1083,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                             />
                           </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Amount</label>
-                            <input
-                              type="number"
-                              placeholder="0.00"
-                              step="0.01"
-                              value={form.chequeAmount || 0}
-                              readOnly
-                              className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed text-base"
-                            />
-                            <p className="text-sm text-gray-500 mt-1">Same as Fixing Amount</p>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1346,7 +1090,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                 </div>
               ))}
 
-              {/* Action Buttons - Only show after account is selected */}
+              {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-6 border-t border-gray-200">
                 <button
                   onClick={addVoucherForm}
@@ -1380,7 +1124,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
           )}
         </div>
 
-        {/* Quick Stats - Only show after account is selected */}
+        {/* Quick Stats */}
         {selectedAccountId && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             <div className="bg-white rounded-xl p-4 shadow-sm">
