@@ -1,208 +1,192 @@
-import { useState, useEffect, useRef } from 'react';
-import Head from 'next/head';
+import { useEffect, useRef, useState } from "react";
 
-// Define types for the card position
-interface CardPosition {
-  x: number;
-  y: number;
-  rotation: number;
-  scale: number;
-  zIndex: number;
-  opacity: number;
-}
+function useWheelSelector(ref: React.RefObject<HTMLDivElement>, isHorizontal = false) {
+  const [active, setActive] = useState(0);
 
-export default function WheelCarousel() {
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
-  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+  const updateActive = () => {
+    const container = ref.current;
+    if (!container) return;
 
-  const cards: number[] = [1, 2, 3, 4, 5];
+    const children = Array.from(container.children) as HTMLElement[];
 
-  // Calculate positions for wheel arrangement with proper typing
-  const getCardPosition = (index: number, total: number = cards.length): CardPosition => {
-    const angle = (index * 360) / total;
-    const radius = 120; // Distance from center
-    const radian = (angle * Math.PI) / 180;
-    
-    return {
-      x: Math.sin(radian) * radius,
-      y: -Math.cos(radian) * radius,
-      rotation: angle,
-      scale: index === 2 ? 1.2 : 0.9, // Center card is at index 2 in displayedCards
-      zIndex: index === 2 ? 10 : 1,
-      opacity: index === 2 ? 1 : 0.7
-    };
-  };
-
-  // Define type for displayed cards
-  interface DisplayedCard {
-    number: number;
-    position: CardPosition;
-    key: string;
-  }
-
-  // Auto-play functionality
-  useEffect(() => {
-    if (isAutoPlaying) {
-      autoPlayRef.current = setInterval(() => {
-        setCurrentIndex(prev => prev + 1);
-      }, 2000);
+    let center;
+    if (isHorizontal) {
+      center = container.getBoundingClientRect().left + container.offsetWidth / 2;
     } else {
-      if (autoPlayRef.current) {
-        clearInterval(autoPlayRef.current);
-      }
+      center = container.getBoundingClientRect().top + container.offsetHeight / 2;
     }
 
-    return () => {
-      if (autoPlayRef.current) {
-        clearInterval(autoPlayRef.current);
-      }
-    };
-  }, [isAutoPlaying]);
+    let closest = 0;
+    let minDist = Infinity;
 
-  // Handle manual navigation
-  const navigate = (direction: number): void => {
-    setIsAutoPlaying(false);
-    setCurrentIndex(prev => prev + direction);
+    children.forEach((child, i) => {
+      const rect = child.getBoundingClientRect();
+      const childCenter = isHorizontal
+        ? rect.left + rect.width / 2
+        : rect.top + rect.height / 2;
+
+      const dist = Math.abs(childCenter - center);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i;
+      }
+    });
+
+    setActive(closest);
   };
 
-  // Reset auto-play after manual interaction
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAutoPlaying(true);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [currentIndex]);
+    const container = ref.current;
+    if (!container) return;
 
-  const displayedCards: DisplayedCard[] = [];
-  const totalCards: number = cards.length;
+    let t: NodeJS.Timeout;
+    const onScroll = () => {
+      clearTimeout(t);
+      t = setTimeout(updateActive, 60);
+    };
 
-  // Create infinite loop by displaying multiple sets
-  for (let i = -2; i <= 2; i++) {
-    const actualIndex = (currentIndex + i + totalCards) % totalCards;
-    const position = getCardPosition(i + 2, 5); // Adjust for the 5 visible positions
-    
-    displayedCards.push({
-      number: cards[actualIndex],
-      position,
-      key: `${currentIndex + i}`
-    });
-  }
+    container.addEventListener("scroll", onScroll);
+    updateActive();
+
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return active;
+}
+
+export default function WheelBoth() {
+  const items = ["Customer", "Supplier", "Wholesaler", "Investor", "Internal"];
+
+  const verticalRef = useRef<HTMLDivElement>(null);
+  const horizontalRef = useRef<HTMLDivElement>(null);
+
+  const activeVertical = useWheelSelector(verticalRef, false);
+  const activeHorizontal = useWheelSelector(horizontalRef, true);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center p-8">
-      <Head>
-        <title>Wheel Number Carousel</title>
-        <meta name="description" content="Infinite wheel carousel with numbers" />
-      </Head>
+    <div
+      style={{
+        background: "#f7f2e9",
+        minHeight: "100vh",
+        padding: "40px 0",
+        fontFamily: "sans-serif",
+      }}
+    >
+      {/* ---------- Vertical Wheel ---------- */}
+      <h2 style={{ textAlign: "center", color: "#5a3e1b", marginBottom: "20px" }}>
+        Vertical Wheel
+      </h2>
 
-      <div className="max-w-md w-full">
-        <h1 className="text-4xl font-bold text-white text-center mb-8">
-          Wheel Carousel
-        </h1>
-        
-        {/* Wheel Container */}
-        <div className="relative h-80 mb-12">
-          <div className="absolute inset-0 flex items-center justify-center">
-            {/* Center circle */}
-            <div className="w-20 h-20 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-                <span className="text-lg font-bold text-purple-600">
-                  {cards[(currentIndex + totalCards) % totalCards]}
-                </span>
-              </div>
-            </div>
+      <div
+        ref={verticalRef}
+        style={{
+          width: "200px",
+          height: "220px",
+          margin: "0 auto 60px auto",
+          overflowY: "auto",
+          maskImage:
+            "linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%)",
+          scrollbarWidth: "none",
+          position: "relative",
+        }}
+      >
+        <style>{`div::-webkit-scrollbar { display: none; }`}</style>
 
-            {/* Cards arranged in wheel */}
-            {displayedCards.map((card, index) => (
-              <div
-                key={card.key}
-                className="absolute w-16 h-16 transition-all duration-500 ease-in-out"
-                style={{
-                  transform: `translate(${card.position.x}px, ${card.position.y}px) scale(${card.position.scale}) rotate(${card.position.rotation}deg)`,
-                  zIndex: card.position.zIndex,
-                  opacity: card.position.opacity
-                }}
-              >
-                <div className={`
-                  w-full h-full rounded-xl shadow-2xl flex items-center justify-center text-2xl font-bold transition-all duration-500
-                  ${index === 2 
-                    ? 'bg-white text-purple-600 border-4 border-yellow-400' 
-                    : 'bg-gray-800 text-white border-2 border-white/50'
-                  }
-                `}>
-                  {card.number}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {items.map((item, i) => {
+          const offset = Math.abs(i - activeVertical);
+          const scale = 1 - offset * 0.15;
+          const opacity = 1 - offset * 0.3;
+          const rotate = (i - activeVertical) * 12;
 
-        {/* Controls */}
-        <div className="flex justify-center items-center space-x-6 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
-            aria-label="Previous card"
-          >
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-            className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
-            aria-label={isAutoPlaying ? "Pause auto-play" : "Start auto-play"}
-          >
-            {isAutoPlaying ? (
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            ) : (
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </button>
-
-          <button
-            onClick={() => navigate(1)}
-            className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
-            aria-label="Next card"
-          >
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Indicators */}
-        <div className="flex justify-center space-x-3">
-          {cards.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                setIsAutoPlaying(false);
-                setCurrentIndex(index);
+          return (
+            <div
+              key={i}
+              style={{
+                height: "55px",
+                margin: "10px 0",
+                background: "white",
+                borderRadius: "12px",
+                border:
+                  i === activeVertical
+                    ? "2px solid #d4a64d"
+                    : "1px solid #d9c7a6",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                fontWeight: 700,
+                color: "#5a3e1b",
+                fontSize: "17px",
+                transform: `
+                  scale(${scale})
+                  rotateX(${rotate}deg)
+                `,
+                opacity,
+                transition: "0.25s",
               }}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === (currentIndex % totalCards) 
-                  ? 'bg-white w-8' 
-                  : 'bg-white/50'
-              }`}
-              aria-label={`Go to card ${index + 1}`}
-            />
-          ))}
-        </div>
+            >
+              {item}
+            </div>
+          );
+        })}
+      </div>
 
-        {/* Info */}
-        <div className="text-center mt-8">
-          <p className="text-white/80 text-sm">
-            {isAutoPlaying ? 'Auto-playing' : 'Paused'} • Current: {cards[(currentIndex % totalCards + totalCards) % totalCards]}
-          </p>
-        </div>
+      {/* ---------- Horizontal Wheel ---------- */}
+      <h2 style={{ textAlign: "center", color: "#5a3e1b", marginBottom: "20px" }}>
+        Horizontal Wheel
+      </h2>
+
+      <div
+        ref={horizontalRef}
+        style={{
+          height: "150px",
+          display: "flex",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          gap: "20px",
+          padding: "20px 40px",
+          maskImage:
+            "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)",
+        }}
+      >
+        <style>{`div::-webkit-scrollbar { display:none; }`}</style>
+
+        {items.map((item, i) => {
+          const offset = Math.abs(i - activeHorizontal);
+          const scale = 1 - offset * 0.15;
+          const opacity = 1 - offset * 0.3;
+          const rotate = (i - activeHorizontal) * -18; // wheel curve horizontally
+
+          return (
+            <div
+              key={i}
+              style={{
+                width: "110px",
+                height: "110px",
+                background: "white",
+                borderRadius: "12px",
+                border:
+                  i === activeHorizontal
+                    ? "2px solid #d4a64d"
+                    : "1px solid #d9c7a6",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                fontWeight: 700,
+                color: "#5a3e1b",
+                fontSize: "16px",
+                transform: `
+                  scale(${scale})
+                  rotateY(${rotate}deg)
+                `,
+                opacity,
+                transition: "0.25s",
+                flexShrink: 0,
+              }}
+            >
+              {item}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
