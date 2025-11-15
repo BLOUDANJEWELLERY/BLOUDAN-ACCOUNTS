@@ -63,9 +63,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get unique account types
-  const accountTypes = [...new Set(accounts.map((a) => a.type))];
-
   // Prevent zooming on keyboard interactions and pinch-to-zoom without affecting scrolling
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -796,56 +793,68 @@ export default function CreateVouchersPage({ accounts }: Props) {
             </span>
           </div>
           
-          {/* Account Selection */}
-          <div className="grid grid-cols-1 gap-6 mb-6 p-4 bg-gray-50 rounded-lg">
-            {/* Account Type Selection - Button Group */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Account Type *
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {accountTypes.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setSelectedType(type)}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 font-medium text-sm ${
-                      selectedType === type
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {type}
-                  </button>
+          {/* Account Selection - Combined Cards */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              Select Account *
+            </label>
+            
+            {!selectedAccountId ? (
+              <div className="space-y-4">
+                {[...new Set(accounts.map((a) => a.type))].map((type) => (
+                  <div key={type} className="bg-white rounded-lg border border-gray-200">
+                    <button
+                      onClick={() => setSelectedType(type)}
+                      className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-gray-900">{type}</span>
+                        <span className="text-sm text-gray-500">
+                          {accounts.filter(a => a.type === type).length} accounts
+                        </span>
+                      </div>
+                    </button>
+                    
+                    {selectedType === type && (
+                      <div className="border-t border-gray-200 p-4 bg-blue-50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                          {filteredAccounts.map((account) => (
+                            <button
+                              key={account.id}
+                              onClick={() => setSelectedAccountId(account.id)}
+                              className="p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
+                            >
+                              <div className="font-medium text-gray-900">{account.accountNo}</div>
+                              <div className="text-sm text-gray-600 truncate">{account.name}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
-              {!selectedType && (
-                <p className="text-sm text-gray-500 mt-2">Please select an account type to continue</p>
-              )}
-            </div>
-
-            {/* Account Selection Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Account *
-              </label>
-              <select
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed text-base"
-                disabled={!selectedType}
-              >
-                <option value="">Select Account</option>
-                {filteredAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.accountNo} - {a.name}
-                  </option>
-                ))}
-              </select>
-              {selectedType && filteredAccounts.length === 0 && (
-                <p className="text-sm text-red-500 mt-2">No accounts found for the selected type</p>
-              )}
-            </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div>
+                  <div className="font-medium text-green-900">
+                    {accounts.find(a => a.id === selectedAccountId)?.accountNo} - {accounts.find(a => a.id === selectedAccountId)?.name}
+                  </div>
+                  <div className="text-sm text-green-600">
+                    Type: {selectedType}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedType("");
+                    setSelectedAccountId("");
+                  }}
+                  className="text-green-600 hover:text-green-800 text-sm font-medium"
+                >
+                  Change
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Voucher Forms */}
