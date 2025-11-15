@@ -1,135 +1,141 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 
-export default function InfiniteWheelPicker() {
-  const BASE_ITEMS = ["Customer", "Supplier", "Wholesaler", "Investor", "Internal"];
-  const itemSize = 70; // square card size
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState(BASE_ITEMS[0]);
+import { useEffect } from "react";
 
-  // Make infinite loop
-  const LOOP_ITEMS = Array(50)
-    .fill(0)
-    .flatMap(() => BASE_ITEMS);
-
-  const middleStart = BASE_ITEMS.length * 25;
-
-  const snapToCenter = () => {
-    if (!wheelRef.current) return;
-
-    const scroll = wheelRef.current.scrollTop;
-
-    // CENTER INDEX is the one in the middle of visible area
-    const centerIndex = Math.round((scroll + itemSize * 1.5) / itemSize);
-
-    const item = LOOP_ITEMS[centerIndex % LOOP_ITEMS.length];
-    setSelected(item);
-
-    // Snap the selected card exactly to center
-    wheelRef.current.scrollTo({
-      top: centerIndex * itemSize - itemSize * 1.5,
-      behavior: "smooth",
-    });
-  };
-
+export default function AccountPickerPage() {
   useEffect(() => {
-    if (!wheelRef.current) return;
+    createAccountPicker();
+  }, []);
 
-    // Move user to middle of loop
-    wheelRef.current.scrollTo({
-      top: middleStart * itemSize,
+  const createAccountPicker = () => {
+    const items = ["Customer", "Supplier", "Wholesaler", "Investor", "Internal"];
+
+    const container = document.getElementById("wheel-container");
+    const highlight = document.getElementById("highlight-bar");
+
+    // Make infinite list
+    const loopItems = [];
+    for (let i = 0; i < 40; i++) loopItems.push(...items);
+
+    const render = () => {
+      container.innerHTML = "";
+
+      // Top spacer for centering
+      const topSpacer = document.createElement("div");
+      topSpacer.className = "spacer";
+      container.appendChild(topSpacer);
+
+      loopItems.forEach((name) => {
+        const card = document.createElement("div");
+        card.className = "wheel-card";
+        card.textContent = name;
+        container.appendChild(card);
+      });
+
+      // Bottom spacer
+      const bottomSpacer = document.createElement("div");
+      bottomSpacer.className = "spacer";
+      container.appendChild(bottomSpacer);
+    };
+
+    render();
+
+    const cardHeight = 80; // one square card height
+    const centerOffset = cardHeight * 1.5; // middle of 3 cards shown
+
+    // Start in the middle of the infinite loop
+    container.scrollTo({
+      top: (loopItems.length / 2) * cardHeight,
       behavior: "instant",
     });
 
-    setSelected(BASE_ITEMS[0]);
-  }, []);
+    const updateSelection = () => {
+      const scroll = container.scrollTop;
+      const index = Math.round((scroll + centerOffset) / cardHeight);
+      const cards = container.querySelectorAll(".wheel-card");
+
+      cards.forEach((c, i) => {
+        if (i === index) {
+          c.classList.add("selected");
+          animateSelection(c);
+        } else {
+          c.classList.remove("selected");
+        }
+      });
+
+      // Snap card into perfect center
+      container.scrollTo({
+        top: index * cardHeight - centerOffset,
+        behavior: "smooth",
+      });
+    };
+
+    container.addEventListener("scroll", () => {
+      clearTimeout(container._scrollTimeout);
+      container._scrollTimeout = setTimeout(updateSelection, 120);
+    });
+
+    container.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      container.scrollTop += e.deltaY;
+    }, { passive: false });
+
+    container.addEventListener("touchend", updateSelection);
+    container.addEventListener("mouseup", updateSelection);
+  };
 
   return (
-    <div
-      style={{
-        background: "#f7f2e9",
-        minHeight: "100vh",
-        paddingTop: 60,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center"
-      }}
-    >
-      <h2 style={{ color: "#5a3e1b", marginBottom: 20 }}>Account Type</h2>
+    <div style={styles.page}>
+      <h2 style={styles.title}>Account Picker</h2>
 
-      {/* Wheel container */}
-      <div
-        ref={wheelRef}
-        onScroll={() => {
-          clearTimeout((wheelRef.current as any)?._scrollTimeout);
-          (wheelRef.current as any)._scrollTimeout = setTimeout(snapToCenter, 120);
-        }}
-        style={{
-          position: "relative",
-          width: 150,
-          height: itemSize * 3, // ONLY show 3 cards full height
-          overflowY: "scroll",
-          scrollbarWidth: "none",
-          maskImage:
-            "linear-gradient(to bottom, transparent 0%, black 35%, black 65%, transparent 100%)",
-        }}
-      >
-        <style>{`div::-webkit-scrollbar { display:none; }`}</style>
+      <div id="picker-wrapper" style={styles.wrapper}>
+        <div id="wheel-container" style={styles.wheel}></div>
 
-        {LOOP_ITEMS.map((item, i) => {
-          const scroll = wheelRef.current?.scrollTop ?? 0;
-          
-          // The item index at the vertical center
-          const centerIndex = Math.round((scroll + itemSize * 1.5) / itemSize);
-
-          const isSelected = i === centerIndex;
-
-          return (
-            <div
-              key={i}
-              style={{
-                height: itemSize,
-                width: itemSize,
-                margin: "8px auto",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-
-                background: isSelected ? "#f1e4c2" : "#ede3d1",
-                border: isSelected
-                  ? "2px solid #d4a64d"
-                  : "1px solid rgba(90,62,27,0.25)",
-                borderRadius: 10,
-
-                transform: isSelected ? "scale(1.07)" : "scale(0.85)",
-                opacity: isSelected ? 1 : 0.5,
-                fontWeight: isSelected ? 700 : 500,
-                color: "#5a3e1b",
-                transition: "all 0.25s",
-              }}
-            >
-              {item}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* CENTER highlight band */}
-      <div
-        style={{
-          position: "absolute",
-          top: 60 + itemSize, // perfectly centers between 3 cards
-          width: 150,
-          height: itemSize,
-          borderRadius: 12,
-          border: "2px dashed #d4a64d",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div style={{ marginTop: 40, fontSize: 18, color: "#5a3e1b" }}>
-        Selected: <strong>{selected}</strong>
+        <div id="highlight-bar" style={styles.highlight}></div>
       </div>
     </div>
   );
 }
+
+function animateSelection(card) {
+  card.style.transition = "transform 0.1s ease";
+  card.style.transform = "scale(1.2)";
+  setTimeout(() => {
+    card.style.transform = "scale(1.1)";
+  }, 100);
+}
+
+const styles = {
+  page: {
+    background: "#f7f2e9",
+    minHeight: "100vh",
+    paddingTop: "60px",
+    textAlign: "center",
+    fontFamily: "sans-serif",
+  },
+  title: {
+    color: "#5a3e1b",
+    marginBottom: "25px",
+  },
+  wrapper: {
+    position: "relative",
+    width: "180px",
+    margin: "0 auto",
+  },
+  wheel: {
+    height: "240px", // shows 3 cards perfectly
+    overflowY: "scroll",
+    scrollbarWidth: "none",
+    maskImage:
+      "linear-gradient(to bottom, transparent 0%, black 35%, black 65%, transparent 100%)",
+  },
+  highlight: {
+    position: "absolute",
+    top: "80px", // center card
+    width: "100%",
+    height: "80px",
+    border: "2px dashed #d4a64d",
+    borderRadius: "12px",
+    pointerEvents: "none",
+  },
+};
