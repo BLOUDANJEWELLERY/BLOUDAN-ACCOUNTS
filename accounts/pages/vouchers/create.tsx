@@ -794,42 +794,40 @@ export default function CreateVouchersPage({ accounts }: Props) {
           </div>
           
           {/* Account Selection - Step by Step */}
-          <div className="mb-6 p-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200">
-            <label className="block text-lg font-semibold text-gray-800 mb-6 text-center">
+          <div className="mb-6 p-4 bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg border border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-4">
               Select Account *
             </label>
             
             {/* Step 1: Account Type Selection */}
             {!selectedType && (
-              <div className="text-center">
-                <div className="mb-6 flex items-center justify-center">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 shadow-lg">
+              <div>
+                <div className="mb-4 flex items-center">
+                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-2">
                     1
                   </div>
-                  <span className="font-bold text-gray-800 text-lg">Choose Account Type</span>
+                  <span className="font-medium text-gray-800">Choose Account Type</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[...new Set(accounts.map((a) => a.type))].map((type) => (
                     <button
                       key={type}
                       onClick={() => setSelectedType(type)}
-                      className="group p-6 bg-white border-2 border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-2xl transition-all duration-300 text-left transform hover:-translate-y-1"
+                      className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all duration-200 text-left"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
-                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-purple-100 rounded flex items-center justify-center group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
+                          <div className="w-4 h-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-sm"></div>
                         </div>
-                        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full">
+                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
                           {accounts.filter(a => a.type === type).length}
                         </span>
                       </div>
-                      <h3 className="font-bold text-gray-900 text-lg mb-2 group-hover:text-blue-700 transition-colors">
+                      <h3 className="font-semibold text-gray-900 text-base mb-1 group-hover:text-blue-700 transition-colors">
                         {type}
                       </h3>
-                      <p className="text-sm text-gray-600">
-                        {accounts.filter(a => a.type === type).length} account{accounts.filter(a => a.type === type).length !== 1 ? 's' : ''} available
+                      <p className="text-xs text-gray-600">
+                        {accounts.filter(a => a.type === type).length} account{accounts.filter(a => a.type === type).length !== 1 ? 's' : ''}
                       </p>
                     </button>
                   ))}
@@ -840,41 +838,39 @@ export default function CreateVouchersPage({ accounts }: Props) {
             {/* Step 2: Account Selection */}
             {selectedType && !selectedAccountId && (
               <div>
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 shadow-lg">
+                    <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-2">
                       2
                     </div>
-                    <span className="font-bold text-gray-800 text-lg">Select {selectedType} Account</span>
+                    <span className="font-medium text-gray-800">Select {selectedType} Account</span>
                   </div>
                   <button
                     onClick={() => setSelectedType("")}
-                    className="flex items-center text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                    className="flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
                   >
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Types
+                    Back
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto p-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1">
                   {filteredAccounts.map((account) => (
                     <button
                       key={account.id}
                       onClick={() => setSelectedAccountId(account.id)}
-                      className="group p-5 bg-white border-2 border-gray-200 rounded-xl hover:border-green-500 hover:shadow-xl transition-all duration-300 text-left transform hover:-translate-y-0.5"
+                      className="group p-4 bg-white border border-gray-200 rounded-lg hover:border-green-500 hover:shadow-md transition-all duration-200 text-left"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center group-hover:from-green-200 group-hover:to-emerald-200 transition-colors">
-                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="w-6 h-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded flex items-center justify-center group-hover:from-green-200 group-hover:to-emerald-200 transition-colors">
+                          <div className="w-3 h-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-sm"></div>
                         </div>
                       </div>
-                      <div className="font-bold text-gray-900 text-md mb-1 group-hover:text-green-700 transition-colors">
+                      <div className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-green-700 transition-colors">
                         {account.accountNo}
                       </div>
-                      <div className="text-sm text-gray-600 truncate leading-relaxed">
+                      <div className="text-xs text-gray-600 truncate">
                         {account.name}
                       </div>
                     </button>
@@ -883,47 +879,31 @@ export default function CreateVouchersPage({ accounts }: Props) {
               </div>
             )}
 
-            {/* Step 3: Selected Account Confirmation */}
+            {/* Step 3: Selected Account Confirmation - Compact Version */}
             {selectedAccountId && (
-              <div className="text-center">
-                <div className="mb-4 flex items-center justify-center">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 shadow-lg">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center">
+                  <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                    ✓
                   </div>
-                  <span className="font-bold text-gray-800 text-xl">Account Selected</span>
-                </div>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 mb-4 shadow-lg">
-                  <div className="flex flex-col sm:flex-row items-center justify-between">
-                    <div className="text-center sm:text-left mb-4 sm:mb-0">
-                      <div className="font-bold text-green-900 text-xl mb-1">
-                        {accounts.find(a => a.id === selectedAccountId)?.accountNo}
-                      </div>
-                      <div className="text-green-800 text-lg font-medium mb-2">
-                        {accounts.find(a => a.id === selectedAccountId)?.name}
-                      </div>
-                      <div className="text-sm text-green-600 bg-green-100 px-3 py-1 rounded-full inline-block">
-                        Type: {selectedType}
-                      </div>
+                  <div>
+                    <div className="font-semibold text-green-900 text-sm">
+                      {accounts.find(a => a.id === selectedAccountId)?.accountNo} - {accounts.find(a => a.id === selectedAccountId)?.name}
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedType("");
-                        setSelectedAccountId("");
-                      }}
-                      className="flex items-center text-green-700 hover:text-green-900 font-semibold transition-colors bg-white px-4 py-2 rounded-lg border border-green-200 hover:border-green-300"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                      Change Account
-                    </button>
+                    <div className="text-xs text-green-600">
+                      {selectedType}
+                    </div>
                   </div>
                 </div>
-                <p className="text-gray-600 text-sm">
-                  You can now start creating vouchers for this account
-                </p>
+                <button
+                  onClick={() => {
+                    setSelectedType("");
+                    setSelectedAccountId("");
+                  }}
+                  className="text-green-600 hover:text-green-800 text-sm font-medium"
+                >
+                  Change
+                </button>
               </div>
             )}
           </div>
