@@ -156,7 +156,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
   
   // Predefined descriptions for Project account type
-  const projectInvDescriptions = ["Reni", "KDM", "Gold", "Casting"];
+  const projectInvDescriptions = ["Reni", "KDM", "Casting"]; // Removed "Gold"
   const projectRecDescriptions = ["Bangles", "Kids Bangles", "Tanka", "Parchoon", "Sawan", "Casting Return", "Gold", "Reni"];
   const projectAllDescriptions = [...new Set([...projectInvDescriptions, ...projectRecDescriptions])];
 
@@ -205,7 +205,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     if (accountType === "Project") {
       if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
         return "REC";
-      } else if (["Gold", "KDM", "Casting"].includes(description)) {
+      } else if (["KDM", "Casting"].includes(description)) { // Removed "Gold"
         return "INV";
       }
     } else if (accountType === "Casting") {
@@ -518,17 +518,32 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle description selection from quick select
+  // Handle description selection from quick select - APPEND text instead of replacing
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
+        // Get current description and append new value with proper spacing
+        const currentDescription = form.description || "";
+        let newDescription = "";
+        
+        if (currentDescription.trim() === "") {
+          // If current description is empty, just use the value
+          newDescription = value;
+        } else {
+          // If current description ends with space, append value directly
+          // Otherwise, add space before appending value
+          newDescription = currentDescription.endsWith(' ') 
+            ? currentDescription + value 
+            : currentDescription + ' ' + value;
+        }
+        
         const defaultVoucherType = getDefaultVoucherType(value, selectedType);
         const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
         
         const updatedForm = { 
           ...form, 
-          description: value,
-          vt: defaultVoucherType || form.vt,
+          description: newDescription, // Use appended text instead of replacement
+          vt: defaultVoucherType || form.vt, // Only set voucher type if there's a default
           rate: defaultRate
         };
         
@@ -545,7 +560,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle rate selection from quick select
+  // Handle rate selection from quick select - REPLACE behavior (unchanged)
   const handleRateSelect = (index: number, value: number) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -568,7 +583,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle bank name selection from quick select
+  // Handle bank name selection from quick select - REPLACE behavior (unchanged)
   const handleBankNameSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -578,7 +593,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle branch selection from quick select
+  // Handle branch selection from quick select - REPLACE behavior (unchanged)
   const handleBranchSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -889,7 +904,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                                 type="button"
                                 onClick={() => handleDescriptionSelect(index, desc)}
                                 className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                                  form.description === desc
+                                  form.description?.includes(desc)
                                     ? 'bg-blue-600 text-white border-blue-600'
                                     : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
                                 }`}
