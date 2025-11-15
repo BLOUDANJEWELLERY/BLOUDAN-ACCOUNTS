@@ -1,464 +1,181 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from 'react';
+import Head from 'next/head';
 
 export default function WheelCarousel() {
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(2);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const autoPlayRef = useRef(null);
 
-  const baseItems = [
-    { name: "Customer", color: "#3b82f6" },
-    { name: "Supplier", color: "#10b981" },
-    { name: "Wholesaler", color: "#f59e0b" },
-    { name: "Investor", color: "#ef4444" },
-    { name: "Internal", color: "#8b5cf6" },
-  ];
+  const cards = [1, 2, 3, 4, 5];
 
-  // Create extended array for infinite scroll
-  const items = [...baseItems, ...baseItems, ...baseItems];
-
-  const updateActive = () => {
-    const container = carouselRef.current;
-    if (!container) return;
-
-    const cards = Array.from(container.children) as HTMLElement[];
-    const center = container.getBoundingClientRect().left + container.offsetWidth / 2;
-
-    let closest = 0;
-    let closestDist = Infinity;
-
-    cards.forEach((card, i) => {
-      const rect = card.getBoundingClientRect();
-      const cardCenter = rect.left + rect.width / 2;
-      const dist = Math.abs(cardCenter - center);
-      if (dist < closestDist) {
-        closestDist = dist;
-        closest = i;
-      }
-    });
-
-    const baseIndex = closest % baseItems.length;
-    setActive(baseIndex);
-  };
-
-  useEffect(() => {
-    const container = carouselRef.current;
-    if (!container) return;
-
-    // Start in the middle of extended array
-    const middleIndex = baseItems.length;
-    const firstCard = container.children[middleIndex] as HTMLElement;
-    if (firstCard) {
-      const cardWidth = firstCard.offsetWidth;
-      const gap = 20;
-      container.scrollLeft = middleIndex * (cardWidth + gap);
-    }
-
-    let t: NodeJS.Timeout;
-    const onScroll = () => {
-      clearTimeout(t);
-      t = setTimeout(updateActive, 50);
-    };
-
-    container.addEventListener("scroll", onScroll);
-    updateActive();
-
-    return () => container.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const scrollToItem = (index: number) => {
-    const container = carouselRef.current;
-    if (!container) return;
-
-    const targetIndex = baseItems.length + index;
-    const cards = Array.from(container.children) as HTMLElement[];
-    if (cards[targetIndex]) {
-      const card = cards[targetIndex];
-      const scrollLeft = card.offsetLeft - (container.offsetWidth - card.offsetWidth) / 2;
-      container.scrollTo({ left: scrollLeft, behavior: "smooth" });
-    }
-  };
-
-  // Handle infinite scroll reset
-  const handleScroll = () => {
-    const container = carouselRef.current;
-    if (!container) return;
-
-    const scrollLeft = container.scrollLeft;
-    const scrollWidth = container.scrollWidth;
-    const clientWidth = container.clientWidth;
-
-    // Reset to middle when reaching edges
-    if (scrollLeft < clientWidth) {
-      const jumpPoint = scrollWidth / 3;
-      container.scrollLeft = jumpPoint + scrollLeft;
-    } else if (scrollLeft > (2 * scrollWidth) / 3) {
-      const jumpPoint = scrollWidth / 3;
-      container.scrollLeft = scrollLeft - jumpPoint;
-    }
-  };
-
-  const getCardStyle = (index: number, baseIndex: number) => {
-    const isActive = active === baseIndex;
-    const container = carouselRef.current;
+  // Calculate positions for wheel arrangement
+  const getCardPosition = (index, total = cards.length) => {
+    const angle = (index * 360) / total;
+    const radius = 120; // Distance from center
+    const radian = (angle * Math.PI) / 180;
     
-    if (!container) return {};
-
-    const cards = Array.from(container.children) as HTMLElement[];
-    const containerCenter = container.getBoundingClientRect().left + container.offsetWidth / 2;
-    const cardRect = cards[index]?.getBoundingClientRect();
-    
-    if (!cardRect) return {};
-
-    const cardCenter = cardRect.left + cardRect.width / 2;
-    const distance = Math.abs(cardCenter - containerCenter);
-    
-    // Wheel effect calculations
-    const maxDistance = container.offsetWidth / 2;
-    const distanceRatio = Math.min(1, distance / maxDistance);
-    
-    // Scale decreases with distance
-    const scale = 1 - (distanceRatio * 0.4);
-    
-    // Vertical position - cards further away go lower
-    const translateY = distanceRatio * 60;
-    
-    // Opacity decreases with distance
-    const opacity = 1 - (distanceRatio * 0.7);
-    
-    // Blur increases with distance
-    const blur = Math.min(3, distanceRatio * 4);
-
-    if (isActive) {
-      return {
-        transform: "scale(1) translateY(0px)",
-        opacity: 1,
-        filter: "none",
-        zIndex: 10,
-        boxShadow: `0 20px 40px rgba(0, 0, 0, 0.25), 0 8px 24px ${baseItems[baseIndex].color}40`,
-      };
-    }
-
     return {
-      transform: `scale(${scale}) translateY(${translateY}px)`,
-      opacity,
-      filter: `blur(${blur}px)`,
-      zIndex: Math.floor(10 - distanceRatio * 5),
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+      x: Math.sin(radian) * radius,
+      y: -Math.cos(radian) * radius,
+      rotation: angle,
+      scale: index === currentIndex % total ? 1.2 : 0.9,
+      zIndex: index === currentIndex % total ? 10 : 1,
+      opacity: index === currentIndex % total ? 1 : 0.7
     };
   };
+
+  // Auto-play functionality
+  useEffect(() => {
+    if (isAutoPlaying) {
+      autoPlayRef.current = setInterval(() => {
+        setCurrentIndex(prev => prev + 1);
+      }, 2000);
+    } else {
+      clearInterval(autoPlayRef.current);
+    }
+
+    return () => clearInterval(autoPlayRef.current);
+  }, [isAutoPlaying]);
+
+  // Handle manual navigation
+  const navigate = (direction) => {
+    setIsAutoPlaying(false);
+    setCurrentIndex(prev => prev + direction);
+  };
+
+  // Reset auto-play after manual interaction
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAutoPlaying(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [currentIndex]);
+
+  const displayedCards = [];
+  const totalCards = cards.length;
+
+  // Create infinite loop by displaying multiple sets
+  for (let i = -2; i <= 2; i++) {
+    const actualIndex = (currentIndex + i + totalCards) % totalCards;
+    const position = getCardPosition(i + 2, 5); // Adjust for the 5 visible positions
+    
+    displayedCards.push({
+      number: cards[actualIndex],
+      position,
+      key: `${currentIndex + i}`
+    });
+  }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        padding: "40px 20px",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: "60px" }}>
-        <h1
-          style={{
-            fontSize: "2.5rem",
-            fontWeight: "700",
-            color: "white",
-            marginBottom: "12px",
-            letterSpacing: "-0.025em",
-          }}
-        >
-          Business Partners
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center p-8">
+      <Head>
+        <title>Wheel Number Carousel</title>
+        <meta name="description" content="Infinite wheel carousel with numbers" />
+      </Head>
+
+      <div className="max-w-md w-full">
+        <h1 className="text-4xl font-bold text-white text-center mb-8">
+          Wheel Carousel
         </h1>
-        <p
-          style={{
-            fontSize: "1.125rem",
-            color: "rgba(255, 255, 255, 0.8)",
-            maxWidth: "500px",
-            lineHeight: "1.6",
-          }}
-        >
-          Scroll to explore different partnership types
-        </p>
-      </div>
+        
+        {/* Wheel Container */}
+        <div className="relative h-80 mb-12">
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Center circle */}
+            <div className="w-20 h-20 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-lg font-bold text-purple-600">
+                  {cards[(currentIndex + totalCards) % totalCards]}
+                </span>
+              </div>
+            </div>
 
-      {/* Wheel Carousel Container */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "600px",
-          position: "relative",
-        }}
-      >
-        {/* Navigation Arrows */}
-        <button
-          onClick={() => {
-            const newIndex = (active - 1 + baseItems.length) % baseItems.length;
-            scrollToItem(newIndex);
-          }}
-          style={{
-            position: "absolute",
-            left: "-60px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: "48px",
-            height: "48px",
-            borderRadius: "50%",
-            background: "white",
-            border: "none",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.25rem",
-            color: "#374151",
-            zIndex: 20,
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#f8fafc";
-            e.currentTarget.style.transform = "translateY(-50%) scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "white";
-            e.currentTarget.style.transform = "translateY(-50%) scale(1)";
-          }}
-        >
-          ‹
-        </button>
-
-        <button
-          onClick={() => {
-            const newIndex = (active + 1) % baseItems.length;
-            scrollToItem(newIndex);
-          }}
-          style={{
-            position: "absolute",
-            right: "-60px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: "48px",
-            height: "48px",
-            borderRadius: "50%",
-            background: "white",
-            border: "none",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.25rem",
-            color: "#374151",
-            zIndex: 20,
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#f8fafc";
-            e.currentTarget.style.transform = "translateY(-50%) scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "white";
-            e.currentTarget.style.transform = "translateY(-50%) scale(1)";
-          }}
-        >
-          ›
-        </button>
-
-        {/* Wheel Carousel */}
-        <div
-          ref={carouselRef}
-          onScroll={handleScroll}
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "20px",
-            padding: "80px 40px 40px 40px",
-            scrollSnapType: "x proximity",
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
-            alignItems: "flex-end",
-            borderRadius: "20px",
-            background: "rgba(255, 255, 255, 0.1)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            minHeight: "200px",
-            position: "relative",
-          }}
-        >
-          <style>{`
-            div::-webkit-scrollbar { display: none; }
-          `}</style>
-
-          {items.map((item, i) => {
-            const baseIndex = i % baseItems.length;
-            const isActive = active === baseIndex;
-
-            return (
+            {/* Cards arranged in wheel */}
+            {displayedCards.map((card, index) => (
               <div
-                key={i}
-                onClick={() => scrollToItem(baseIndex)}
+                key={card.key}
+                className="absolute w-16 h-16 transition-all duration-500 ease-in-out"
                 style={{
-                  flexShrink: 0,
-                  width: "120px",
-                  height: "120px",
-                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                  background: "white",
-                  borderRadius: "12px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  fontWeight: "600",
-                  color: isActive ? "#1f2937" : "#6b7280",
-                  border: `2px solid ${isActive ? item.color : "rgba(0, 0, 0, 0.1)"}`,
-                  cursor: "pointer",
-                  position: "relative",
-                  overflow: "hidden",
-                  ...getCardStyle(i, baseIndex),
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.transform = e.currentTarget.style.transform.replace(/scale\([^)]*\)/, "scale(0.9)");
-                    e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.2)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    setTimeout(() => {
-                      if (e.currentTarget) {
-                        Object.assign(e.currentTarget.style, getCardStyle(i, baseIndex));
-                      }
-                    }, 10);
-                  }
+                  transform: `translate(${card.position.x}px, ${card.position.y}px) scale(${card.position.scale}) rotate(${card.position.rotation}deg)`,
+                  zIndex: card.position.zIndex,
+                  opacity: card.position.opacity
                 }}
               >
-                {/* Background Accent */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: "3px",
-                    background: item.color,
-                    opacity: isActive ? 1 : 0.5,
-                  }}
-                />
-                
-                {/* Icon */}
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "8px",
-                    background: item.color,
-                    opacity: isActive ? 0.9 : 0.6,
-                    marginBottom: "8px",
-                  }}
-                />
-                
-                {item.name}
-                
-                {/* Active Indicator */}
-                {isActive && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "8px",
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      background: item.color,
-                    }}
-                  />
-                )}
+                <div className={`
+                  w-full h-full rounded-xl shadow-2xl flex items-center justify-center text-2xl font-bold transition-all duration-500
+                  ${index === 2 
+                    ? 'bg-white text-purple-600 border-4 border-yellow-400' 
+                    : 'bg-gray-800 text-white border-2 border-white/50'
+                  }
+                `}>
+                  {card.number}
+                </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Active Item Display */}
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: "20px",
-            padding: "16px",
-            background: "rgba(255, 255, 255, 0.1)",
-            borderRadius: "12px",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: "600",
-              color: "white",
-              marginBottom: "4px",
-            }}
-          >
-            {baseItems[active].name}
-          </div>
-          <div
-            style={{
-              fontSize: "0.8rem",
-              color: "rgba(255, 255, 255, 0.7)",
-            }}
-          >
-            Currently Selected
+            ))}
           </div>
         </div>
 
-        {/* Dots Indicator */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "8px",
-            marginTop: "20px",
-          }}
-        >
-          {baseItems.map((_, i) => (
+        {/* Controls */}
+        <div className="flex justify-center items-center space-x-6 mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <button
+            onClick={() => setIsAutoPlaying(!isAutoPlaying)}
+            className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+          >
+            {isAutoPlaying ? (
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            onClick={() => navigate(1)}
+            className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm hover:bg-white/50 transition-colors"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Indicators */}
+        <div className="flex justify-center space-x-3">
+          {cards.map((_, index) => (
             <button
-              key={i}
-              onClick={() => scrollToItem(i)}
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                border: "none",
-                background: i === active ? "white" : "rgba(255, 255, 255, 0.4)",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
+              key={index}
+              onClick={() => {
+                setIsAutoPlaying(false);
+                setCurrentIndex(index);
               }}
-              onMouseEnter={(e) => {
-                if (i !== active) {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (i !== active) {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.4)";
-                }
-              }}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === (currentIndex % totalCards) 
+                  ? 'bg-white w-8' 
+                  : 'bg-white/50'
+              }`}
             />
           ))}
         </div>
-      </div>
 
-      {/* Instructions */}
-      <div
-        style={{
-          textAlign: "center",
-          marginTop: "40px",
-          color: "rgba(255, 255, 255, 0.7)",
-          fontSize: "0.9rem",
-        }}
-      >
-        Scroll or click to navigate • Infinite scrolling enabled
+        {/* Info */}
+        <div className="text-center mt-8">
+          <p className="text-white/80 text-sm">
+            {isAutoPlaying ? 'Auto-playing' : 'Paused'} • Current: {cards[(currentIndex % totalCards + totalCards) % totalCards]}
+          </p>
+        </div>
       </div>
     </div>
   );
