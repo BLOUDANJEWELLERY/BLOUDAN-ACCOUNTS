@@ -416,20 +416,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
-        // Handle description change - set voucher type and rate based on description
-        if (field === 'description' && value) {
-          const defaultVoucherType = getDefaultVoucherType(value, selectedType);
-          const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
-          updatedForm.vt = defaultVoucherType || form.vt;
-          updatedForm.rate = defaultRate;
-          
-          // Recalculate KWD based on account type
-          if (selectedType === "Faceting" && updatedForm.quantity) {
-            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
-          } else if (selectedType === "Casting" && updatedForm.gold) {
-            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, defaultRate);
-          }
-        }
+        // REMOVED: Auto voucher type detection when manually typing description
+        // Only handle description field update without auto-setting voucher type
         
         // Handle GFV voucher calculations
         if (updatedForm.vt === "GFV") {
@@ -516,28 +504,33 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle description selection from quick select - APPEND text instead of replacing
+  // Handle description selection from quick select - APPEND text and SET voucher type
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
+        // Get current description and append new value with proper spacing
         const currentDescription = form.description || "";
         let newDescription = "";
         
         if (currentDescription.trim() === "") {
+          // If current description is empty, just use the value
           newDescription = value;
         } else {
+          // If current description ends with space, append value directly
+          // Otherwise, add space before appending value
           newDescription = currentDescription.endsWith(' ') 
             ? currentDescription + value 
             : currentDescription + ' ' + value;
         }
         
+        // Get default voucher type and rate based on the selected description
         const defaultVoucherType = getDefaultVoucherType(value, selectedType);
         const defaultRate = getDefaultRateForDescription(value, defaultVoucherType);
         
         const updatedForm = { 
           ...form, 
           description: newDescription,
-          vt: defaultVoucherType || form.vt,
+          vt: defaultVoucherType, // Set voucher type only when quick select is clicked
           rate: defaultRate
         };
         
@@ -752,7 +745,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   };
 
-  // NEW: Smart voucher type indicator component
+  // Smart voucher type indicator component
   const VoucherTypeIndicator = ({ form, index }: { form: VoucherForm; index: number }) => {
     const [showOptions, setShowOptions] = useState(false);
     
@@ -796,10 +789,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
             </svg>
           </button>
 
-          {/* Auto-detection hint */}
-          {form.description && !form.vt && (
-            <span className="text-sm text-yellow-600 font-medium">
-              Select type or choose description
+          {/* Quick select hint */}
+          {!form.vt && (
+            <span className="text-sm text-gray-500">
+              Select type or choose from quick descriptions
             </span>
           )}
         </div>
@@ -1042,7 +1035,10 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         {/* Description Quick Select for Project, Faceting, Casting, and Gold Fixing */}
                         {shouldShowDescriptionQuickSelect() && (
                           <div className="mt-3">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Quick Select Descriptions:</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Quick Select Descriptions 
+                              <span className="text-blue-600 text-xs ml-2">(Click to auto-set voucher type)</span>
+                            </label>
                             <div className="flex flex-wrap gap-2">
                               {getAvailableDescriptions(form.vt).map((desc) => (
                                 <button
@@ -1060,7 +1056,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
                       </div>
                     )}
 
-                    {/* NEW: Compact Voucher Type Indicator */}
+                    {/* Compact Voucher Type Indicator */}
                     <VoucherTypeIndicator form={form} index={index} />
 
                     {/* Gold Field */}
