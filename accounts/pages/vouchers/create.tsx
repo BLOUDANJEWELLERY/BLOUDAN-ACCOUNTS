@@ -62,6 +62,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVoucherTypeHelp, setShowVoucherTypeHelp] = useState(false);
 
   // Prevent zooming on keyboard interactions and pinch-to-zoom without affecting scrolling
   useEffect(() => {
@@ -156,7 +157,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const predefinedRates = [0, 0.15, 0.20, 0.25, 0.3, 0.35, 0.4, 0.5];
   
   // Predefined descriptions for Project account type
-  const projectInvDescriptions = ["Reni", "KDM", "Casting"]; // Removed "Gold"
+  const projectInvDescriptions = ["Reni", "KDM", "Casting"];
   const projectRecDescriptions = ["Bangles", "Kids Bangles", "Tanka", "Parchoon", "Sawan", "Casting Return", "Gold", "Reni"];
   const projectAllDescriptions = [...new Set([...projectInvDescriptions, ...projectRecDescriptions])];
 
@@ -188,14 +189,14 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const getVoucherTypes = () => {
     if (selectedType === "Gold Fixing") {
       return [
-        { value: "INV", label: "INV (Invoice)" },
-        { value: "REC", label: "REC (Receipt)" },
-        { value: "GFV", label: "GFV (Gold Fixing)" }
+        { value: "INV", label: "Invoice", color: "bg-red-100 border-red-300 text-red-700", activeColor: "bg-red-500 text-white" },
+        { value: "REC", label: "Receipt", color: "bg-green-100 border-green-300 text-green-700", activeColor: "bg-green-500 text-white" },
+        { value: "GFV", label: "Gold Fixing", color: "bg-yellow-100 border-yellow-300 text-yellow-700", activeColor: "bg-yellow-500 text-white" }
       ];
     } else {
       return [
-        { value: "INV", label: "INV (Invoice)" },
-        { value: "REC", label: "REC (Receipt)" }
+        { value: "INV", label: "Invoice", color: "bg-red-100 border-red-300 text-red-700", activeColor: "bg-red-500 text-white" },
+        { value: "REC", label: "Receipt", color: "bg-green-100 border-green-300 text-green-700", activeColor: "bg-green-500 text-white" }
       ];
     }
   };
@@ -205,7 +206,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     if (accountType === "Project") {
       if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
         return "REC";
-      } else if (["KDM", "Casting"].includes(description)) { // Removed "Gold"
+      } else if (["KDM", "Casting"].includes(description)) {
         return "INV";
       }
     } else if (accountType === "Casting") {
@@ -227,7 +228,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
         return "INV";
       }
     }
-    return ""; // No default if no match
+    return "";
   };
 
   // Check if should show gold fixing section
@@ -254,7 +255,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Get available descriptions based on account type and voucher type
   const getAvailableDescriptions = (vt: string) => {
     if (selectedType === "Project") {
-      // When no voucher type is selected, show all descriptions
       if (!vt) {
         return projectAllDescriptions;
       } else if (vt === "INV") {
@@ -291,7 +291,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
   // Get default rate based on description and account type
   const getDefaultRateForDescription = (description: string, vt: string): number => {
     if (selectedType === "Project") {
-      // Default rate for Project account type
       return 0;
     } else if (selectedType === "Faceting") {
       switch (description) {
@@ -522,16 +521,12 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const handleDescriptionSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
-        // Get current description and append new value with proper spacing
         const currentDescription = form.description || "";
         let newDescription = "";
         
         if (currentDescription.trim() === "") {
-          // If current description is empty, just use the value
           newDescription = value;
         } else {
-          // If current description ends with space, append value directly
-          // Otherwise, add space before appending value
           newDescription = currentDescription.endsWith(' ') 
             ? currentDescription + value 
             : currentDescription + ' ' + value;
@@ -542,8 +537,8 @@ export default function CreateVouchersPage({ accounts }: Props) {
         
         const updatedForm = { 
           ...form, 
-          description: newDescription, // Use appended text instead of replacement
-          vt: defaultVoucherType || form.vt, // Only set voucher type if there's a default
+          description: newDescription,
+          vt: defaultVoucherType || form.vt,
           rate: defaultRate
         };
         
@@ -560,7 +555,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle rate selection from quick select - REPLACE behavior (unchanged)
+  // Handle rate selection from quick select
   const handleRateSelect = (index: number, value: number) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -583,7 +578,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle bank name selection from quick select - REPLACE behavior (unchanged)
+  // Handle bank name selection from quick select
   const handleBankNameSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -593,7 +588,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }));
   };
 
-  // Handle branch selection from quick select - REPLACE behavior (unchanged)
+  // Handle branch selection from quick select
   const handleBranchSelect = (index: number, value: string) => {
     setVoucherForms(forms => forms.map((form, i) => {
       if (i === index) {
@@ -758,16 +753,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
     }
   };
 
-  // Get voucher type badge color
-  const getVoucherTypeBadgeColor = (vt: string) => {
-    switch (vt) {
-      case 'INV': return 'bg-red-100 text-red-800 border-red-200';
-      case 'REC': return 'bg-green-100 text-green-800 border-green-200';
-      case 'GFV': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
       {/* Add viewport meta tag to control zoom behavior */}
@@ -924,14 +909,7 @@ export default function CreateVouchersPage({ accounts }: Props) {
               {voucherForms.map((form, index) => (
                 <div key={index} className="border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gradient-to-r from-gray-50 to-white hover:border-blue-300 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                      <h3 className="font-semibold text-gray-700">Voucher #{index + 1}</h3>
-                      {form.vt && (
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getVoucherTypeBadgeColor(form.vt)}`}>
-                          {form.vt}
-                        </span>
-                      )}
-                    </div>
+                    <h3 className="font-semibold text-gray-700 mb-2 sm:mb-0">Voucher #{index + 1}</h3>
                     {voucherForms.length > 1 && (
                       <button
                         onClick={() => removeVoucherForm(index)}
@@ -956,30 +934,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         onChange={(e) => updateVoucherForm(index, 'date', e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                       />
-                    </div>
-
-                    {/* Voucher Type Selection - Compact Dropdown */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Voucher Type *</label>
-                      <div className="relative">
-                        <select
-                          value={form.vt}
-                          onChange={(e) => updateVoucherForm(index, 'vt', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base appearance-none bg-white"
-                        >
-                          <option value="">Select voucher type</option>
-                          {getVoucherTypes().map((voucherType) => (
-                            <option key={voucherType.value} value={voucherType.value}>
-                              {voucherType.label}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-700">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
                     </div>
 
                     {/* MVN or Description Field */}
@@ -1025,6 +979,64 @@ export default function CreateVouchersPage({ accounts }: Props) {
                         )}
                       </div>
                     )}
+
+                    {/* Voucher Type Selection - NEW DESIGN: Smart Badge Selector */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <label className="block text-sm font-medium text-gray-700">Voucher Type *</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoucherTypeHelp(!showVoucherTypeHelp)}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {showVoucherTypeHelp && (
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                          <p className="font-medium mb-1">Voucher Type Guide:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li><span className="font-semibold">Invoice (INV)</span>: For outgoing transactions, payments due</li>
+                            <li><span className="font-semibold">Receipt (REC)</span>: For incoming transactions, payments received</li>
+                            {selectedType === "Gold Fixing" && (
+                              <li><span className="font-semibold">Gold Fixing (GFV)</span>: Special voucher for gold fixing transactions</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-3">
+                        {getVoucherTypes().map((voucherType) => (
+                          <button
+                            key={voucherType.value}
+                            type="button"
+                            onClick={() => updateVoucherForm(index, 'vt', voucherType.value)}
+                            className={`px-4 py-2 rounded-lg border-2 font-medium transition-all flex items-center gap-2 ${
+                              form.vt === voucherType.value
+                                ? `${voucherType.activeColor} border-transparent shadow-sm`
+                                : `${voucherType.color} border-gray-300 hover:border-gray-400 hover:shadow-sm`
+                            }`}
+                          >
+                            <span>{voucherType.label}</span>
+                            {form.vt === voucherType.value && (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Auto-detected Voucher Type Hint */}
+                      {form.description && !form.vt && (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+                          <p>Select a description first or choose a voucher type above</p>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Gold Field */}
                     <div>
