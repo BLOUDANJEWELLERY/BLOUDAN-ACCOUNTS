@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 
 export default function SearchPage() {
@@ -10,6 +10,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [currentHighlight, setCurrentHighlight] = useState(0);
   const [totalHighlights, setTotalHighlights] = useState(0);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const extractNumbersFromSheet = async (file: File) => {
     const data = await file.arrayBuffer();
@@ -89,6 +90,22 @@ export default function SearchPage() {
       setTimeout(() => scrollToHighlight(1), 300);
     }
   };
+
+  // Apply mobile-optimized styles to the preview content
+  useEffect(() => {
+    if (highlightedHtml && previewContainerRef.current) {
+      const container = previewContainerRef.current;
+      const content = container.querySelector('#preview-content');
+      
+      if (content) {
+        // Force mobile-optimized view
+        (content as HTMLElement).style.width = '100%';
+        (content as HTMLElement).style.maxWidth = '100%';
+        (content as HTMLElement).style.overflowX = 'auto';
+        (content as HTMLElement).style.boxSizing = 'border-box';
+      }
+    }
+  }, [highlightedHtml]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 px-3 sm:px-4 md:px-6 lg:px-8">
@@ -277,21 +294,64 @@ export default function SearchPage() {
               )}
             </div>
 
-            {/* Preview Section */}
+            {/* Preview Section - MOBILE OPTIMIZED */}
             {highlightedHtml && (
               <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-gray-200">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">Highlighted Page Preview</h2>
                 
                 <div className="relative">
+                  {/* Mobile-optimized preview container */}
                   <div
                     id="preview-container"
-                    className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 max-h-64 sm:max-h-80 md:max-h-96 overflow-y-auto bg-white shadow-inner prose prose-blue max-w-none text-sm sm:text-base"
-                    dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-                  />
+                    ref={previewContainerRef}
+                    className="border border-gray-200 rounded-lg sm:rounded-xl bg-white shadow-inner overflow-auto"
+                    style={{
+                      maxHeight: '50vh',
+                      minHeight: '300px'
+                    }}
+                  >
+                    {/* Wrapper for mobile optimization */}
+                    <div 
+                      id="preview-content"
+                      className="p-3 sm:p-4 md:p-6"
+                      style={{
+                        // Force mobile-optimized viewport
+                        minWidth: '100%',
+                        width: '100%',
+                        maxWidth: '100%',
+                        overflowX: 'auto',
+                        boxSizing: 'border-box',
+                        // Mobile viewport simulation
+                        transform: 'scale(1)',
+                        transformOrigin: 'top left',
+                        // Ensure content is readable
+                        fontSize: '16px', // Prevent zoom on iOS
+                        lineHeight: '1.4',
+                      }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: highlightedHtml 
+                      }}
+                    />
+                  </div>
                   
-                  {/* Scroll hint */}
-                  <div className="absolute bottom-2 sm:bottom-3 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                    Scroll to see more
+                  {/* Mobile controls */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="text-xs sm:text-sm text-blue-700 mb-2 sm:mb-0">
+                      💡 <strong>Mobile Tips:</strong> Pinch to zoom • Scroll horizontally
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => {
+                          const container = document.getElementById('preview-container');
+                          if (container) {
+                            container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                          }
+                        }}
+                        className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors"
+                      >
+                        Scroll to Top
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
