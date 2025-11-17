@@ -29,21 +29,22 @@ export default function SearchPage() {
   };
 
   // Scroll to highlight by index
-  const scrollToHighlight = (index: number) => {
-    const container = document.getElementById("preview-container");
-    if (!container) return;
+const scrollToHighlight = (index: number) => {
+  const container = document.getElementById("preview-container");
+  if (!container) return;
 
-    const el = container.querySelector(
-      `#highlight-${index}`
-    ) as HTMLElement;
+  const el = container.querySelector(`#highlight-${index}`) as HTMLElement;
+  if (!el) return;
 
-    if (!el) return;
+  // Scroll inside the container
+  const containerTop = container.getBoundingClientRect().top;
+  const elementTop = el.getBoundingClientRect().top;
 
-    container.scrollTo({
-      top: el.offsetTop - 100,
-      behavior: "smooth",
-    });
-  };
+  container.scrollBy({
+    top: elementTop - containerTop - 20, // adjust offset for padding
+    behavior: "smooth",
+  });
+};
 
   const goNext = () => {
     if (currentHighlight < totalHighlights) {
