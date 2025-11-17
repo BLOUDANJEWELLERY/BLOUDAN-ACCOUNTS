@@ -15,21 +15,42 @@ export default async function handler(
 
   try {
     const response = await fetch(url);
-
     if (!response.ok) {
-      return res.status(400).json({ error: "Unable to fetch webpage" });
+      return res
+        .status(400)
+        .json({ error: "Unable to fetch webpage" });
     }
 
-    const html = await response.text();
+    let html = await response.text();
+    const results: any[] = [];
 
-    const results = numbers.map(num => ({
-      number: num,
-      found: html.includes(num),
-      count: (html.match(new RegExp(num, "g")) || []).length,
-    }));
+    // Highlight every number
+    numbers.forEach((num) => {
+      const regex = new RegExp(num, "g");
 
-    return res.status(200).json({ results });
+      const matchCount = (html.match(regex) || []).length;
+
+      // Add result info
+      results.push({
+        number: num,
+        found: matchCount > 0,
+        count: matchCount,
+      });
+
+      // Inject highlighting
+      html = html.replace(
+        regex,
+        `<mark style="background: yellow; color: black; padding: 2px; border-radius: 3px;">${num}</mark>`
+      );
+    });
+
+    return res.status(200).json({
+      results,
+      highlightedHtml: html,
+    });
   } catch (err) {
-    return res.status(500).json({ error: "Server error fetching webpage" });
+    return res.status(500).json({
+      error: "Server error fetching webpage",
+    });
   }
 }
