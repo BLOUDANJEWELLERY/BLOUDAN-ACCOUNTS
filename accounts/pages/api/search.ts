@@ -16,32 +16,27 @@ export default async function handler(
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      return res
-        .status(400)
-        .json({ error: "Unable to fetch webpage" });
+      return res.status(400).json({ error: "Unable to fetch webpage" });
     }
 
     let html = await response.text();
     const results: any[] = [];
 
-    // Highlight every number
     numbers.forEach((num) => {
+      let index = 0;
       const regex = new RegExp(num, "g");
 
-      const matchCount = (html.match(regex) || []).length;
-
-      // Add result info
-      results.push({
-        number: num,
-        found: matchCount > 0,
-        count: matchCount,
+      // Replace all occurrences with highlighted mark tags
+      html = html.replace(regex, () => {
+        index++;
+        return `<mark id="mark-${num}-${index}" style="background: yellow; color: black; padding: 2px; border-radius: 3px;">${num}</mark>`;
       });
 
-      // Inject highlighting
-      html = html.replace(
-        regex,
-        `<mark style="background: yellow; color: black; padding: 2px; border-radius: 3px;">${num}</mark>`
-      );
+      results.push({
+        number: num,
+        found: index > 0,
+        count: index,
+      });
     });
 
     return res.status(200).json({
@@ -49,8 +44,6 @@ export default async function handler(
       highlightedHtml: html,
     });
   } catch (err) {
-    return res.status(500).json({
-      error: "Server error fetching webpage",
-    });
+    return res.status(500).json({ error: "Server error fetching webpage" });
   }
 }
