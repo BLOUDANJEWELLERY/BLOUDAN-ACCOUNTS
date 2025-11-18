@@ -91,44 +91,28 @@ export default function SearchPage() {
     }
   };
 
-  // Apply mobile-optimized zoom to the preview content only
+  // Clean approach - only modify the preview content
   useEffect(() => {
     if (highlightedHtml && previewContainerRef.current) {
+      // Remove any existing styles that might break the main page
       const container = previewContainerRef.current;
-      const contentWrapper = container.querySelector('#preview-content-wrapper') as HTMLElement;
       
-      if (contentWrapper) {
-        // Apply mobile-optimized zoom only to the content
-        contentWrapper.style.transform = 'scale(0.4)';
-        contentWrapper.style.transformOrigin = 'top left';
-        contentWrapper.style.width = '250%'; // Compensate for zoom out
-        contentWrapper.style.minHeight = '100%';
+      // Apply mobile-friendly styles only to the preview content
+      const previewContent = container.querySelector('#preview-content') as HTMLElement;
+      if (previewContent) {
+        // Reset any styles first
+        previewContent.style.cssText = '';
         
-        // Force mobile viewport simulation
-        const viewportMeta = document.createElement('meta');
-        viewportMeta.name = 'viewport';
-        viewportMeta.content = 'width=device-width, initial-scale=0.4, minimum-scale=0.4, maximum-scale=2.0, user-scalable=yes';
+        // Apply mobile-optimized styles
+        previewContent.style.width = '100%';
+        previewContent.style.maxWidth = '100%';
+        previewContent.style.overflowX = 'auto';
+        previewContent.style.boxSizing = 'border-box';
         
-        // Add or update viewport meta in the content
-        const existingViewport = contentWrapper.querySelector('meta[name="viewport"]');
-        if (existingViewport) {
-          existingViewport.remove();
-        }
-        
-        const head = contentWrapper.querySelector('head');
-        if (head) {
-          head.appendChild(viewportMeta);
-        } else {
-          // If no head, create one and prepend to content
-          const newHead = document.createElement('head');
-          newHead.appendChild(viewportMeta);
-          const firstChild = contentWrapper.firstChild;
-          if (firstChild) {
-            contentWrapper.insertBefore(newHead, firstChild);
-          } else {
-            contentWrapper.appendChild(newHead);
-          }
-        }
+        // Mobile viewport simulation - much simpler approach
+        previewContent.style.transform = 'scale(0.8)';
+        previewContent.style.transformOrigin = 'top left';
+        previewContent.style.minHeight = '100%';
       }
     }
   }, [highlightedHtml]);
@@ -320,31 +304,31 @@ export default function SearchPage() {
               )}
             </div>
 
-            {/* Preview Section - MOBILE OPTIMIZED WITH ZOOM */}
+            {/* Preview Section - SIMPLE AND CLEAN */}
             {highlightedHtml && (
               <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-gray-200">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">Highlighted Page Preview</h2>
                 
                 <div className="relative">
-                  {/* Mobile-optimized preview container with zoom */}
+                  {/* Simple container without complex transforms */}
                   <div
                     id="preview-container"
                     ref={previewContainerRef}
-                    className="border border-gray-200 rounded-lg sm:rounded-xl bg-white shadow-inner overflow-auto"
+                    className="border border-gray-200 rounded-lg sm:rounded-xl bg-white overflow-auto"
                     style={{
                       maxHeight: '60vh',
                       minHeight: '400px',
-                      // Container remains normal size, only content is zoomed
                     }}
                   >
-                    {/* Wrapper for mobile zoom optimization */}
+                    {/* Simple content wrapper */}
                     <div 
-                      id="preview-content-wrapper"
-                      className="origin-top-left"
+                      id="preview-content"
+                      className="p-4 min-w-full"
                       style={{
-                        // These styles will be set by useEffect for mobile optimization
-                        padding: '1rem',
-                        boxSizing: 'border-box',
+                        // Let the content be natural, mobile browsers will handle it
+                        transform: 'scale(0.9)',
+                        transformOrigin: 'top left',
+                        width: '110%', // Compensate for scaling
                       }}
                       dangerouslySetInnerHTML={{ 
                         __html: highlightedHtml 
@@ -352,24 +336,9 @@ export default function SearchPage() {
                     />
                   </div>
                   
-                  {/* Mobile zoom controls */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 p-3 bg-blue-50 rounded-lg space-y-2 sm:space-y-0">
-                    <div className="text-xs sm:text-sm text-blue-700 text-center sm:text-left">
-                      <span className="font-semibold">📱 Mobile View:</span> Pinch to zoom • Scroll to navigate
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => {
-                          const container = document.getElementById('preview-container');
-                          if (container) {
-                            container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                          }
-                        }}
-                        className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors"
-                      >
-                        Reset View
-                      </button>
-                    </div>
+                  {/* Simple mobile instructions */}
+                  <div className="mt-3 text-xs text-gray-600 text-center">
+                    💡 Use pinch-to-zoom to view details on mobile
                   </div>
                 </div>
               </div>
@@ -377,7 +346,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Empty state for better mobile experience */}
+        {/* Empty state */}
         {results.length === 0 && !loading && (
           <div className="text-center py-8 sm:py-12">
             <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-lg border border-gray-200">
