@@ -91,32 +91,6 @@ export default function SearchPage() {
     }
   };
 
-  // Clean approach - only modify the preview content
-  useEffect(() => {
-    if (highlightedHtml && previewContainerRef.current) {
-      // Remove any existing styles that might break the main page
-      const container = previewContainerRef.current;
-      
-      // Apply mobile-friendly styles only to the preview content
-      const previewContent = container.querySelector('#preview-content') as HTMLElement;
-      if (previewContent) {
-        // Reset any styles first
-        previewContent.style.cssText = '';
-        
-        // Apply mobile-optimized styles
-        previewContent.style.width = '100%';
-        previewContent.style.maxWidth = '100%';
-        previewContent.style.overflowX = 'auto';
-        previewContent.style.boxSizing = 'border-box';
-        
-        // Mobile viewport simulation - much simpler approach
-        previewContent.style.transform = 'scale(0.8)';
-        previewContent.style.transformOrigin = 'top left';
-        previewContent.style.minHeight = '100%';
-      }
-    }
-  }, [highlightedHtml]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 px-3 sm:px-4 md:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -304,13 +278,13 @@ export default function SearchPage() {
               )}
             </div>
 
-            {/* Preview Section - SIMPLE AND CLEAN */}
+            {/* Preview Section - COMPLETELY ISOLATED ZOOM */}
             {highlightedHtml && (
               <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-gray-200">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">Highlighted Page Preview</h2>
                 
                 <div className="relative">
-                  {/* Simple container without complex transforms */}
+                  {/* Container with isolated zoom */}
                   <div
                     id="preview-container"
                     ref={previewContainerRef}
@@ -318,27 +292,39 @@ export default function SearchPage() {
                     style={{
                       maxHeight: '60vh',
                       minHeight: '400px',
+                      // Container stays normal - NO TRANSFORMS HERE
                     }}
                   >
-                    {/* Simple content wrapper */}
+                    {/* Isolated content that gets zoomed */}
                     <div 
-                      id="preview-content"
-                      className="p-4 min-w-full"
+                      className="preview-content-wrapper"
                       style={{
-                        // Let the content be natural, mobile browsers will handle it
-                        transform: 'scale(0.9)',
+                        // Isolated zoom - only affects this div
+                        transform: 'scale(0.5)',
                         transformOrigin: 'top left',
-                        width: '110%', // Compensate for scaling
+                        width: '200%', // Compensate for 0.5 scale
+                        height: '200%',
+                        overflow: 'visible',
+                        position: 'relative'
                       }}
-                      dangerouslySetInnerHTML={{ 
-                        __html: highlightedHtml 
-                      }}
-                    />
+                    >
+                      <div 
+                        className="p-4"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                        dangerouslySetInnerHTML={{ 
+                          __html: highlightedHtml 
+                        }}
+                      />
+                    </div>
                   </div>
                   
                   {/* Simple mobile instructions */}
                   <div className="mt-3 text-xs text-gray-600 text-center">
-                    💡 Use pinch-to-zoom to view details on mobile
+                    💡 Preview is zoomed out for mobile. Use pinch-to-zoom to view details.
                   </div>
                 </div>
               </div>
