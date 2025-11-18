@@ -91,18 +91,44 @@ export default function SearchPage() {
     }
   };
 
-  // Apply mobile-optimized styles to the preview content
+  // Apply mobile-optimized zoom to the preview content only
   useEffect(() => {
     if (highlightedHtml && previewContainerRef.current) {
       const container = previewContainerRef.current;
-      const content = container.querySelector('#preview-content');
+      const contentWrapper = container.querySelector('#preview-content-wrapper') as HTMLElement;
       
-      if (content) {
-        // Force mobile-optimized view
-        (content as HTMLElement).style.width = '100%';
-        (content as HTMLElement).style.maxWidth = '100%';
-        (content as HTMLElement).style.overflowX = 'auto';
-        (content as HTMLElement).style.boxSizing = 'border-box';
+      if (contentWrapper) {
+        // Apply mobile-optimized zoom only to the content
+        contentWrapper.style.transform = 'scale(0.4)';
+        contentWrapper.style.transformOrigin = 'top left';
+        contentWrapper.style.width = '250%'; // Compensate for zoom out
+        contentWrapper.style.minHeight = '100%';
+        
+        // Force mobile viewport simulation
+        const viewportMeta = document.createElement('meta');
+        viewportMeta.name = 'viewport';
+        viewportMeta.content = 'width=device-width, initial-scale=0.4, minimum-scale=0.4, maximum-scale=2.0, user-scalable=yes';
+        
+        // Add or update viewport meta in the content
+        const existingViewport = contentWrapper.querySelector('meta[name="viewport"]');
+        if (existingViewport) {
+          existingViewport.remove();
+        }
+        
+        const head = contentWrapper.querySelector('head');
+        if (head) {
+          head.appendChild(viewportMeta);
+        } else {
+          // If no head, create one and prepend to content
+          const newHead = document.createElement('head');
+          newHead.appendChild(viewportMeta);
+          const firstChild = contentWrapper.firstChild;
+          if (firstChild) {
+            contentWrapper.insertBefore(newHead, firstChild);
+          } else {
+            contentWrapper.appendChild(newHead);
+          }
+        }
       }
     }
   }, [highlightedHtml]);
@@ -294,39 +320,31 @@ export default function SearchPage() {
               )}
             </div>
 
-            {/* Preview Section - MOBILE OPTIMIZED */}
+            {/* Preview Section - MOBILE OPTIMIZED WITH ZOOM */}
             {highlightedHtml && (
               <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-gray-200">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">Highlighted Page Preview</h2>
                 
                 <div className="relative">
-                  {/* Mobile-optimized preview container */}
+                  {/* Mobile-optimized preview container with zoom */}
                   <div
                     id="preview-container"
                     ref={previewContainerRef}
                     className="border border-gray-200 rounded-lg sm:rounded-xl bg-white shadow-inner overflow-auto"
                     style={{
-                      maxHeight: '50vh',
-                      minHeight: '300px'
+                      maxHeight: '60vh',
+                      minHeight: '400px',
+                      // Container remains normal size, only content is zoomed
                     }}
                   >
-                    {/* Wrapper for mobile optimization */}
+                    {/* Wrapper for mobile zoom optimization */}
                     <div 
-                      id="preview-content"
-                      className="p-3 sm:p-4 md:p-6"
+                      id="preview-content-wrapper"
+                      className="origin-top-left"
                       style={{
-                        // Force mobile-optimized viewport
-                        minWidth: '100%',
-                        width: '100%',
-                        maxWidth: '100%',
-                        overflowX: 'auto',
+                        // These styles will be set by useEffect for mobile optimization
+                        padding: '1rem',
                         boxSizing: 'border-box',
-                        // Mobile viewport simulation
-                        transform: 'scale(1)',
-                        transformOrigin: 'top left',
-                        // Ensure content is readable
-                        fontSize: '16px', // Prevent zoom on iOS
-                        lineHeight: '1.4',
                       }}
                       dangerouslySetInnerHTML={{ 
                         __html: highlightedHtml 
@@ -334,10 +352,10 @@ export default function SearchPage() {
                     />
                   </div>
                   
-                  {/* Mobile controls */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 p-3 bg-blue-50 rounded-lg">
-                    <div className="text-xs sm:text-sm text-blue-700 mb-2 sm:mb-0">
-                      💡 <strong>Mobile Tips:</strong> Pinch to zoom • Scroll horizontally
+                  {/* Mobile zoom controls */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 p-3 bg-blue-50 rounded-lg space-y-2 sm:space-y-0">
+                    <div className="text-xs sm:text-sm text-blue-700 text-center sm:text-left">
+                      <span className="font-semibold">📱 Mobile View:</span> Pinch to zoom • Scroll to navigate
                     </div>
                     <div className="flex space-x-2">
                       <button
@@ -349,7 +367,7 @@ export default function SearchPage() {
                         }}
                         className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors"
                       >
-                        Scroll to Top
+                        Reset View
                       </button>
                     </div>
                   </div>
