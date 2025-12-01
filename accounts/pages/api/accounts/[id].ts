@@ -9,6 +9,7 @@ type Account = {
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
+  isActive: boolean;
 };
 
 export default async function handler(
@@ -27,6 +28,7 @@ export default async function handler(
         name?: string;
         phone?: string | null;
         crOrCivilIdNo?: string | null;
+        isActive?: boolean;
       };
 
       if (!name) {
@@ -47,6 +49,7 @@ export default async function handler(
         name: updated.name,
         phone: updated.phone ?? undefined,
         crOrCivilIdNo: updated.crOrCivilIdNo ?? undefined,
+        isActive: updated.isActive,
       };
 
       return res.status(200).json(sanitized);
