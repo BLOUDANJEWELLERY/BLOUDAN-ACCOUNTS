@@ -9,7 +9,7 @@ type Voucher = {
   date: string;
   mvn?: string;
   description?: string;
-  vt: "REC" | "INV" | "GFV";
+  vt: "REC" | "INV" | "GFV" | "Alloy"; // Added "Alloy" to voucher types
   accountId: string;
   gold: number;
   kwd: number;
@@ -94,7 +94,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     });
 
     previousVouchers.forEach((v) => {
-      if (v.vt === "INV") {
+      if (v.vt === "INV" || v.vt === "Alloy") {
+        // Treat Alloy same as INV (positive)
         openingGold += v.gold;
         openingKwd += v.kwd;
       } else if (v.vt === "REC") {
@@ -139,7 +140,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   let kwdBalance = openingKwd;
   
   const processed = vouchers.map((v) => {
-    if (v.vt === "INV") {
+    if (v.vt === "INV" || v.vt === "Alloy") {
+      // Treat Alloy same as INV (positive)
       goldBalance += v.gold;
       kwdBalance += v.kwd;
     } else if (v.vt === "REC") {
@@ -204,28 +206,43 @@ export default function AccountTypeBalanceSheet({
   const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
   const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
 
-  // Calculate period totals with GFV handling
+  // Calculate period totals with GFV and Alloy handling
   const periodGold = vouchers.reduce((sum, v) => {
-    if (v.vt === "INV") return sum + v.gold;
-    if (v.vt === "REC") return sum - v.gold;
-    if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+    if (v.vt === "INV" || v.vt === "Alloy") {
+      return sum + v.gold;
+    }
+    if (v.vt === "REC") {
+      return sum - v.gold;
+    }
+    if (v.vt === "GFV") {
+      return sum + v.gold; // GFV: Gold positive
+    }
     return sum;
   }, 0);
 
   const periodKwd = vouchers.reduce((sum, v) => {
-    if (v.vt === "INV") return sum + v.kwd;
-    if (v.vt === "REC") return sum - v.kwd;
-    if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+    if (v.vt === "INV" || v.vt === "Alloy") {
+      return sum + v.kwd;
+    }
+    if (v.vt === "REC") {
+      return sum - v.kwd;
+    }
+    if (v.vt === "GFV") {
+      return sum - v.kwd; // GFV: KWD negative
+    }
     return sum;
   }, 0);
 
-  // Helper function to get display amount with proper sign for GFV
+  // Helper function to get display amount with proper sign for GFV and Alloy
   const getDisplayAmount = (voucher: Voucher, field: 'gold' | 'kwd') => {
     const value = voucher[field];
     if (voucher.vt === 'GFV') {
       // For GFV: Gold shows positive, KWD shows negative
       if (field === 'gold') return value;
       if (field === 'kwd') return -value;
+    } else if (voucher.vt === 'Alloy') {
+      // For Alloy: Both gold and KWD show positive (like INV)
+      return value;
     } else {
       // For INV and REC: Normal display
       return value;
@@ -233,20 +250,38 @@ export default function AccountTypeBalanceSheet({
     return value;
   };
 
-  // Calculate totals by account with GFV handling
+  // Get display sign for amount (for showing + or -)
+  const getDisplaySign = (voucher: Voucher, field: 'gold' | 'kwd') => {
+    const amount = getDisplayAmount(voucher, field);
+    return amount >= 0 ? '+' : '';
+  };
+
+  // Calculate totals by account with GFV and Alloy handling
   const accountTotals = accounts.map(account => {
     const accountVouchers = vouchers.filter(v => v.accountId === account.id);
     const goldTotal = accountVouchers.reduce((sum, v) => {
-      if (v.vt === "INV") return sum + v.gold;
-      if (v.vt === "REC") return sum - v.gold;
-      if (v.vt === "GFV") return sum + v.gold; // GFV: Gold positive
+      if (v.vt === "INV" || v.vt === "Alloy") {
+        return sum + v.gold;
+      }
+      if (v.vt === "REC") {
+        return sum - v.gold;
+      }
+      if (v.vt === "GFV") {
+        return sum + v.gold; // GFV: Gold positive
+      }
       return sum;
     }, 0);
     
     const kwdTotal = accountVouchers.reduce((sum, v) => {
-      if (v.vt === "INV") return sum + v.kwd;
-      if (v.vt === "REC") return sum - v.kwd;
-      if (v.vt === "GFV") return sum - v.kwd; // GFV: KWD negative
+      if (v.vt === "INV" || v.vt === "Alloy") {
+        return sum + v.kwd;
+      }
+      if (v.vt === "REC") {
+        return sum - v.kwd;
+      }
+      if (v.vt === "GFV") {
+        return sum - v.kwd; // GFV: KWD negative
+      }
       return sum;
     }, 0);
     
@@ -286,6 +321,7 @@ export default function AccountTypeBalanceSheet({
     if (vt === 'REC') return 'bg-green-100 text-green-800';
     if (vt === 'INV') return 'bg-blue-100 text-blue-800';
     if (vt === 'GFV') return 'bg-yellow-100 text-yellow-800';
+    if (vt === 'Alloy') return 'bg-purple-100 text-purple-800'; // Added style for Alloy
     return 'bg-gray-100 text-gray-800';
   };
 
@@ -575,10 +611,16 @@ export default function AccountTypeBalanceSheet({
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(getDisplayAmount(v, 'gold'))}
+                        <span className={v.vt === 'REC' ? 'text-red-600' : 'text-green-600'}>
+                          {getDisplaySign(v, 'gold')}{formatCurrency(getDisplayAmount(v, 'gold'))}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {formatCurrency(getDisplayAmount(v, 'kwd'))}
+                        <span className={
+                          v.vt === 'GFV' || v.vt === 'REC' ? 'text-red-600' : 'text-green-600'
+                        }>
+                          {getDisplaySign(v, 'kwd')}{formatCurrency(getDisplayAmount(v, 'kwd'))}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                         {formatCurrency(v.goldBalance)}
