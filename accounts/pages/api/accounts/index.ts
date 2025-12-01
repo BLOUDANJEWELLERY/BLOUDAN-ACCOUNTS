@@ -37,6 +37,7 @@ export default async function handler(
         type?: string;
         phone?: string | null;
         crOrCivilIdNo?: string | null;
+        isActive: true,
       };
 
       if (!name || !type) {
