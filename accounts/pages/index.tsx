@@ -1,4 +1,4 @@
-Ok, design this page with your above given color palette: import { GetServerSideProps } from "next";
+import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
