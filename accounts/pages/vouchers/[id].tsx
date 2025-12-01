@@ -134,8 +134,13 @@ export default function EditVoucherPage({ voucher, accounts }: Props) {
       return [
         { value: "INV", label: "INV (Invoice)" },
         { value: "REC", label: "REC (Receipt)" },
-        { value: "GFV", label: "GFV (Gold Fixing)" },
-        { value: "Alloy", label: "Alloy" }
+        { value: "GFV", label: "GFV (Gold Fixing)" }
+      ];
+    } else if (selectedType === "Project") {
+      return [
+        { value: "INV", label: "INV (Invoice)" },
+        { value: "REC", label: "REC (Receipt)" },
+        { value: "Alloy", label: "Alloy" } // Added Alloy for Project accounts only
       ];
     } else {
       return [
@@ -477,8 +482,8 @@ export default function EditVoucherPage({ voucher, accounts }: Props) {
                   />
                 </div>
 
-                {/* KWD Field - Show only for non-GFV vouchers */}
-                {formData.vt !== "GFV" && (
+                {/* KWD Field - Show only for non-GFV and non-Alloy vouchers */}
+                {formData.vt !== "GFV" && formData.vt !== "Alloy" && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
                     <input
@@ -578,6 +583,38 @@ export default function EditVoucherPage({ voucher, accounts }: Props) {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                       <p className="text-xs text-gray-500 mt-1">Calculated automatically from Gold × Gold Rate</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Alloy Voucher Type - Show KWD field for Alloy */}
+              {formData.vt === "Alloy" && (
+                <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Gold</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        value={formData.gold}
+                        onChange={(e) => handleChange('gold', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">KWD</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        step="0.01"
+                        value={formData.kwd}
+                        onChange={(e) => handleChange('kwd', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Enter KWD amount for Alloy</p>
                     </div>
                   </div>
                 </div>
