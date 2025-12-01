@@ -67,7 +67,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
       },
     });
 
-    // Calculate balances for each account type with GFV handling
+    // Calculate balances for each account type with GFV and Alloy handling
     const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
       const typeAccountIds = accountsByType
         .filter(account => account.type === type)
@@ -82,10 +82,13 @@ export const getServerSideProps: GetServerSideProps = async () => {
       let lockerGold = 0; // Initialize locker gold
 
       typeVouchers.forEach(voucher => {
-        // Skip GFV vouchers for all calculations
+        // Skip GFV vouchers for all calculations (handled separately in open balance)
         if (voucher.vt === "GFV") return;
 
-        // Regular balance calculations - include Alloy as positive (like INV)
+        // Skip Alloy vouchers for locker calculations (but include in regular balances)
+        const isAlloy = voucher.vt === "Alloy";
+
+        // REGULAR BALANCE CALCULATIONS (include Alloy as positive, like INV)
         if (voucher.vt === "INV" || voucher.vt === "Alloy") {
           goldBalance += voucher.gold;
           kwdBalance += voucher.kwd;
@@ -94,27 +97,29 @@ export const getServerSideProps: GetServerSideProps = async () => {
           kwdBalance -= voucher.kwd;
         }
 
-        // Locker gold calculations - include Alloy as INV
-        if (type === "Market") {
-          if (voucher.vt === "INV" || voucher.vt === "Alloy") {
-            lockerGold -= voucher.gold; // INV/Alloy negative
-          } else if (voucher.vt === "REC") {
-            // For REC vouchers, only count if payment method is NOT cheque
-            if (voucher.paymentMethod !== "cheque") {
-              lockerGold += voucher.gold; // REC positive (only non-cheque)
+        // LOCKER GOLD CALCULATIONS (exclude Alloy, just like GFV)
+        if (!isAlloy) { // Skip Alloy for locker calculations
+          if (type === "Market") {
+            if (voucher.vt === "INV") {
+              lockerGold -= voucher.gold; // INV negative
+            } else if (voucher.vt === "REC") {
+              // For REC vouchers, only count if payment method is NOT cheque
+              if (voucher.paymentMethod !== "cheque") {
+                lockerGold += voucher.gold; // REC positive (only non-cheque)
+              }
+              // If payment method is cheque, don't count for locker
             }
-            // If payment method is cheque, don't count for locker
-          }
-        } else if (type === "Casting" || type === "Faceting" || type === "Project") {
-          if (voucher.vt === "INV" || voucher.vt === "Alloy") {
-            lockerGold -= voucher.gold; // INV/Alloy negative
-          } else if (voucher.vt === "REC") {
-            lockerGold += voucher.gold; // REC positive
-          }
-        } else if (type === "Gold Fixing") {
-          // Only count REC vouchers for Gold Fixing
-          if (voucher.vt === "REC") {
-            lockerGold += voucher.gold; // REC positive
+          } else if (type === "Casting" || type === "Faceting" || type === "Project") {
+            if (voucher.vt === "INV") {
+              lockerGold -= voucher.gold; // INV negative
+            } else if (voucher.vt === "REC") {
+              lockerGold += voucher.gold; // REC positive
+            }
+          } else if (type === "Gold Fixing") {
+            // Only count REC vouchers for Gold Fixing
+            if (voucher.vt === "REC") {
+              lockerGold += voucher.gold; // REC positive
+            }
           }
         }
       });
@@ -473,7 +478,7 @@ export default function TypeSummaryPage({
                       </div>
                     </div>
 
-                    {/* Summary Stats - REMOVED Locker Gold */}
+                    {/* Summary Stats - REMOVED LOCKER GOLD */}
                     <div className="p-6">
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="text-center">
@@ -488,7 +493,6 @@ export default function TypeSummaryPage({
                           </div>
                           <div className="text-xs text-gray-600">KWD Balance</div>
                         </div>
-                        {/* REMOVED: Locker Gold Column */}
                       </div>
 
                       <div className="flex justify-between text-sm text-gray-600 mb-4">
@@ -569,7 +573,7 @@ export default function TypeSummaryPage({
               </div>
             </div>
 
-            {/* Detailed Summary Table */}
+            {/* Detailed Summary Table - REMOVED LOCKER GOLD COLUMN */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -599,7 +603,6 @@ export default function TypeSummaryPage({
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         KWD Balance
                       </th>
-                      {/* REMOVED: Locker Gold Header */}
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -632,7 +635,6 @@ export default function TypeSummaryPage({
                               {formatCurrency(summary.kwdBalance)}
                             </div>
                           </td>
-                          {/* REMOVED: Locker Gold Data Cell */}
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end space-x-2">
                               <Link
@@ -653,7 +655,7 @@ export default function TypeSummaryPage({
                       );
                     })}
                     
-                    {/* Account Types Total Row - REMOVED Locker Gold */}
+                    {/* Account Types Total Row */}
                     <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         Account Types Total
@@ -674,7 +676,6 @@ export default function TypeSummaryPage({
                           {formatCurrency(overallKwd)}
                         </span>
                       </td>
-                      {/* REMOVED: Locker Gold Total Cell */}
                       <td className="px-6 py-4"></td>
                     </tr>
 
@@ -702,7 +703,6 @@ export default function TypeSummaryPage({
                           {formatCurrency(openBalance.kwdBalance)}
                         </div>
                       </td>
-                      {/* REMOVED: Locker Gold Data Cell */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-2">
                           <Link
@@ -715,7 +715,7 @@ export default function TypeSummaryPage({
                       </td>
                     </tr>
 
-                    {/* Grand Total Row - REMOVED Locker Gold */}
+                    {/* Grand Total Row */}
                     <tr className="bg-green-50 font-bold border-t-2 border-green-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         GRAND TOTAL
@@ -736,7 +736,6 @@ export default function TypeSummaryPage({
                           {formatCurrency(grandTotalKwd)}
                         </span>
                       </td>
-                      {/* REMOVED: Locker Gold Total Cell */}
                       <td className="px-6 py-4"></td>
                     </tr>
                   </tbody>
