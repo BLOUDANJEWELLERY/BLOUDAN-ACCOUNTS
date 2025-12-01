@@ -85,8 +85,8 @@ export const getServerSideProps: GetServerSideProps = async () => {
         // Skip GFV vouchers for all calculations
         if (voucher.vt === "GFV") return;
 
-        // Regular balance calculations
-        if (voucher.vt === "INV") {
+        // Regular balance calculations - include Alloy as positive (like INV)
+        if (voucher.vt === "INV" || voucher.vt === "Alloy") {
           goldBalance += voucher.gold;
           kwdBalance += voucher.kwd;
         } else if (voucher.vt === "REC") {
@@ -94,10 +94,10 @@ export const getServerSideProps: GetServerSideProps = async () => {
           kwdBalance -= voucher.kwd;
         }
 
-        // Locker gold calculations
+        // Locker gold calculations - include Alloy as INV
         if (type === "Market") {
-          if (voucher.vt === "INV") {
-            lockerGold -= voucher.gold; // INV negative
+          if (voucher.vt === "INV" || voucher.vt === "Alloy") {
+            lockerGold -= voucher.gold; // INV/Alloy negative
           } else if (voucher.vt === "REC") {
             // For REC vouchers, only count if payment method is NOT cheque
             if (voucher.paymentMethod !== "cheque") {
@@ -106,8 +106,8 @@ export const getServerSideProps: GetServerSideProps = async () => {
             // If payment method is cheque, don't count for locker
           }
         } else if (type === "Casting" || type === "Faceting" || type === "Project") {
-          if (voucher.vt === "INV") {
-            lockerGold -= voucher.gold; // INV negative
+          if (voucher.vt === "INV" || voucher.vt === "Alloy") {
+            lockerGold -= voucher.gold; // INV/Alloy negative
           } else if (voucher.vt === "REC") {
             lockerGold += voucher.gold; // REC positive
           }
@@ -473,9 +473,9 @@ export default function TypeSummaryPage({
                       </div>
                     </div>
 
-                    {/* Summary Stats */}
+                    {/* Summary Stats - REMOVED Locker Gold */}
                     <div className="p-6">
-                      <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="text-center">
                           <div className={`text-xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
                             {formatCurrency(summary.goldBalance)}
@@ -488,12 +488,7 @@ export default function TypeSummaryPage({
                           </div>
                           <div className="text-xs text-gray-600">KWD Balance</div>
                         </div>
-                        <div className="text-center border-l border-gray-200 pl-4">
-                          <div className={`text-xl font-bold ${getBalanceColor(summary.lockerGold)}`}>
-                            {formatCurrency(summary.lockerGold)}
-                          </div>
-                          <div className="text-xs text-gray-600">Locker Gold</div>
-                        </div>
+                        {/* REMOVED: Locker Gold Column */}
                       </div>
 
                       <div className="flex justify-between text-sm text-gray-600 mb-4">
@@ -604,9 +599,7 @@ export default function TypeSummaryPage({
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         KWD Balance
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Locker Gold
-                      </th>
+                      {/* REMOVED: Locker Gold Header */}
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -639,11 +632,7 @@ export default function TypeSummaryPage({
                               {formatCurrency(summary.kwdBalance)}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className={`text-sm font-semibold ${getBalanceColor(summary.lockerGold)}`}>
-                              {formatCurrency(summary.lockerGold)}
-                            </div>
-                          </td>
+                          {/* REMOVED: Locker Gold Data Cell */}
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end space-x-2">
                               <Link
@@ -664,7 +653,7 @@ export default function TypeSummaryPage({
                       );
                     })}
                     
-                    {/* Account Types Total Row */}
+                    {/* Account Types Total Row - REMOVED Locker Gold */}
                     <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         Account Types Total
@@ -685,11 +674,7 @@ export default function TypeSummaryPage({
                           {formatCurrency(overallKwd)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
-                        <span className={getBalanceColor(lockerTotalGold)}>
-                          {formatCurrency(lockerTotalGold)}
-                        </span>
-                      </td>
+                      {/* REMOVED: Locker Gold Total Cell */}
                       <td className="px-6 py-4"></td>
                     </tr>
 
@@ -717,9 +702,7 @@ export default function TypeSummaryPage({
                           {formatCurrency(openBalance.kwdBalance)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="text-sm text-gray-500">-</div>
-                      </td>
+                      {/* REMOVED: Locker Gold Data Cell */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-2">
                           <Link
@@ -732,7 +715,7 @@ export default function TypeSummaryPage({
                       </td>
                     </tr>
 
-                    {/* Grand Total Row */}
+                    {/* Grand Total Row - REMOVED Locker Gold */}
                     <tr className="bg-green-50 font-bold border-t-2 border-green-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
                         GRAND TOTAL
@@ -753,11 +736,7 @@ export default function TypeSummaryPage({
                           {formatCurrency(grandTotalKwd)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
-                        <span className={getBalanceColor(lockerTotalGold)}>
-                          {formatCurrency(lockerTotalGold)}
-                        </span>
-                      </td>
+                      {/* REMOVED: Locker Gold Total Cell */}
                       <td className="px-6 py-4"></td>
                     </tr>
                   </tbody>
