@@ -17,12 +17,12 @@ export default async function handler(
   res: NextApiResponse<Account[] | Account | { message: string }>
 ) {
   try {
+    // ===== GET: Fetch all accounts =====
     if (req.method === "GET") {
       const accounts = await prisma.account.findMany({
         orderBy: { accountNo: "asc" },
       });
 
-      // Sanitize null -> undefined
       const sanitized = accounts.map((acc) => ({
         ...acc,
         phone: acc.phone ?? undefined,
@@ -32,8 +32,9 @@ export default async function handler(
       return res.status(200).json(sanitized);
     }
 
+    // ===== POST: Create a new account =====
     if (req.method === "POST") {
-      const { name, type, phone, crOrCivilIdNo } = req.body as {
+      const { name, type, phone, crOrCivilIdNo, isActive } = req.body as {
         name?: string;
         type?: string;
         phone?: string | null;
@@ -45,15 +46,25 @@ export default async function handler(
         return res.status(400).json({ message: "Name and Type are required" });
       }
 
-      // Determine next accountNo for this type
-      const sameTypeAccounts = await prisma.account.findMany({ where: { type } });
+      // Determine next accountNo based on type
+      const sameTypeAccounts = await prisma.account.findMany({
+        where: { type },
+      });
+
       const nextNo =
         sameTypeAccounts.length > 0
           ? Math.max(...sameTypeAccounts.map((a) => a.accountNo)) + 1
           : 1;
 
       const newAccount = await prisma.account.create({
-        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo, isActive: isActive ?? true },
+        data: {
+          accountNo: nextNo,
+          name,
+          type,
+          phone,
+          crOrCivilIdNo,
+          isActive: isActive ?? true,
+        },
       });
 
       const sanitized: Account = {
@@ -62,10 +73,10 @@ export default async function handler(
         crOrCivilIdNo: newAccount.crOrCivilIdNo ?? undefined,
       };
 
-      // ✅ Fix: now returning single Account type allowed by NextApiResponse
       return res.status(201).json(sanitized);
     }
 
+    // ===== Invalid Method =====
     res.setHeader("Allow", ["GET", "POST"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
