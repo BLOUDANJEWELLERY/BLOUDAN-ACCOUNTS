@@ -33,18 +33,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   // Fetch all accounts of this type
-  const accounts = await prisma.account.findMany({
-    where: { type },
-    select: { 
-      id: true, 
-      accountNo: true, 
-      name: true, 
-      type: true,
-      phone: true,
-      crOrCivilIdNo: true,
-    },
-    orderBy: { accountNo: "asc" },
-  });
+const accounts = await prisma.account.findMany({
+  where: { 
+    type,
+    isActive: true,        // << ONLY ACTIVE ACCOUNTS
+  },
+  select: { 
+    id: true, 
+    accountNo: true, 
+    name: true, 
+    type: true,
+    phone: true,
+    crOrCivilIdNo: true,
+  },
+  orderBy: { accountNo: "asc" },
+});
 
   if (accounts.length === 0) {
     return {
