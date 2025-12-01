@@ -23,40 +23,43 @@ export default async function handler(
   }
 
   try {
+    // ===== PATCH: Change isActive only =====
+    if (req.method === "PATCH") {
+      const { isActive } = req.body as { isActive?: boolean };
+
+      if (typeof isActive !== "boolean") {
+        return res.status(400).json({ message: "isActive must be boolean" });
+      }
+
+      const updated = await prisma.account.update({
+        where: { id },
+        data: { isActive },
+      });
+
+      return res.status(200).json(updated);
+    }
+
+    // ===== PUT: Update editable fields =====
     if (req.method === "PUT") {
       const { name, phone, crOrCivilIdNo } = req.body as {
         name?: string;
         phone?: string | null;
         crOrCivilIdNo?: string | null;
-        isActive?: boolean;
       };
 
       if (!name) {
         return res.status(400).json({ message: "Name is required" });
       }
 
-      // Update only editable fields
       const updated = await prisma.account.update({
         where: { id },
         data: { name, phone, crOrCivilIdNo },
       });
 
-      // Sanitize null → undefined
-      const sanitized: Account = {
-        id: updated.id,
-        accountNo: updated.accountNo,
-        type: updated.type,
-        name: updated.name,
-        phone: updated.phone ?? undefined,
-        crOrCivilIdNo: updated.crOrCivilIdNo ?? undefined,
-        isActive: updated.isActive,
-      };
-
-      return res.status(200).json(sanitized);
+      return res.status(200).json(updated);
     }
 
-    // DELETE removed
-    res.setHeader("Allow", ["PUT"]);
+    res.setHeader("Allow", ["PUT", "PATCH"]);
     return res.status(405).json({ message: "Method not allowed" });
   } catch (error) {
     console.error(error);
