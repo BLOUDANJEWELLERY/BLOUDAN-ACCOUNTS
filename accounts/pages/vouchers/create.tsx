@@ -35,8 +35,9 @@ type Props = {
   accounts: Account[];
 };
 
-export const getServerSideProps: GetServerSideProps = async () => {
+export const getServerSideProps: GetServerSideProps<Props> = async () => {
   const accounts = await prisma.account.findMany({
+    where: { isActive: true }, // fetch only active accounts
     select: { id: true, accountNo: true, name: true, type: true },
     orderBy: { accountNo: "asc" },
   });
@@ -46,7 +47,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
       accounts: JSON.parse(JSON.stringify(accounts)),
     },
   };
-};
+}
 
 export default function CreateVouchersPage({ accounts }: Props) {
   const [selectedType, setSelectedType] = useState<string>("");
