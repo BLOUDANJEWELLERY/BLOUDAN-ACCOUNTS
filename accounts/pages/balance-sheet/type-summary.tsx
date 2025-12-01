@@ -8,7 +8,7 @@ type AccountTypeSummary = {
   totalTransactions: number;
   goldBalance: number;
   kwdBalance: number;
-  lockerGold: number; // New field
+  lockerGold: number;
 };
 
 type OpenBalanceSummary = {
@@ -24,20 +24,20 @@ type Props = {
   openBalance: OpenBalanceSummary;
   overallGold: number;
   overallKwd: number;
-  totalAccounts: number;
+  totalActiveAccounts: number;
   totalTransactions: number;
   grandTotalGold: number;
   grandTotalKwd: number;
-  lockerTotalGold: number; // New field
+  lockerTotalGold: number;
   error?: string;
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
   try {
-    // Define the account types we want to summarize - Added "Gold Fixing"
+    // Define the account types we want to summarize
     const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
-    // Get all accounts grouped by type
+    // Get all accounts grouped by type with isActive field
     const accountsByType = await prisma.account.findMany({
       where: {
         type: { in: accountTypes }
@@ -45,10 +45,11 @@ export const getServerSideProps: GetServerSideProps = async () => {
       select: {
         id: true,
         type: true,
+        isActive: true,
       },
     });
 
-    // Get all vouchers with paymentMethod included
+    // Get all vouchers with account's isActive included
     const allVouchers = await prisma.voucher.findMany({
       select: {
         id: true,
@@ -58,34 +59,48 @@ export const getServerSideProps: GetServerSideProps = async () => {
         kwd: true,
         goldRate: true,
         fixingAmount: true,
-        paymentMethod: true, // Added for locker calculation
+        paymentMethod: true,
         account: {
           select: {
             type: true,
+            isActive: true,
           },
         },
       },
     });
 
-    // Calculate balances for each account type with GFV and Alloy handling
+    // Calculate balances for each account type
     const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
-      const typeAccountIds = accountsByType
-        .filter(account => account.type === type)
-        .map(account => account.id);
+      // Get ALL accounts of this type (both active and inactive)
+      const allTypeAccounts = accountsByType
+        .filter(account => account.type === type);
+      
+      // Get only ACTIVE accounts of this type for account type calculations
+      const activeTypeAccounts = allTypeAccounts
+        .filter(account => account.isActive);
 
-      const typeVouchers = allVouchers.filter(v => 
-        typeAccountIds.includes(v.accountId)
+      const activeTypeAccountIds = activeTypeAccounts.map(account => account.id);
+      const allTypeAccountIds = allTypeAccounts.map(account => account.id);
+
+      // For regular balances: Only use vouchers from ACTIVE accounts
+      const activeTypeVouchers = allVouchers.filter(v => 
+        activeTypeAccountIds.includes(v.accountId)
+      );
+
+      // For locker gold: Use vouchers from ALL accounts (active and inactive)
+      const allTypeVouchersForLocker = allVouchers.filter(v => 
+        allTypeAccountIds.includes(v.accountId)
       );
 
       let goldBalance = 0;
       let kwdBalance = 0;
-      let lockerGold = 0; // Initialize locker gold
+      let lockerGold = 0;
 
-      typeVouchers.forEach(voucher => {
+      // REGULAR BALANCE CALCULATIONS (only from active accounts)
+      activeTypeVouchers.forEach(voucher => {
         const isAlloy = voucher.vt === "Alloy";
         const isGFV = voucher.vt === "GFV";
 
-        // REGULAR BALANCE CALCULATIONS (include Alloy as positive, like INV)
         if (voucher.vt === "INV" || voucher.vt === "Alloy") {
           goldBalance += voucher.gold;
           kwdBalance += voucher.kwd;
@@ -93,36 +108,36 @@ export const getServerSideProps: GetServerSideProps = async () => {
           goldBalance -= voucher.gold;
           kwdBalance -= voucher.kwd;
         } else if (voucher.vt === "GFV") {
-          // For GFV: Gold positive, KWD negative (only for Gold Fixing accounts)
           if (type === "Gold Fixing") {
-            goldBalance += voucher.gold; // Gold positive
-            kwdBalance -= voucher.kwd;   // KWD negative
+            goldBalance += voucher.gold;
+            kwdBalance -= voucher.kwd;
           }
-          // For other account types, ignore GFV in regular balance
         }
+      });
 
-        // LOCKER GOLD CALCULATIONS (exclude Alloy and GFV, include only for certain account types)
-        if (!isAlloy && !isGFV) { // Skip Alloy and GFV for locker calculations
+      // LOCKER GOLD CALCULATIONS (from all accounts, active and inactive)
+      allTypeVouchersForLocker.forEach(voucher => {
+        const isAlloy = voucher.vt === "Alloy";
+        const isGFV = voucher.vt === "GFV";
+
+        if (!isAlloy && !isGFV) {
           if (type === "Market") {
             if (voucher.vt === "INV") {
-              lockerGold -= voucher.gold; // INV negative
+              lockerGold -= voucher.gold;
             } else if (voucher.vt === "REC") {
-              // For REC vouchers, only count if payment method is NOT cheque
               if (voucher.paymentMethod !== "cheque") {
-                lockerGold += voucher.gold; // REC positive (only non-cheque)
+                lockerGold += voucher.gold;
               }
-              // If payment method is cheque, don't count for locker
             }
           } else if (type === "Casting" || type === "Faceting" || type === "Project") {
             if (voucher.vt === "INV") {
-              lockerGold -= voucher.gold; // INV negative
+              lockerGold -= voucher.gold;
             } else if (voucher.vt === "REC") {
-              lockerGold += voucher.gold; // REC positive
+              lockerGold += voucher.gold;
             }
           } else if (type === "Gold Fixing") {
-            // Only count REC vouchers for Gold Fixing (exclude GFV)
             if (voucher.vt === "REC") {
-              lockerGold += voucher.gold; // REC positive
+              lockerGold += voucher.gold;
             }
           }
         }
@@ -130,15 +145,15 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
       return {
         type,
-        totalAccounts: typeAccountIds.length,
-        totalTransactions: typeVouchers.length,
+        totalAccounts: activeTypeAccounts.length, // Only count active accounts
+        totalTransactions: activeTypeVouchers.length, // Only count vouchers from active accounts
         goldBalance,
         kwdBalance,
-        lockerGold, // Add locker gold to summary
+        lockerGold,
       };
     });
 
-    // Calculate Open Balance (Market REC with Gold Fixing + GFV vouchers)
+    // Calculate Open Balance (include ALL vouchers regardless of account's active status)
     let openBalanceGold = 0;
     let openBalanceKwd = 0;
     let marketRecCount = 0;
@@ -147,14 +162,14 @@ export const getServerSideProps: GetServerSideProps = async () => {
     allVouchers.forEach(voucher => {
       // Market REC with Gold Fixing (goldRate exists)
       if (voucher.vt === "REC" && voucher.account.type === "Market" && voucher.goldRate) {
-        openBalanceGold += voucher.gold; // Positive
-        openBalanceKwd += voucher.fixingAmount || 0; // Positive
+        openBalanceGold += voucher.gold;
+        openBalanceKwd += voucher.fixingAmount || 0;
         marketRecCount++;
       }
       // GFV vouchers
       else if (voucher.vt === "GFV") {
-        openBalanceGold -= voucher.gold; // Negative
-        openBalanceKwd -= voucher.kwd; // Negative
+        openBalanceGold -= voucher.gold;
+        openBalanceKwd -= voucher.kwd;
         gfvCount++;
       }
     });
@@ -167,13 +182,13 @@ export const getServerSideProps: GetServerSideProps = async () => {
       gfvCount,
     };
 
-    // Calculate overall totals (account types only)
+    // Calculate overall totals (only from active accounts)
     const overallGold = typeSummaries.reduce((sum, summary) => sum + summary.goldBalance, 0);
     const overallKwd = typeSummaries.reduce((sum, summary) => sum + summary.kwdBalance, 0);
-    const totalAccounts = typeSummaries.reduce((sum, summary) => sum + summary.totalAccounts, 0);
+    const totalActiveAccounts = typeSummaries.reduce((sum, summary) => sum + summary.totalAccounts, 0);
     const totalTransactions = typeSummaries.reduce((sum, summary) => sum + summary.totalTransactions, 0);
 
-    // Calculate Locker Total Gold
+    // Calculate Locker Total Gold (from ALL accounts)
     const lockerTotalGold = typeSummaries.reduce((sum, summary) => sum + summary.lockerGold, 0);
 
     // Calculate GRAND TOTALS (including Open Balance)
@@ -186,11 +201,11 @@ export const getServerSideProps: GetServerSideProps = async () => {
         openBalance,
         overallGold,
         overallKwd,
-        totalAccounts,
+        totalActiveAccounts, // Renamed to be clear
         totalTransactions,
         grandTotalGold,
         grandTotalKwd,
-        lockerTotalGold, // Add locker total
+        lockerTotalGold,
       },
     };
   } catch (error) {
@@ -207,7 +222,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
         },
         overallGold: 0,
         overallKwd: 0,
-        totalAccounts: 0,
+        totalActiveAccounts: 0,
         totalTransactions: 0,
         grandTotalGold: 0,
         grandTotalKwd: 0,
@@ -223,7 +238,7 @@ export default function TypeSummaryPage({
   openBalance,
   overallGold,
   overallKwd,
-  totalAccounts,
+  totalActiveAccounts,
   totalTransactions,
   grandTotalGold,
   grandTotalKwd,
@@ -338,7 +353,7 @@ export default function TypeSummaryPage({
             Account Type Summary
           </h1>
           <p className="text-xl text-gray-600 mb-6">
-            Complete financial overview across all account types
+            Complete financial overview across all active accounts
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link 
@@ -372,8 +387,8 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">{totalAccounts}</p>
+                <p className="text-sm font-medium text-gray-600">Active Accounts</p>
+                <p className="text-2xl font-bold text-gray-900">{totalActiveAccounts}</p>
               </div>
             </div>
           </div>
@@ -418,7 +433,7 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Transactions</p>
+                <p className="text-sm font-medium text-gray-600">Active Transactions</p>
                 <p className="text-2xl font-bold text-gray-900">{totalTransactions}</p>
               </div>
             </div>
@@ -437,7 +452,7 @@ export default function TypeSummaryPage({
                 <p className={`text-2xl font-bold ${getBalanceColor(lockerTotalGold)}`}>
                   {formatCurrency(lockerTotalGold)}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Physical Gold Balance</p>
+                <p className="text-xs text-gray-500 mt-1">Includes all accounts</p>
               </div>
             </div>
           </div>
@@ -477,12 +492,12 @@ export default function TypeSummaryPage({
                       <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold">{summary.type} Accounts</h2>
                         <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-medium">
-                          {summary.totalAccounts} account{summary.totalAccounts !== 1 ? 's' : ''}
+                          {summary.totalAccounts} active account{summary.totalAccounts !== 1 ? 's' : ''}
                         </span>
                       </div>
                     </div>
 
-                    {/* Summary Stats - REMOVED LOCKER GOLD */}
+                    {/* Summary Stats */}
                     <div className="p-6">
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="text-center">
@@ -500,8 +515,8 @@ export default function TypeSummaryPage({
                       </div>
 
                       <div className="flex justify-between text-sm text-gray-600 mb-4">
-                        <span>{summary.totalTransactions} transactions</span>
-                        <span>Total Balance</span>
+                        <span>{summary.totalTransactions} active transactions</span>
+                        <span>Active Balance</span>
                       </div>
 
                       {/* Quick Actions */}
@@ -577,14 +592,14 @@ export default function TypeSummaryPage({
               </div>
             </div>
 
-            {/* Detailed Summary Table - REMOVED LOCKER GOLD COLUMN */}
+            {/* Detailed Summary Table */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">
                   Detailed Account Type Summary
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Complete breakdown of all account types and their financial positions
+                  Breakdown of active accounts and their financial positions
                 </p>
               </div>
 
@@ -596,10 +611,10 @@ export default function TypeSummaryPage({
                         Account Type
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Accounts
+                        Active Accounts
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transactions
+                        Active Transactions
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Gold Balance
@@ -662,10 +677,10 @@ export default function TypeSummaryPage({
                     {/* Account Types Total Row */}
                     <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        Account Types Total
+                        Active Accounts Total
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-gray-900">
-                        {totalAccounts}
+                        {totalActiveAccounts}
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-gray-900">
                         {totalTransactions}
@@ -762,7 +777,7 @@ export default function TypeSummaryPage({
                       {formatCurrency(grandTotalGold)}
                     </p>
                     <p className="text-xs opacity-80 mt-1">
-                      Account Types: {formatCurrency(overallGold)} + Open Balance: {formatCurrency(openBalance.goldBalance)}
+                      Active Accounts: {formatCurrency(overallGold)} + Open Balance: {formatCurrency(openBalance.goldBalance)}
                     </p>
                   </div>
                 </div>
@@ -781,7 +796,7 @@ export default function TypeSummaryPage({
                       {formatCurrency(grandTotalKwd)}
                     </p>
                     <p className="text-xs opacity-80 mt-1">
-                      Account Types: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
+                      Active Accounts: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
                     </p>
                   </div>
                 </div>
@@ -800,7 +815,7 @@ export default function TypeSummaryPage({
                       {formatCurrency(lockerTotalGold)}
                     </p>
                     <p className="text-xs opacity-80 mt-1">
-                      Physical gold available in locker
+                      Includes all accounts (active & inactive)
                     </p>
                   </div>
                 </div>
