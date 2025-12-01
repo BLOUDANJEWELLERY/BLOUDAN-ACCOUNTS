@@ -26,7 +26,7 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const type = context.params?.type as string;
 
-  // Validate account type - Added "Gold Fixing"
+  // Validate account type
   const validTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
   if (!validTypes.includes(type)) {
     return { notFound: true };
@@ -69,14 +69,15 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  // Calculate balances for each account with GFV handling
+  // Calculate balances for each account with voucher type handling
   const accountsWithBalances: AccountBalance[] = accounts.map(account => {
     const accountVouchers = vouchers.filter(v => v.accountId === account.id);
     let goldBalance = 0;
     let kwdBalance = 0;
 
     accountVouchers.forEach(v => {
-      if (v.vt === "INV") {
+      if (v.vt === "INV" || v.vt === "Alloy") {
+        // Both INV and Alloy add positively to both balances
         goldBalance += v.gold;
         kwdBalance += v.kwd;
       } else if (v.vt === "REC") {
@@ -87,6 +88,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         goldBalance += v.gold;
         kwdBalance -= v.kwd;
       }
+      // Note: If there are other voucher types, they can be added here
     });
 
     return {
