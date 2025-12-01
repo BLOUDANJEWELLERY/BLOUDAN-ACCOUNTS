@@ -21,6 +21,7 @@ model Account {
   phone         String?
   crOrCivilIdNo String?  // C.R. or Civil ID Number
   createdAt     DateTime @default(now())
+	isActive      Boolean  @default(true)
 
   vouchers      Voucher[]
 }
