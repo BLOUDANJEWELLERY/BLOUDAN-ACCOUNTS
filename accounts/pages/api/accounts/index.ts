@@ -9,6 +9,7 @@ type Account = {
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
+  isActive: boolean;
 };
 
 export default async function handler(
@@ -37,7 +38,7 @@ export default async function handler(
         type?: string;
         phone?: string | null;
         crOrCivilIdNo?: string | null;
-        isActive: true,
+        isActive?: boolean;
       };
 
       if (!name || !type) {
@@ -52,7 +53,7 @@ export default async function handler(
           : 1;
 
       const newAccount = await prisma.account.create({
-        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo },
+        data: { accountNo: nextNo, name, type, phone, crOrCivilIdNo, isActive: isActive ?? true },
       });
 
       const sanitized: Account = {
