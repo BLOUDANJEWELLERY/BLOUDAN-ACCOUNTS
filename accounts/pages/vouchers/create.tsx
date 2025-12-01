@@ -184,60 +184,60 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
- // Get available voucher types based on account type
-const getVoucherTypes = () => {
-  if (selectedType === "Gold Fixing") {
-    return [
-      { value: "INV", label: "Invoice", color: "red" },
-      { value: "REC", label: "Receipt", color: "green" },
-      { value: "GFV", label: "Gold Fixing", color: "yellow" }
-    ];
-  } else if (selectedType === "Project") {
-    // Add "Alloy" for Project accounts
-    return [
-      { value: "INV", label: "Invoice", color: "red" },
-      { value: "REC", label: "Receipt", color: "green" },
-      { value: "Alloy", label: "Alloy", color: "blue" }  // Added Alloy
-    ];
-  } else {
-    return [
-      { value: "INV", label: "Invoice", color: "red" },
-      { value: "REC", label: "Receipt", color: "green" }
-    ];
-  }
-};
+  // Get available voucher types based on account type
+  const getVoucherTypes = () => {
+    if (selectedType === "Gold Fixing") {
+      return [
+        { value: "INV", label: "Invoice", color: "red" },
+        { value: "REC", label: "Receipt", color: "green" },
+        { value: "GFV", label: "Gold Fixing", color: "yellow" }
+      ];
+    } else if (selectedType === "Project") {
+      // Add "Alloy" for Project accounts
+      return [
+        { value: "INV", label: "Invoice", color: "red" },
+        { value: "REC", label: "Receipt", color: "green" },
+        { value: "Alloy", label: "Alloy", color: "blue" }  // Added Alloy
+      ];
+    } else {
+      return [
+        { value: "INV", label: "Invoice", color: "red" },
+        { value: "REC", label: "Receipt", color: "green" }
+      ];
+    }
+  };
 
-// Get default voucher type based on description and account type
-const getDefaultVoucherType = (description: string, accountType: string): string => {
-  if (accountType === "Project") {
-    if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
-      return "REC";
-    } else if (description === "KDM") {
-      return "Alloy";  // Changed from "INV" to "Alloy"
-    } else if (description === "Casting") {
-      return "INV";
+  // Get default voucher type based on description and account type
+  const getDefaultVoucherType = (description: string, accountType: string): string => {
+    if (accountType === "Project") {
+      if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
+        return "REC";
+      } else if (description === "KDM") {
+        return "Alloy";  // Changed from "INV" to "Alloy"
+      } else if (description === "Casting") {
+        return "INV";
+      }
+    } else if (accountType === "Casting") {
+      if (["Gold", "Casting Return", "Payment of"].includes(description)) {
+        return "INV";
+      } else if (["Casting", "Scrap"].includes(description)) {
+        return "REC";
+      }
+    } else if (accountType === "Faceting") {
+      if (description === "Gold Powder") {
+        return "REC";
+      }
+    } else if (accountType === "Gold Fixing") {
+      if (description === "Gold Fixing @") {
+        return "GFV";
+      } else if (description === "Gold") {
+        return "REC";
+      } else if (["Cash", "K-Net"].includes(description)) {
+        return "INV";
+      }
     }
-  } else if (accountType === "Casting") {
-    if (["Gold", "Casting Return", "Payment of"].includes(description)) {
-      return "INV";
-    } else if (["Casting", "Scrap"].includes(description)) {
-      return "REC";
-    }
-  } else if (accountType === "Faceting") {
-    if (description === "Gold Powder") {
-      return "REC";
-    }
-  } else if (accountType === "Gold Fixing") {
-    if (description === "Gold Fixing @") {
-      return "GFV";
-    } else if (description === "Gold") {
-      return "REC";
-    } else if (["Cash", "K-Net"].includes(description)) {
-      return "INV";
-    }
-  }
-  return "";
-};
+    return "";
+  };
 
   // Check if should show gold fixing section
   const shouldShowGoldFixing = (form: VoucherForm) => {
@@ -269,6 +269,8 @@ const getDefaultVoucherType = (description: string, accountType: string): string
         return projectInvDescriptions;
       } else if (vt === "REC") {
         return projectRecDescriptions;
+      } else if (vt === "Alloy") {
+        return ["KDM"]; // Only KDM for Alloy voucher type
       }
       return projectAllDescriptions;
     } else if (selectedType === "Faceting") {
@@ -378,7 +380,8 @@ const getDefaultVoucherType = (description: string, accountType: string): string
       quantity: undefined,
       rate: selectedType === "Faceting" ? 0.25 : 
             selectedType === "Casting" ? 0 : 
-            selectedType === "Project" ? 0 : undefined
+            selectedType === "Project" ? 0 : undefined,
+      kwd: 0 // Reset KWD to 0
     })));
   }, [selectedType]);
 
@@ -425,8 +428,13 @@ const getDefaultVoucherType = (description: string, accountType: string): string
       if (i === index) {
         const updatedForm = { ...form, [field]: value };
         
-        // REMOVED: Auto voucher type detection when manually typing description
-        // Only handle description field update without auto-setting voucher type
+        // For Project accounts, set KWD to 0 and don't perform any KWD calculations
+        if (selectedType === "Project") {
+          updatedForm.kwd = 0;
+          
+          // Return early to avoid all KWD calculations for Project
+          return updatedForm;
+        }
         
         // Handle GFV voucher calculations
         if (updatedForm.vt === "GFV") {
@@ -543,11 +551,16 @@ const getDefaultVoucherType = (description: string, accountType: string): string
           rate: defaultRate
         };
         
-        // Recalculate KWD based on account type
-        if (selectedType === "Faceting" && updatedForm.quantity) {
-          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
-        } else if (selectedType === "Casting" && updatedForm.gold) {
-          updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, defaultRate);
+        // For Project accounts, set KWD to 0
+        if (selectedType === "Project") {
+          updatedForm.kwd = 0;
+        } else {
+          // Recalculate KWD based on account type for non-Project accounts
+          if (selectedType === "Faceting" && updatedForm.quantity) {
+            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, defaultRate);
+          } else if (selectedType === "Casting" && updatedForm.gold) {
+            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, defaultRate);
+          }
         }
         
         return updatedForm;
@@ -562,14 +575,19 @@ const getDefaultVoucherType = (description: string, accountType: string): string
       if (i === index) {
         const updatedForm = { ...form, rate: value };
         
-        // Recalculate KWD based on account type and voucher type
-        if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
-          updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
-        } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
-          if (updatedForm.vt === "REC") {
-            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
-          } else if (updatedForm.vt === "INV") {
-            updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+        // For Project accounts, set KWD to 0 and don't recalculate
+        if (selectedType === "Project") {
+          updatedForm.kwd = 0;
+        } else {
+          // Recalculate KWD based on account type and voucher type for non-Project
+          if (selectedType === "Faceting" && updatedForm.quantity !== undefined) {
+            updatedForm.kwd = calculateKwdForFaceting(updatedForm.quantity, value);
+          } else if (selectedType === "Casting" && updatedForm.gold !== undefined) {
+            if (updatedForm.vt === "REC") {
+              updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+            } else if (updatedForm.vt === "INV") {
+              updatedForm.kwd = calculateKwdForCasting(updatedForm.gold, value);
+            }
           }
         }
         
@@ -758,26 +776,25 @@ const getDefaultVoucherType = (description: string, accountType: string): string
   const VoucherTypeIndicator = ({ form, index }: { form: VoucherForm; index: number }) => {
     const [showOptions, setShowOptions] = useState(false);
     
-// Update the VoucherTypeIndicator component's getVoucherTypeColor and getVoucherTypeLabel functions:
-const getVoucherTypeColor = (vt: string) => {
-  switch (vt) {
-    case 'INV': return 'bg-red-100 text-red-800 border-red-300';
-    case 'REC': return 'bg-green-100 text-green-800 border-green-300';
-    case 'GFV': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    case 'Alloy': return 'bg-blue-100 text-blue-800 border-blue-300';  // Added Alloy
-    default: return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
-};
+    const getVoucherTypeColor = (vt: string) => {
+      switch (vt) {
+        case 'INV': return 'bg-red-100 text-red-800 border-red-300';
+        case 'REC': return 'bg-green-100 text-green-800 border-green-300';
+        case 'GFV': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        case 'Alloy': return 'bg-blue-100 text-blue-800 border-blue-300';  // Added Alloy
+        default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      }
+    };
 
-const getVoucherTypeLabel = (vt: string) => {
-  switch (vt) {
-    case 'INV': return 'Invoice';
-    case 'REC': return 'Receipt';
-    case 'GFV': return 'Gold Fixing';
-    case 'Alloy': return 'Alloy';  // Added Alloy
-    default: return 'Select Type';
-  }
-};
+    const getVoucherTypeLabel = (vt: string) => {
+      switch (vt) {
+        case 'INV': return 'Invoice';
+        case 'REC': return 'Receipt';
+        case 'GFV': return 'Gold Fixing';
+        case 'Alloy': return 'Alloy';  // Added Alloy
+        default: return 'Select Type';
+      }
+    };
 
     return (
       <div className="relative">
@@ -1084,8 +1101,8 @@ const getVoucherTypeLabel = (vt: string) => {
                       />
                     </div>
 
-                    {/* KWD Field - Show for all non-GFV vouchers */}
-                    {form.vt !== "GFV" && (
+                    {/* KWD Field - Show for all non-GFV vouchers EXCEPT Project */}
+                    {form.vt !== "GFV" && selectedType !== "Project" && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">KWD</label>
                         <input
@@ -1447,7 +1464,7 @@ const getVoucherTypeLabel = (vt: string) => {
 
         {/* Quick Stats - Only show after account is selected */}
         {selectedAccountId && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+          <div className={`grid ${selectedType === "Project" ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'} gap-4 text-center`}>
             <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="text-2xl font-bold text-blue-600">{voucherForms.length}</div>
               <div className="text-sm text-gray-600">Vouchers Ready</div>
@@ -1458,12 +1475,15 @@ const getVoucherTypeLabel = (vt: string) => {
               </div>
               <div className="text-sm text-gray-600">Total Gold</div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="text-2xl font-bold text-purple-600">
-                {voucherForms.reduce((sum, form) => sum + form.kwd, 0).toFixed(2)}
+            {/* Hide KWD stat for Project accounts */}
+            {selectedType !== "Project" && (
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <div className="text-2xl font-bold text-purple-600">
+                  {voucherForms.reduce((sum, form) => sum + form.kwd, 0).toFixed(2)}
+                </div>
+                <div className="text-sm text-gray-600">Total KWD</div>
               </div>
-              <div className="text-sm text-gray-600">Total KWD</div>
-            </div>
+            )}
           </div>
         )}
       </div>
