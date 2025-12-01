@@ -82,11 +82,8 @@ export const getServerSideProps: GetServerSideProps = async () => {
       let lockerGold = 0; // Initialize locker gold
 
       typeVouchers.forEach(voucher => {
-        // Skip GFV vouchers for all calculations (handled separately in open balance)
-        if (voucher.vt === "GFV") return;
-
-        // Skip Alloy vouchers for locker calculations (but include in regular balances)
         const isAlloy = voucher.vt === "Alloy";
+        const isGFV = voucher.vt === "GFV";
 
         // REGULAR BALANCE CALCULATIONS (include Alloy as positive, like INV)
         if (voucher.vt === "INV" || voucher.vt === "Alloy") {
@@ -95,10 +92,17 @@ export const getServerSideProps: GetServerSideProps = async () => {
         } else if (voucher.vt === "REC") {
           goldBalance -= voucher.gold;
           kwdBalance -= voucher.kwd;
+        } else if (voucher.vt === "GFV") {
+          // For GFV: Gold positive, KWD negative (only for Gold Fixing accounts)
+          if (type === "Gold Fixing") {
+            goldBalance += voucher.gold; // Gold positive
+            kwdBalance -= voucher.kwd;   // KWD negative
+          }
+          // For other account types, ignore GFV in regular balance
         }
 
-        // LOCKER GOLD CALCULATIONS (exclude Alloy, just like GFV)
-        if (!isAlloy) { // Skip Alloy for locker calculations
+        // LOCKER GOLD CALCULATIONS (exclude Alloy and GFV, include only for certain account types)
+        if (!isAlloy && !isGFV) { // Skip Alloy and GFV for locker calculations
           if (type === "Market") {
             if (voucher.vt === "INV") {
               lockerGold -= voucher.gold; // INV negative
@@ -116,7 +120,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
               lockerGold += voucher.gold; // REC positive
             }
           } else if (type === "Gold Fixing") {
-            // Only count REC vouchers for Gold Fixing
+            // Only count REC vouchers for Gold Fixing (exclude GFV)
             if (voucher.vt === "REC") {
               lockerGold += voucher.gold; // REC positive
             }
