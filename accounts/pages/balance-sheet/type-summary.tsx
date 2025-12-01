@@ -38,34 +38,40 @@ export const getServerSideProps: GetServerSideProps = async () => {
     const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
     // Get all accounts grouped by type
-    const accountsByType = await prisma.account.findMany({
-      where: {
-        type: { in: accountTypes }
-      },
-      select: {
-        id: true,
-        type: true,
-      },
-    });
+const accountsByType = await prisma.account.findMany({
+  where: {
+    isActive: true,                       // << ONLY ACTIVE ACCOUNTS
+    type: { in: accountTypes },
+  },
+  select: {
+    id: true,
+    type: true,
+  },
+});
 
     // Get all vouchers with paymentMethod included
-    const allVouchers = await prisma.voucher.findMany({
+const allVouchers = await prisma.voucher.findMany({
+  where: {
+    account: {
+      isActive: true,                    // << ONLY VOUCHERS OF ACTIVE ACCOUNTS
+    },
+  },
+  select: {
+    id: true,
+    accountId: true,
+    vt: true,
+    gold: true,
+    kwd: true,
+    goldRate: true,
+    fixingAmount: true,
+    paymentMethod: true,
+    account: {
       select: {
-        id: true,
-        accountId: true,
-        vt: true,
-        gold: true,
-        kwd: true,
-        goldRate: true,
-        fixingAmount: true,
-        paymentMethod: true, // Added for locker calculation
-        account: {
-          select: {
-            type: true,
-          },
-        },
+        type: true,
       },
-    });
+    },
+  },
+});
 
     // Calculate balances for each account type with GFV and Alloy handling
     const typeSummaries: AccountTypeSummary[] = accountTypes.map(type => {
