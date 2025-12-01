@@ -1,4 +1,3 @@
-// pages/api/accounts/[id].ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
@@ -23,23 +22,29 @@ export default async function handler(
   }
 
   try {
-    // ===== PATCH: Change isActive only =====
+    // ===== PATCH: Update isActive =====
     if (req.method === "PATCH") {
       const { isActive } = req.body as { isActive?: boolean };
-
-      if (typeof isActive !== "boolean") {
-        return res.status(400).json({ message: "isActive must be boolean" });
-      }
 
       const updated = await prisma.account.update({
         where: { id },
         data: { isActive },
       });
 
-      return res.status(200).json(updated);
+      const sanitized: Account = {
+        id: updated.id,
+        name: updated.name,
+        type: updated.type,
+        accountNo: updated.accountNo,
+        isActive: updated.isActive,
+        phone: updated.phone ?? undefined,
+        crOrCivilIdNo: updated.crOrCivilIdNo ?? undefined,
+      };
+
+      return res.status(200).json(sanitized);
     }
 
-    // ===== PUT: Update editable fields =====
+    // ===== PUT: Update other fields =====
     if (req.method === "PUT") {
       const { name, phone, crOrCivilIdNo } = req.body as {
         name?: string;
@@ -56,7 +61,17 @@ export default async function handler(
         data: { name, phone, crOrCivilIdNo },
       });
 
-      return res.status(200).json(updated);
+      const sanitized: Account = {
+        id: updated.id,
+        accountNo: updated.accountNo,
+        name: updated.name,
+        type: updated.type,
+        phone: updated.phone ?? undefined,
+        crOrCivilIdNo: updated.crOrCivilIdNo ?? undefined,
+        isActive: updated.isActive,
+      };
+
+      return res.status(200).json(sanitized);
     }
 
     res.setHeader("Allow", ["PUT", "PATCH"]);
