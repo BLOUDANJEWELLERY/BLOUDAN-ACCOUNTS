@@ -134,7 +134,8 @@ export default function EditVoucherPage({ voucher, accounts }: Props) {
       return [
         { value: "INV", label: "INV (Invoice)" },
         { value: "REC", label: "REC (Receipt)" },
-        { value: "GFV", label: "GFV (Gold Fixing)" }
+        { value: "GFV", label: "GFV (Gold Fixing)" },
+        { value: "Alloy", label: "Alloy" }
       ];
     } else {
       return [
