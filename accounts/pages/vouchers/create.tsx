@@ -184,51 +184,60 @@ export default function CreateVouchersPage({ accounts }: Props) {
 
   const filteredAccounts = accounts.filter((a) => a.type === selectedType);
 
-  // Get available voucher types based on account type
-  const getVoucherTypes = () => {
-    if (selectedType === "Gold Fixing") {
-      return [
-        { value: "INV", label: "Invoice", color: "red" },
-        { value: "REC", label: "Receipt", color: "green" },
-        { value: "GFV", label: "Gold Fixing", color: "yellow" }
-      ];
-    } else {
-      return [
-        { value: "INV", label: "Invoice", color: "red" },
-        { value: "REC", label: "Receipt", color: "green" }
-      ];
-    }
-  };
+ // Get available voucher types based on account type
+const getVoucherTypes = () => {
+  if (selectedType === "Gold Fixing") {
+    return [
+      { value: "INV", label: "Invoice", color: "red" },
+      { value: "REC", label: "Receipt", color: "green" },
+      { value: "GFV", label: "Gold Fixing", color: "yellow" }
+    ];
+  } else if (selectedType === "Project") {
+    // Add "Alloy" for Project accounts
+    return [
+      { value: "INV", label: "Invoice", color: "red" },
+      { value: "REC", label: "Receipt", color: "green" },
+      { value: "Alloy", label: "Alloy", color: "blue" }  // Added Alloy
+    ];
+  } else {
+    return [
+      { value: "INV", label: "Invoice", color: "red" },
+      { value: "REC", label: "Receipt", color: "green" }
+    ];
+  }
+};
 
-  // Get default voucher type based on description and account type
-  const getDefaultVoucherType = (description: string, accountType: string): string => {
-    if (accountType === "Project") {
-      if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
-        return "REC";
-      } else if (["KDM", "Casting"].includes(description)) {
-        return "INV";
-      }
-    } else if (accountType === "Casting") {
-      if (["Gold", "Casting Return", "Payment of"].includes(description)) {
-        return "INV";
-      } else if (["Casting", "Scrap"].includes(description)) {
-        return "REC";
-      }
-    } else if (accountType === "Faceting") {
-      if (description === "Gold Powder") {
-        return "REC";
-      }
-    } else if (accountType === "Gold Fixing") {
-      if (description === "Gold Fixing @") {
-        return "GFV";
-      } else if (description === "Gold") {
-        return "REC";
-      } else if (["Cash", "K-Net"].includes(description)) {
-        return "INV";
-      }
+// Get default voucher type based on description and account type
+const getDefaultVoucherType = (description: string, accountType: string): string => {
+  if (accountType === "Project") {
+    if (["Bangles", "Kids Bangles", "Casting Return"].includes(description)) {
+      return "REC";
+    } else if (description === "KDM") {
+      return "Alloy";  // Changed from "INV" to "Alloy"
+    } else if (description === "Casting") {
+      return "INV";
     }
-    return "";
-  };
+  } else if (accountType === "Casting") {
+    if (["Gold", "Casting Return", "Payment of"].includes(description)) {
+      return "INV";
+    } else if (["Casting", "Scrap"].includes(description)) {
+      return "REC";
+    }
+  } else if (accountType === "Faceting") {
+    if (description === "Gold Powder") {
+      return "REC";
+    }
+  } else if (accountType === "Gold Fixing") {
+    if (description === "Gold Fixing @") {
+      return "GFV";
+    } else if (description === "Gold") {
+      return "REC";
+    } else if (["Cash", "K-Net"].includes(description)) {
+      return "INV";
+    }
+  }
+  return "";
+};
 
   // Check if should show gold fixing section
   const shouldShowGoldFixing = (form: VoucherForm) => {
@@ -749,23 +758,26 @@ export default function CreateVouchersPage({ accounts }: Props) {
   const VoucherTypeIndicator = ({ form, index }: { form: VoucherForm; index: number }) => {
     const [showOptions, setShowOptions] = useState(false);
     
-    const getVoucherTypeColor = (vt: string) => {
-      switch (vt) {
-        case 'INV': return 'bg-red-100 text-red-800 border-red-300';
-        case 'REC': return 'bg-green-100 text-green-800 border-green-300';
-        case 'GFV': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-        default: return 'bg-gray-100 text-gray-800 border-gray-300';
-      }
-    };
+// Update the VoucherTypeIndicator component's getVoucherTypeColor and getVoucherTypeLabel functions:
+const getVoucherTypeColor = (vt: string) => {
+  switch (vt) {
+    case 'INV': return 'bg-red-100 text-red-800 border-red-300';
+    case 'REC': return 'bg-green-100 text-green-800 border-green-300';
+    case 'GFV': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'Alloy': return 'bg-blue-100 text-blue-800 border-blue-300';  // Added Alloy
+    default: return 'bg-gray-100 text-gray-800 border-gray-300';
+  }
+};
 
-    const getVoucherTypeLabel = (vt: string) => {
-      switch (vt) {
-        case 'INV': return 'Invoice';
-        case 'REC': return 'Receipt';
-        case 'GFV': return 'Gold Fixing';
-        default: return 'Select Type';
-      }
-    };
+const getVoucherTypeLabel = (vt: string) => {
+  switch (vt) {
+    case 'INV': return 'Invoice';
+    case 'REC': return 'Receipt';
+    case 'GFV': return 'Gold Fixing';
+    case 'Alloy': return 'Alloy';  // Added Alloy
+    default: return 'Select Type';
+  }
+};
 
     return (
       <div className="relative">
