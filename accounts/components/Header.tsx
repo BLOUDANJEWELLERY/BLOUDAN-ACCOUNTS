@@ -27,7 +27,7 @@ export default function Header() {
                 <span className="text-white font-bold text-lg">$</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Gold Ledger Pro</h1>
+                <h1 className="text-xl font-bold text-gray-900">Bloudan Accounts</h1>
                 <p className="text-xs text-gray-500">Business Management System</p>
               </div>
             </Link>
