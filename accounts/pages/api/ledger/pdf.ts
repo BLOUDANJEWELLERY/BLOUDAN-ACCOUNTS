@@ -78,6 +78,8 @@ interface AccountInfo {
   id: string;
   name: string;
   type: string;
+  phone?: string;
+  crOrCivilIdNo?: string;
 }
 
 interface PdfRequestData {
@@ -229,7 +231,7 @@ class PDFGenerator {
       borderWidth: 1,
     });
 
-    const accountInfo = `Account: ${data.account.name} | Type: ${data.account.type}`;
+const accountInfo = `Account: ${data.account.name} | Type: ${data.account.type}${data.account.phone ? ` | Phone: ${data.account.phone}` : ''}${data.account.crOrCivilIdNo ? ` | CR/ID: ${data.account.crOrCivilIdNo}` : ''}`;
     page.drawText(accountInfo, {
       x: MARGIN + 35,
       y: currentY - 25,
@@ -881,7 +883,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch account
-    const account = await prisma.account.findUnique({ where: { id } });
+  const account = await prisma.account.findUnique({ 
+  where: { id },
+  select: {
+    id: true,
+    name: true,
+    type: true,
+    phone: true,
+    crOrCivilIdNo: true,
+  }
+});
     if (!account) {
       return res.status(404).json({ 
         error: 'Account not found',
