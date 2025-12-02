@@ -88,8 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Create PDF
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
-    const { height } = page.getSize();
+    
+    // Initialize with first page
+    let currentPage = pdfDoc.addPage([595.28, 841.89]); // A4 size
+    const pageHeight = currentPage.getSize().height;
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
@@ -107,84 +109,84 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     };
 
-    let y = height - 50;
+    let yPosition = pageHeight - 50;
 
     // Company Header
-    page.drawText('BLOUDAN JEWELLERY', {
+    currentPage.drawText('BLOUDAN JEWELLERY', {
       x: 50,
-      y,
+      y: yPosition,
       size: 16,
       font: boldFont,
       color: rgb(0, 0, 0),
     });
 
-    y -= 25;
-    page.drawText('ACCOUNT LEDGER', {
+    yPosition -= 25;
+    currentPage.drawText('ACCOUNT LEDGER', {
       x: 50,
-      y,
+      y: yPosition,
       size: 14,
       font: boldFont,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 20;
+    yPosition -= 20;
 
     // Account Information
-    page.drawText(`Account: ${account.name}`, {
+    currentPage.drawText(`Account: ${account.name}`, {
       x: 50,
-      y,
+      y: yPosition,
       size: 11,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 15;
-    page.drawText(`Account Type: ${accountType}`, {
+    yPosition -= 15;
+    currentPage.drawText(`Account Type: ${accountType}`, {
       x: 50,
-      y,
+      y: yPosition,
       size: 11,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 15;
-    page.drawText(`Period: ${formatDate(startDate as string)} to ${formatDate(endDate as string)}`, {
+    yPosition -= 15;
+    currentPage.drawText(`Period: ${formatDate(startDate as string)} to ${formatDate(endDate as string)}`, {
       x: 50,
-      y,
+      y: yPosition,
       size: 11,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 20;
+    yPosition -= 20;
 
     // Opening Balance
-    page.drawText('Opening Balance:', {
+    currentPage.drawText('Opening Balance:', {
       x: 50,
-      y,
+      y: yPosition,
       size: 11,
       font: boldFont,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 15;
-    page.drawText(`Gold: ${formatCurrency(openingGold)}`, {
+    yPosition -= 15;
+    currentPage.drawText(`Gold: ${formatCurrency(openingGold)}`, {
       x: 60,
-      y,
+      y: yPosition,
       size: 10,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    page.drawText(`KWD: ${formatCurrency(openingKwd)}`, {
+    currentPage.drawText(`KWD: ${formatCurrency(openingKwd)}`, {
       x: 200,
-      y,
+      y: yPosition,
       size: 10,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 30;
+    yPosition -= 30;
 
     // Table Headers
     const headers = ['Date', 'Details', 'Type', 'Gold', 'KWD', 'Gold Balance', 'KWD Balance'];
@@ -192,9 +194,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const colX = [50, 110, 260, 300, 380, 460, 560];
 
     // Draw header background
-    page.drawRectangle({
+    currentPage.drawRectangle({
       x: 45,
-      y: y + 5,
+      y: yPosition + 5,
       width: 505,
       height: 20,
       color: rgb(0.9, 0.9, 0.9),
@@ -202,49 +204,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Draw header text
     headers.forEach((header, i) => {
-      page.drawText(header, {
+      currentPage.drawText(header, {
         x: colX[i],
-        y: y + 10,
+        y: yPosition + 10,
         size: 9,
         font: boldFont,
         color: rgb(0.2, 0.2, 0.2),
       });
     });
 
-    y -= 25;
+    yPosition -= 25;
 
     // Draw voucher rows
     processedVouchers.forEach((voucher, index) => {
-      if (y < 100) {
-        page = pdfDoc.addPage([595.28, 841.89]);
-        y = height - 50;
+      // Check if we need a new page
+      if (yPosition < 100) {
+        // Add new page
+        currentPage = pdfDoc.addPage([595.28, 841.89]);
+        yPosition = pageHeight - 50;
         
         // Draw headers on new page
-        page.drawRectangle({
+        currentPage.drawRectangle({
           x: 45,
-          y: y + 5,
+          y: yPosition + 5,
           width: 505,
           height: 20,
           color: rgb(0.9, 0.9, 0.9),
         });
         
         headers.forEach((header, i) => {
-          page.drawText(header, {
+          currentPage.drawText(header, {
             x: colX[i],
-            y: y + 10,
+            y: yPosition + 10,
             size: 9,
             font: boldFont,
             color: rgb(0.2, 0.2, 0.2),
           });
         });
-        y -= 25;
+        yPosition -= 25;
       }
 
       // Alternate row background
       if (index % 2 === 0) {
-        page.drawRectangle({
+        currentPage.drawRectangle({
           x: 45,
-          y: y - 15,
+          y: yPosition - 15,
           width: 505,
           height: 20,
           color: rgb(0.98, 0.98, 0.98),
@@ -263,19 +267,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ];
 
       rowData.forEach((data, i) => {
-        page.drawText(data.substring(0, 30), { // Truncate long text
+        // Truncate long text
+        const displayText = data.length > 30 ? data.substring(0, 27) + '...' : data;
+        currentPage.drawText(displayText, {
           x: colX[i],
-          y: y,
+          y: yPosition,
           size: 8,
           font,
           color: rgb(0, 0, 0),
         });
       });
 
-      y -= 20;
+      yPosition -= 20;
     });
 
-    y -= 20;
+    // Add closing balance on the last page
+    yPosition -= 20;
 
     // Closing Balance
     const closingGold = processedVouchers.length > 0 
@@ -285,46 +292,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? processedVouchers[processedVouchers.length - 1].kwdBalance 
       : openingKwd;
 
-    page.drawText('Closing Balance:', {
+    currentPage.drawText('Closing Balance:', {
       x: 50,
-      y,
+      y: yPosition,
       size: 11,
       font: boldFont,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 15;
-    page.drawText(`Gold: ${formatCurrency(closingGold || 0)}`, {
+    yPosition -= 15;
+    currentPage.drawText(`Gold: ${formatCurrency(closingGold || 0)}`, {
       x: 60,
-      y,
+      y: yPosition,
       size: 10,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    page.drawText(`KWD: ${formatCurrency(closingKwd || 0)}`, {
+    currentPage.drawText(`KWD: ${formatCurrency(closingKwd || 0)}`, {
       x: 200,
-      y,
+      y: yPosition,
       size: 10,
       font,
       color: rgb(0.2, 0.2, 0.2),
     });
 
-    y -= 30;
+    yPosition -= 30;
 
     // Summary
-    page.drawText(`Total Transactions: ${processedVouchers.length}`, {
+    currentPage.drawText(`Total Transactions: ${processedVouchers.length}`, {
       x: 50,
-      y,
+      y: yPosition,
       size: 10,
       font,
       color: rgb(0.4, 0.4, 0.4),
     });
 
-    y -= 15;
-    page.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
+    yPosition -= 15;
+    currentPage.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
       x: 50,
-      y,
+      y: yPosition,
       size: 9,
       font,
       color: rgb(0.6, 0.6, 0.6),
