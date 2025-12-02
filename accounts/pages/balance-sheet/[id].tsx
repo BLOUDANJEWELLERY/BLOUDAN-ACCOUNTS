@@ -189,35 +189,50 @@ const handleDownloadPDF = async () => {
     // Create filename
     const filename = `ledger-${account.name.replace(/\s+/g, '-')}-${start || 'all'}-to-${end || 'all'}.pdf`;
     
-    // Handle download
-    if (window.navigator.msSaveOrOpenBlob) {
-      // For IE/Edge
-      window.navigator.msSaveOrOpenBlob(blob, filename);
+    // Check if we're on iOS Safari
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isIOS || isSafari) {
+      // iOS Safari workaround - open in new window
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create an iframe to download the file
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      
+      // Also create a link as fallback
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        
+        // For Safari, we can't use download attribute, so open in new tab
+        if (isSafari) {
+          window.open(url, '_blank');
+        } else {
+          link.click();
+        }
+        
+        // Cleanup
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+      }, 100);
     } else {
-      // For modern browsers including iOS Safari
+      // Standard download for other browsers
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      
-      // iOS Safari needs the link to be in the DOM
       link.href = url;
       link.download = filename;
-      link.style.display = 'none';
       document.body.appendChild(link);
-      
-      // Different click methods for iOS
-      if (document.createEvent) {
-        const event = document.createEvent('MouseEvents');
-        event.initEvent('click', true, true);
-        link.dispatchEvent(event);
-      } else {
-        link.click();
-      }
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     }
     
   } catch (error) {
