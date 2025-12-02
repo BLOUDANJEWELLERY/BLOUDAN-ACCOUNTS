@@ -220,7 +220,7 @@ class PDFGenerator {
       borderWidth: 1,
     });
 
-    const accountInfo = `Account: ${data.account.accountNo} | Name: ${data.account.name} | Phone: ${data.account.phone || 'N/A'} | CR No: ${data.account.cr || 'N/A'}`;
+    const accountInfo = `Account: ${data.account.accountNo} | Name: ${data.account.name} | Phone: ${data.account.phone || 'N/A'} | CR No: ${data.account.crOrCivilIdNo || 'N/A'}`;
     page.drawText(accountInfo, {
       x: MARGIN + 35,
       y: currentY - 25,
