@@ -19,7 +19,7 @@ type Voucher = {
 type AccountInfo = {
   id: string;
   name: string;
-  accountNo: int;
+  accountNo: number;
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
