@@ -9,7 +9,7 @@ type Voucher = {
   date: string;
   mvn?: string;
   description?: string;
-  vt: "REC" | "INV" | "GFV" | "Alloy"; // Added "Alloy" to voucher types
+  vt: "REC" | "INV" | "GFV" | "Alloy";
   accountId: string;
   gold: number;
   kwd: number;
@@ -57,14 +57,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     previousVouchers.forEach((v) => {
       if (v.vt === "INV" || v.vt === "Alloy") {
-        // Treat Alloy same as INV (positive)
         openingGold += v.gold;
         openingKwd += v.kwd;
       } else if (v.vt === "REC") {
         openingGold -= v.gold;
         openingKwd -= v.kwd;
       } else if (v.vt === "GFV") {
-        // GFV: Gold positive, KWD negative
         openingGold += v.gold;
         openingKwd -= v.kwd;
       }
@@ -87,14 +85,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   let kwdBalance = openingKwd;
   const processed = vouchers.map((v) => {
     if (v.vt === "INV" || v.vt === "Alloy") {
-      // Treat Alloy same as INV (positive)
       goldBalance += v.gold;
       kwdBalance += v.kwd;
     } else if (v.vt === "REC") {
       goldBalance -= v.gold;
       kwdBalance -= v.kwd;
     } else if (v.vt === "GFV") {
-      // GFV: Gold positive, KWD negative
       goldBalance += v.gold;
       kwdBalance -= v.kwd;
     }
@@ -129,129 +125,42 @@ export default function BalanceSheetPage({
   const [start, setStart] = useState(startDate || "");
   const [end, setEnd] = useState(endDate || "");
   const [isFiltering, setIsFiltering] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  // Sync local state with props when they change (after filtering)
+  useEffect(() => {
+    if (startDate !== undefined) {
+      setStart(startDate || "");
+    }
+    if (endDate !== undefined) {
+      setEnd(endDate || "");
+    }
+  }, [startDate, endDate]);
 
-
-// Add this state variable
-const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-
-// Add this function to handle PDF generation
-const handleDownloadPDF = async () => {
-  try {
+  // Simplified PDF download function
+  const handleDownloadPDF = () => {
     setIsGeneratingPDF(true);
     
-    const params = new URLSearchParams();
-    params.append('id', account.id);
-    params.append('accountType', account.type);
-    if (start) params.append('startDate', start);
-    if (end) params.append('endDate', end);
-
-    // Add timestamp to prevent caching
-    params.append('_t', Date.now().toString());
-
-    // Call the PDF API
-    const response = await fetch(`/api/ledger/pdf?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/pdf',
-      },
-      cache: 'no-store',
-    });
-    
-    // First, check if it's an error
-    if (!response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.details || 'Failed to generate PDF');
-      } else {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-    }
-    
-    // Check if it's actually a PDF
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/pdf')) {
-      const text = await response.text();
-      console.warn('Expected PDF but got:', contentType, text.substring(0, 200));
-      throw new Error('Server did not return a PDF file');
-    }
-    
-    // Get the blob
-    const blob = await response.blob();
-    
-    // Check blob type
-    if (blob.type !== 'application/pdf') {
-      console.warn('Blob is not PDF:', blob.type, blob.size);
-      throw new Error('Downloaded file is not a PDF');
-    }
-    
-    // Create filename
-    const filename = `ledger-${account.name.replace(/\s+/g, '-')}-${start || 'all'}-to-${end || 'all'}.pdf`;
-    
-    // Check if we're on iOS Safari
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    
-    if (isIOS || isSafari) {
-      // iOS Safari workaround - open in new window
-      const url = window.URL.createObjectURL(blob);
+    try {
+      const params = new URLSearchParams({
+        id: account.id,
+        accountType: account.type,
+        ...(start && { startDate: start }),
+        ...(end && { endDate: end }),
+        _t: Date.now().toString(), // Prevent caching
+      });
       
-      // Create an iframe to download the file
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
+      // Open PDF in new tab - most reliable for all browsers
+      const pdfUrl = `/api/ledger/pdf?${params.toString()}`;
+      window.open(pdfUrl, '_blank');
       
-      // Also create a link as fallback
-      setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        
-        // For Safari, we can't use download attribute, so open in new tab
-        if (isSafari) {
-          window.open(url, '_blank');
-        } else {
-          link.click();
-        }
-        
-        // Cleanup
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          window.URL.revokeObjectURL(url);
-        }, 100);
-      }, 100);
-    } else {
-      // Standard download for other browsers
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setTimeout(() => setIsGeneratingPDF(false), 1000);
     }
-    
-  } catch (error) {
-    console.error('Error downloading PDF:', error);
-    
-    // Show user-friendly error
-    if (error instanceof Error) {
-      alert(`Failed to download PDF: ${error.message}`);
-    } else {
-      alert('Failed to download PDF. Please try again.');
-    }
-  } finally {
-    setIsGeneratingPDF(false);
-  }
-};
-
-
-
-
+  };
 
   const handleFilter = async () => {
     setIsFiltering(true);
@@ -266,6 +175,8 @@ const handleDownloadPDF = async () => {
 
   const handleReset = async () => {
     setIsFiltering(true);
+    setStart("");
+    setEnd("");
     await router.push(`/balance-sheet/${account.id}?accountType=${account.type}`);
     setIsFiltering(false);
   };
@@ -282,7 +193,7 @@ const handleDownloadPDF = async () => {
       return sum - v.gold;
     }
     if (v.vt === "GFV") {
-      return sum + v.gold; // GFV: Gold positive
+      return sum + v.gold;
     }
     return sum;
   }, 0);
@@ -295,7 +206,7 @@ const handleDownloadPDF = async () => {
       return sum - v.kwd;
     }
     if (v.vt === "GFV") {
-      return sum - v.kwd; // GFV: KWD negative
+      return sum - v.kwd;
     }
     return sum;
   }, 0);
@@ -317,7 +228,7 @@ const handleDownloadPDF = async () => {
     if (vt === 'REC') return 'bg-green-100 text-green-800';
     if (vt === 'INV') return 'bg-blue-100 text-blue-800';
     if (vt === 'GFV') return 'bg-yellow-100 text-yellow-800';
-    if (vt === 'Alloy') return 'bg-purple-100 text-purple-800'; // Added style for Alloy
+    if (vt === 'Alloy') return 'bg-purple-100 text-purple-800';
     return 'bg-gray-100 text-gray-800';
   };
 
@@ -325,14 +236,11 @@ const handleDownloadPDF = async () => {
   const getDisplayAmount = (voucher: Voucher, field: 'gold' | 'kwd') => {
     const value = voucher[field];
     if (voucher.vt === 'GFV') {
-      // For GFV: Gold shows positive, KWD shows negative
       if (field === 'gold') return value;
       if (field === 'kwd') return -value;
     } else if (voucher.vt === 'Alloy') {
-      // For Alloy: Both gold and KWD show positive (like INV)
       return value;
     } else {
-      // For INV and REC: Normal display
       return value;
     }
     return value;
@@ -378,6 +286,28 @@ const handleDownloadPDF = async () => {
                 </svg>
                 All Accounts
               </Link>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 transition-colors"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -664,28 +594,6 @@ const handleDownloadPDF = async () => {
           </div>
         </div>
       </div>
-<button
-  onClick={handleDownloadPDF}
-  disabled={isGeneratingPDF}
-  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 transition-colors"
->
-  {isGeneratingPDF ? (
-    <>
-      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Generating PDF...
-    </>
-  ) : (
-    <>
-      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      Download PDF
-    </>
-  )}
-</button>
     </main>
   );
 }
