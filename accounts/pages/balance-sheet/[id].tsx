@@ -87,6 +87,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       type: true,
       phone: true,
       crOrCivilIdNo: true,
+      accountNo:true,
     }
   });
   
@@ -193,6 +194,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         type: accountType,
         phone: account.phone || "",
         crOrCivilIdNo: account.crOrCivilIdNo || "",
+        accountNo: account.accountNo,
       },
       vouchers: JSON.parse(JSON.stringify(processedVouchers)),
       startDate: startDateParam || null,
