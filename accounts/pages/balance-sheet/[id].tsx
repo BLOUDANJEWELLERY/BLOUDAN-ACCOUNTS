@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import PdfViewer from "../../components/PdfViewer";
 
 type Voucher = {
   id: string;
@@ -15,7 +14,6 @@ type Voucher = {
   accountId: string;
   gold: number;
   kwd: number;
-  pdfUrl?: string;
 };
 
 type AccountInfo = {
@@ -37,7 +35,6 @@ type LedgerEntry = {
   kwdDebit: number;
   kwdCredit: number;
   kwdBalance: number;
-  pdfUrl?: string;
   isOpeningBalance?: boolean;
   isClosingBalance?: boolean;
   originalDate?: string;
@@ -62,13 +59,6 @@ const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
   const unit = type === 'gold' ? 'g' : 'KWD';
   
   return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
-};
-
-// Helper function to extract filename from URL
-const extractFileNameFromUrl = (url: string): string => {
-  if (!url) return '';
-  const parts = url.split('/');
-  return parts[parts.length - 1];
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -104,7 +94,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
 
-  // Fetch vouchers with PDF URLs
+  // Fetch vouchers
   const whereClause: any = { accountId: account.id };
   if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
   else if (startDate) whereClause.date = { gte: startDate };
@@ -113,13 +103,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const vouchers = await prisma.voucher.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
-    include: {
-      pdf: {
-        select: {
-          url: true
-        }
-      }
-    }
   });
 
   // Process vouchers into ledger entries
@@ -135,7 +118,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       accountId: voucher.accountId,
       gold: voucher.gold,
       kwd: voucher.kwd,
-      pdfUrl: voucher.pdf?.url
     };
 
     // Calculate debit/credit based on voucher type
@@ -243,9 +225,7 @@ export default function BalanceSheetPage({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [selectedPdfFile, setSelectedPdfFile] = useState<string | null>(null);
 
   // Date range state
   const [dateRange, setDateRange] = useState({
@@ -278,7 +258,6 @@ export default function BalanceSheetPage({
           kwdDebit: voucher.kwdDebit || 0,
           kwdCredit: voucher.kwdCredit || 0,
           kwdBalance: voucher.kwdBalance,
-          pdfUrl: voucher.pdfUrl,
           originalDate: voucher.date
         };
       });
@@ -303,12 +282,6 @@ export default function BalanceSheetPage({
 
     setFilteredLedgerEntries(filtered);
   }, [dateRange, allLedgerEntries]);
-
-  // Function to open PDF in viewer
-  const openPdf = (pdfUrl: string) => {
-    const fileName = extractFileNameFromUrl(pdfUrl);
-    setSelectedPdfFile(fileName);
-  };
 
   // Calculate opening balance (balance before the date range)
   const calculateOpeningBalance = () => {
@@ -839,9 +812,6 @@ export default function BalanceSheetPage({
                     <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
                       Amount Balance
                     </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Actions
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-emerald-300">
@@ -898,19 +868,6 @@ export default function BalanceSheetPage({
                       }`}>
                         {formatBalance(entry.kwdBalance, 'kwd')}
                       </td>
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                        {entry.pdfUrl && !entry.isOpeningBalance && !entry.isClosingBalance && (
-                          <button
-                            onClick={() => openPdf(entry.pdfUrl!)}
-                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs font-semibold rounded-xl hover:from-emerald-700 hover:to-emerald-900 transition-all duration-200 border-2 border-amber-400 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                          >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            PDF
-                          </button>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -943,7 +900,6 @@ export default function BalanceSheetPage({
                     }`}>
                       {formatBalance(calculateClosingBalance().kwd, 'kwd')}
                     </td>
-                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -997,12 +953,6 @@ export default function BalanceSheetPage({
           </Link>
         </div>
       </div>
-
-      {/* PDF Viewer Popup */}
-      <PdfViewer
-        fileName={selectedPdfFile}
-        onClose={() => setSelectedPdfFile(null)}
-      />
     </div>
       <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
           <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
