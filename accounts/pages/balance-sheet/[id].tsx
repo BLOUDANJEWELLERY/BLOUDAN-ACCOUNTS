@@ -146,61 +146,89 @@ const handleDownloadPDF = async () => {
     if (start) params.append('startDate', start);
     if (end) params.append('endDate', end);
 
+    // Add timestamp to prevent caching
+    params.append('_t', Date.now().toString());
+
     // Call the PDF API
-    const response = await fetch(`/api/ledger/pdf?${params.toString()}`);
+    const response = await fetch(`/api/ledger/pdf?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/pdf',
+      },
+      cache: 'no-store',
+    });
     
-    // Log response details for debugging
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    // Check content type
-    const contentType = response.headers.get('content-type');
-    console.log('Content-Type:', contentType);
-    
+    // First, check if it's an error
     if (!response.ok) {
-      // Try to get error message
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      throw new Error(`Failed to generate PDF: ${response.status} ${response.statusText}`);
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || 'Failed to generate PDF');
+      } else {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
     }
-
-    // Ensure it's a PDF
-    if (!contentType || !contentType.includes('application/pdf')) {
-      const errorText = await response.text();
-      console.error('Not a PDF response:', errorText);
-      throw new Error('Server returned non-PDF response');
-    }
-
-    // Create blob and download
-    const blob = await response.blob();
-    console.log('Blob type:', blob.type, 'size:', blob.size);
     
-    // For iOS Safari, we need to use a different approach
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
-      // iOS Safari workaround
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64data = reader.result;
-        const link = document.createElement('a');
-        link.href = base64data as string;
-        link.download = `ledger-${account.name}-${start || 'all'}-to-${end || 'all'}.pdf`;
-        link.click();
-      };
-      reader.readAsDataURL(blob);
-    } else {
-      // Standard download for other browsers
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ledger-${account.name}-${start || 'all'}-to-${end || 'all'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+    // Check if it's actually a PDF
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/pdf')) {
+      const text = await response.text();
+      console.warn('Expected PDF but got:', contentType, text.substring(0, 200));
+      throw new Error('Server did not return a PDF file');
     }
+    
+    // Get the blob
+    const blob = await response.blob();
+    
+    // Check blob type
+    if (blob.type !== 'application/pdf') {
+      console.warn('Blob is not PDF:', blob.type, blob.size);
+      throw new Error('Downloaded file is not a PDF');
+    }
+    
+    // Create filename
+    const filename = `ledger-${account.name.replace(/\s+/g, '-')}-${start || 'all'}-to-${end || 'all'}.pdf`;
+    
+    // Handle download
+    if (window.navigator.msSaveOrOpenBlob) {
+      // For IE/Edge
+      window.navigator.msSaveOrOpenBlob(blob, filename);
+    } else {
+      // For modern browsers including iOS Safari
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      // iOS Safari needs the link to be in the DOM
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // Different click methods for iOS
+      if (document.createEvent) {
+        const event = document.createEvent('MouseEvents');
+        event.initEvent('click', true, true);
+        link.dispatchEvent(event);
+      } else {
+        link.click();
+      }
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    }
+    
   } catch (error) {
     console.error('Error downloading PDF:', error);
-    alert('Failed to generate PDF. Please check console for details.');
+    
+    // Show user-friendly error
+    if (error instanceof Error) {
+      alert(`Failed to download PDF: ${error.message}`);
+    } else {
+      alert('Failed to download PDF. Please try again.');
+    }
   } finally {
     setIsGeneratingPDF(false);
   }
