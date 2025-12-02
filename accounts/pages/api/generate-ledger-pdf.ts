@@ -23,7 +23,7 @@ interface Account {
   accountNo: string;
   name: string;
   phone: string;
-  cr: string;
+  crOrCivilIdNo: string;
 }
 
 interface PdfRequestData {
