@@ -18,8 +18,8 @@ type Voucher = {
 
 type AccountInfo = {
   id: string;
+  accountNo: string;
   name: string;
-  accountNo: number;
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
@@ -78,16 +78,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const startDate = startDateParam ? new Date(startDateParam) : undefined;
   const endDate = endDateParam ? new Date(endDateParam) : undefined;
 
-  // Fetch account with all fields
+  // Fetch account with all fields including accountNo
   const account = await prisma.account.findUnique({ 
     where: { id },
     select: {
       id: true,
+      accountNo: true,
       name: true,
       type: true,
       phone: true,
       crOrCivilIdNo: true,
-      accountNo:true,
     }
   });
   
@@ -190,11 +190,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     props: {
       account: {
         id: account.id,
+        accountNo: account.accountNo,
         name: account.name,
         type: accountType,
         phone: account.phone || "",
         crOrCivilIdNo: account.crOrCivilIdNo || "",
-        accountNo: account.accountNo,
       },
       vouchers: JSON.parse(JSON.stringify(processedVouchers)),
       startDate: startDateParam || null,
@@ -494,7 +494,7 @@ export default function BalanceSheetPage({
 
       const blob = new Blob([bytes], { type: "application/pdf" });
 
-      const fileName = `ledger-${account.name}-${dateRange.start || "all"}-to-${
+      const fileName = `ledger-${account.accountNo}-${account.name}-${dateRange.start || "all"}-to-${
         dateRange.end || "all"
       }.pdf`;
 
@@ -565,7 +565,7 @@ export default function BalanceSheetPage({
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4 tracking-tight">
             Account Ledger
           </h1>
-          <p className="text-xl text-blue-700 font-light">Account Type: {account.type}</p>
+          <p className="text-xl text-blue-700 font-light">Account No: {account.accountNo}</p>
         </div>
 
         {/* Account Info Card */}
@@ -574,7 +574,11 @@ export default function BalanceSheetPage({
           <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-blue-200 to-blue-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
           <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-indigo-200 to-indigo-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 relative z-10">
+            <div>
+              <h3 className="text-sm font-medium text-blue-700 mb-1">Account No</h3>
+              <p className="text-lg font-semibold text-blue-800 font-mono">{account.accountNo}</p>
+            </div>
             <div>
               <h3 className="text-sm font-medium text-blue-700 mb-1">Account Name</h3>
               <p className="text-lg font-semibold text-blue-900">{account.name}</p>
