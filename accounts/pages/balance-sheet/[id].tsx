@@ -14,6 +14,7 @@ type Voucher = {
   accountId: string;
   gold: number;
   kwd: number;
+  quantity?: number;
 };
 
 type AccountInfo = {
@@ -36,6 +37,7 @@ type LedgerEntry = {
   kwdDebit: number;
   kwdCredit: number;
   kwdBalance: number;
+  quantity?: number;
   isOpeningBalance?: boolean;
   isClosingBalance?: boolean;
   originalDate?: string;
@@ -68,16 +70,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   let startDateParam = context.query.startDate as string | undefined;
   let endDateParam = context.query.endDate as string | undefined;
 
-  // If no dates provided, default to current month
-  if (!startDateParam && !endDateParam) {
-    const currentMonth = getCurrentMonthRange();
-    startDateParam = currentMonth.start;
-    endDateParam = currentMonth.end;
-  }
-
-  const startDate = startDateParam ? new Date(startDateParam) : undefined;
-  const endDate = endDateParam ? new Date(endDateParam) : undefined;
-
   // Fetch account with all fields including accountNo
   const account = await prisma.account.findUnique({ 
     where: { id },
@@ -96,7 +88,19 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
 
-  // Fetch vouchers
+  // If dates are provided as empty strings (user cleared filters), treat as forever
+  const hasDateFilter = startDateParam !== undefined || endDateParam !== undefined;
+  
+  // If no dates provided or dates are empty strings, don't apply date filter
+  if (!hasDateFilter || startDateParam === '' || endDateParam === '') {
+    startDateParam = undefined;
+    endDateParam = undefined;
+  }
+
+  const startDate = startDateParam ? new Date(startDateParam) : undefined;
+  const endDate = endDateParam ? new Date(endDateParam) : undefined;
+
+  // Fetch vouchers - include quantity field
   const whereClause: any = { accountId: account.id };
   if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
   else if (startDate) whereClause.date = { gte: startDate };
@@ -105,6 +109,17 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const vouchers = await prisma.voucher.findMany({
     where: whereClause,
     orderBy: { date: "asc" },
+    select: {
+      id: true,
+      date: true,
+      mvn: true,
+      description: true,
+      vt: true,
+      accountId: true,
+      gold: true,
+      kwd: true,
+      quantity: true, // Add quantity field
+    },
   });
 
   // Process vouchers into ledger entries
@@ -120,6 +135,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       accountId: voucher.accountId,
       gold: voucher.gold,
       kwd: voucher.kwd,
+      quantity: voucher.quantity || 0,
     };
 
     // Calculate debit/credit based on voucher type
@@ -155,6 +171,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   // Calculate opening balance (vouchers before startDate)
   let openingGold = 0;
   let openingKwd = 0;
+  let openingQuantity = 0;
 
   if (startDate) {
     const previousVouchers = await prisma.voucher.findMany({
@@ -163,18 +180,27 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         date: { lt: startDate },
       },
       orderBy: { date: "asc" },
+      select: {
+        vt: true,
+        gold: true,
+        kwd: true,
+        quantity: true,
+      },
     });
 
     previousVouchers.forEach((v) => {
       if (v.vt === "INV" || v.vt === "Alloy") {
         openingGold += v.gold;
         openingKwd += v.kwd;
+        openingQuantity += v.quantity || 0;
       } else if (v.vt === "REC") {
         openingGold -= v.gold;
         openingKwd -= v.kwd;
+        openingQuantity -= v.quantity || 0;
       } else if (v.vt === "GFV") {
         openingGold += v.gold;
         openingKwd -= v.kwd;
+        openingQuantity += v.quantity || 0;
       }
     });
   }
@@ -201,6 +227,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       endDate: endDateParam || null,
       openingGold,
       openingKwd,
+      openingQuantity,
       closingGold,
       closingKwd,
     },
@@ -214,6 +241,7 @@ export default function BalanceSheetPage({
   endDate,
   openingGold,
   openingKwd,
+  openingQuantity,
   closingGold,
   closingKwd,
 }: {
@@ -223,6 +251,7 @@ export default function BalanceSheetPage({
   endDate?: string;
   openingGold: number;
   openingKwd: number;
+  openingQuantity: number;
   closingGold: number;
   closingKwd: number;
 }) {
@@ -232,8 +261,8 @@ export default function BalanceSheetPage({
 
   // Date range state
   const [dateRange, setDateRange] = useState({
-    start: startDate || getCurrentMonthRange().start,
-    end: endDate || getCurrentMonthRange().end
+    start: startDate || "",
+    end: endDate || ""
   });
 
   // Process vouchers into ledger entries
@@ -261,6 +290,7 @@ export default function BalanceSheetPage({
           kwdDebit: voucher.kwdDebit || 0,
           kwdCredit: voucher.kwdCredit || 0,
           kwdBalance: voucher.kwdBalance,
+          quantity: voucher.quantity || 0,
           originalDate: voucher.date
         };
       });
@@ -273,6 +303,12 @@ export default function BalanceSheetPage({
   // Filter entries by date range
   useEffect(() => {
     if (allLedgerEntries.length === 0) return;
+
+    // If no date range is set, show all entries (forever to forever)
+    if (!dateRange.start && !dateRange.end) {
+      setFilteredLedgerEntries(allLedgerEntries);
+      return;
+    }
 
     const filtered = allLedgerEntries.filter((entry) => {
       const entryDate = entry.originalDate || entry.date;
@@ -289,12 +325,13 @@ export default function BalanceSheetPage({
   // Calculate opening balance (balance before the date range)
   const calculateOpeningBalance = () => {
     if (!dateRange.start || allLedgerEntries.length === 0) {
-      return { gold: 0, kwd: 0 };
+      return { gold: openingGold, kwd: openingKwd, quantity: openingQuantity };
     }
 
     const startDate = dateRange.start;
     let openingGoldBalance = openingGold;
     let openingKwdBalance = openingKwd;
+    let openingQuantityBalance = openingQuantity;
 
     // Find the last entry before the start date
     for (let i = allLedgerEntries.length - 1; i >= 0; i--) {
@@ -302,11 +339,16 @@ export default function BalanceSheetPage({
       if (entryDate < startDate) {
         openingGoldBalance = allLedgerEntries[i].goldBalance;
         openingKwdBalance = allLedgerEntries[i].kwdBalance;
+        // For quantity, we need to calculate running total
+        openingQuantityBalance = 0;
+        for (let j = 0; j <= i; j++) {
+          openingQuantityBalance += allLedgerEntries[j].quantity || 0;
+        }
         break;
       }
     }
 
-    return { gold: openingGoldBalance, kwd: openingKwdBalance };
+    return { gold: openingGoldBalance, kwd: openingKwdBalance, quantity: openingQuantityBalance };
   };
 
   // Calculate closing balance (balance at the end of date range)
@@ -316,47 +358,59 @@ export default function BalanceSheetPage({
     }
 
     const lastEntry = filteredLedgerEntries[filteredLedgerEntries.length - 1];
+    // Calculate total quantity for filtered entries
+    const totalQuantity = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.quantity || 0), 0);
+    
     return { 
       gold: lastEntry.goldBalance, 
-      kwd: lastEntry.kwdBalance 
+      kwd: lastEntry.kwdBalance,
+      quantity: calculateOpeningBalance().quantity + totalQuantity
     };
   };
 
   // Create opening balance entry
-  const createOpeningBalanceEntry = (): LedgerEntry => ({
-    date: dateRange.start,
-    voucherId: "opening-balance",
-    type: "BAL",
-    description: "Opening Balance",
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: calculateOpeningBalance().gold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: calculateOpeningBalance().kwd,
-    isOpeningBalance: true,
-  });
+  const createOpeningBalanceEntry = (): LedgerEntry => {
+    const opening = calculateOpeningBalance();
+    return {
+      date: dateRange.start || "Beginning",
+      voucherId: "opening-balance",
+      type: "BAL",
+      description: "Opening Balance",
+      goldDebit: 0,
+      goldCredit: 0,
+      goldBalance: opening.gold,
+      kwdDebit: 0,
+      kwdCredit: 0,
+      kwdBalance: opening.kwd,
+      quantity: opening.quantity,
+      isOpeningBalance: true,
+    };
+  };
 
   // Create closing balance entry
-  const createClosingBalanceEntry = (): LedgerEntry => ({
-    date: dateRange.end,
-    voucherId: "closing-balance",
-    type: "BAL",
-    description: "Closing Balance",
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: calculateClosingBalance().gold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: calculateClosingBalance().kwd,
-    isClosingBalance: true,
-  });
+  const createClosingBalanceEntry = (): LedgerEntry => {
+    const closing = calculateClosingBalance();
+    return {
+      date: dateRange.end || "Present",
+      voucherId: "closing-balance",
+      type: "BAL",
+      description: "Closing Balance",
+      goldDebit: 0,
+      goldCredit: 0,
+      goldBalance: closing.gold,
+      kwdDebit: 0,
+      kwdCredit: 0,
+      kwdBalance: closing.kwd,
+      quantity: closing.quantity,
+      isClosingBalance: true,
+    };
+  };
 
   // Add opening and closing balance rows
   const entriesWithBalances: LedgerEntry[] = [
-    ...(dateRange.start ? [createOpeningBalanceEntry()] : []),
+    ...(dateRange.start || dateRange.end ? [createOpeningBalanceEntry()] : []),
     ...filteredLedgerEntries,
-    ...(dateRange.end ? [createClosingBalanceEntry()] : [])
+    ...(dateRange.start || dateRange.end ? [createClosingBalanceEntry()] : [])
   ];
 
   // Calculate totals for filtered results only
@@ -364,6 +418,7 @@ export default function BalanceSheetPage({
   const totalGoldCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.goldCredit, 0);
   const totalKwdDebit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdDebit, 0);
   const totalKwdCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdCredit, 0);
+  const totalQuantity = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.quantity || 0), 0);
 
   // Get current overall balances
   const currentGoldBalance = allLedgerEntries.length > 0 
@@ -461,6 +516,7 @@ export default function BalanceSheetPage({
           goldCredit: totalGoldCredit,
           kwdDebit: totalKwdDebit,
           kwdCredit: totalKwdCredit,
+          quantity: totalQuantity,
         },
       };
 
@@ -532,6 +588,8 @@ export default function BalanceSheetPage({
     }
   };
 
+  const isMarketAccount = account.type === 'market';
+
   if (loading) {
     return (
       <>
@@ -566,6 +624,7 @@ export default function BalanceSheetPage({
             Account Ledger
           </h1>
           <p className="text-xl text-blue-700 font-light">Account No: {account.accountNo}</p>
+          <p className="text-lg text-blue-600 font-medium">Account Type: {account.type}</p>
         </div>
 
         {/* Account Info Card */}
@@ -669,13 +728,13 @@ export default function BalanceSheetPage({
                 onClick={clearFilters}
                 className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-100 border border-blue-300 rounded-xl hover:bg-blue-200 transition-colors"
               >
-                Clear All Filters
+                Show All Transactions
               </button>
             </div>
 
             {/* Active Filters Summary */}
             <div className="flex flex-wrap gap-2">
-              {dateRange.start && (
+              {dateRange.start ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
                   From: {new Date(dateRange.start).toLocaleDateString()}
                   <button
@@ -685,8 +744,12 @@ export default function BalanceSheetPage({
                     ×
                   </button>
                 </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-300">
+                  From: Beginning
+                </span>
               )}
-              {dateRange.end && (
+              {dateRange.end ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-300">
                   To: {new Date(dateRange.end).toLocaleDateString()}
                   <button
@@ -695,6 +758,15 @@ export default function BalanceSheetPage({
                   >
                     ×
                   </button>
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-300">
+                  To: Present
+                </span>
+              )}
+              {!dateRange.start && !dateRange.end && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-300">
+                  Showing: All Transactions
                 </span>
               )}
             </div>
@@ -710,7 +782,7 @@ export default function BalanceSheetPage({
             <h2 className="text-2xl font-bold text-blue-800">Current Balance Summary</h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+          <div className={`grid ${isMarketAccount ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2'} gap-6 relative z-10`}>
             <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
               currentGoldBalance >= 0 
                 ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
@@ -722,17 +794,20 @@ export default function BalanceSheetPage({
                 {currentGoldBalance >= 0 ? "Account Owes Gold" : "You Owe Gold"}
               </p>
             </div>
-            <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-              currentKwdBalance >= 0 
-                ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
-                : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
-            } transform hover:-translate-y-1 transition-transform duration-300`}>
-              <p className="text-lg font-semibold mb-2">Amount Balance</p>
-              <p className="text-3xl font-bold">{formatBalance(currentKwdBalance, 'kwd')}</p>
-              <p className="text-sm mt-3 opacity-90 font-medium">
-                {currentKwdBalance >= 0 ? "Account Owes Amount" : "You Owe Amount"}
-              </p>
-            </div>
+            
+            {!isMarketAccount && (
+              <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
+                currentKwdBalance >= 0 
+                  ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
+                  : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
+              } transform hover:-translate-y-1 transition-transform duration-300`}>
+                <p className="text-lg font-semibold mb-2">Amount Balance</p>
+                <p className="text-3xl font-bold">{formatBalance(currentKwdBalance, 'kwd')}</p>
+                <p className="text-sm mt-3 opacity-90 font-medium">
+                  {currentKwdBalance >= 0 ? "Account Owes Amount" : "You Owe Amount"}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -744,7 +819,9 @@ export default function BalanceSheetPage({
                 Showing {filteredLedgerEntries.length} of {allLedgerEntries.length} transactions
               </h3>
               <p className="text-blue-700">
-                {dateRange.start || dateRange.end ? "Filtered by date range" : "All transactions"}
+                {dateRange.start || dateRange.end 
+                  ? "Filtered by date range" 
+                  : "Showing all transactions (no date filter)"}
               </p>
             </div>
             <div className="flex gap-6 mt-4 sm:mt-0">
@@ -754,12 +831,14 @@ export default function BalanceSheetPage({
                   {formatBalance(calculateClosingBalance().gold - calculateOpeningBalance().gold, 'gold')}
                 </p>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-blue-700 font-medium">Period Amount Change</p>
-                <p className={`text-xl font-bold ${(calculateClosingBalance().kwd - calculateOpeningBalance().kwd) >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                  {formatBalance(calculateClosingBalance().kwd - calculateOpeningBalance().kwd, 'kwd')}
-                </p>
-              </div>
+              {!isMarketAccount && (
+                <div className="text-center">
+                  <p className="text-sm text-blue-700 font-medium">Period Amount Change</p>
+                  <p className={`text-xl font-bold ${(calculateClosingBalance().kwd - calculateOpeningBalance().kwd) >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                    {formatBalance(calculateClosingBalance().kwd - calculateOpeningBalance().kwd, 'kwd')}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -810,15 +889,25 @@ export default function BalanceSheetPage({
                     <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                       Gold Balance
                     </th>
-                    <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                      Amount Debit
-                    </th>
-                    <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                      Amount Credit
-                    </th>
-                    <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                      Amount Balance
-                    </th>
+                    
+                    {/* Conditionally render KWD or Quantity columns */}
+                    {!isMarketAccount ? (
+                      <>
+                        <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                          Amount Debit
+                        </th>
+                        <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                          Amount Credit
+                        </th>
+                        <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                          Amount Balance
+                        </th>
+                      </>
+                    ) : (
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                        Quantity
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-blue-300">
@@ -833,8 +922,8 @@ export default function BalanceSheetPage({
                     >
                       <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-blue-700 text-center">
                         {entry.isOpeningBalance || entry.isClosingBalance 
-                          ? new Date(entry.date).toLocaleDateString() 
-                          : entry.date
+                          ? entry.date
+                          : new Date(entry.date).toLocaleDateString()
                         }
                       </td>
                       <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
@@ -863,18 +952,27 @@ export default function BalanceSheetPage({
                       }`}>
                         {formatBalance(entry.goldBalance, 'gold')}
                       </td>
-                      {/* Amount Columns */}
-                      <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                        {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                        {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
-                      </td>
-                      <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                        entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
-                      }`}>
-                        {formatBalance(entry.kwdBalance, 'kwd')}
-                      </td>
+                      
+                      {/* Conditionally render KWD or Quantity columns */}
+                      {!isMarketAccount ? (
+                        <>
+                          <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                            {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
+                          </td>
+                          <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                            {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
+                          </td>
+                          <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                            entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
+                          }`}>
+                            {formatBalance(entry.kwdBalance, 'kwd')}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono font-semibold">
+                          {entry.quantity ? entry.quantity.toFixed(3) : "-"}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -895,18 +993,27 @@ export default function BalanceSheetPage({
                     }`}>
                       {formatBalance(calculateClosingBalance().gold, 'gold')}
                     </td>
-                    {/* Amount Totals */}
-                    <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                      {totalKwdDebit.toFixed(3)}
-                    </td>
-                    <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                      {totalKwdCredit.toFixed(3)}
-                    </td>
-                    <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                      calculateClosingBalance().kwd >= 0 ? "text-blue-700" : "text-red-700"
-                    }`}>
-                      {formatBalance(calculateClosingBalance().kwd, 'kwd')}
-                    </td>
+                    
+                    {/* Conditionally render KWD or Quantity totals */}
+                    {!isMarketAccount ? (
+                      <>
+                        <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                          {totalKwdDebit.toFixed(3)}
+                        </td>
+                        <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                          {totalKwdCredit.toFixed(3)}
+                        </td>
+                        <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                          calculateClosingBalance().kwd >= 0 ? "text-blue-700" : "text-red-700"
+                        }`}>
+                          {formatBalance(calculateClosingBalance().kwd, 'kwd')}
+                        </td>
+                      </>
+                    ) : (
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                        {totalQuantity.toFixed(3)}
+                      </td>
+                    )}
                   </tr>
                 </tfoot>
               </table>
