@@ -1,8 +1,10 @@
+// pages/balance-sheet/[id].tsx
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import { useRouter } from "next/router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import PdfViewer from "../../components/PdfViewer";
 
 type Voucher = {
   id: string;
@@ -13,8 +15,7 @@ type Voucher = {
   accountId: string;
   gold: number;
   kwd: number;
-  goldBalance?: number;
-  kwdBalance?: number;
+  pdfUrl?: string;
 };
 
 type AccountInfo = {
@@ -25,60 +26,49 @@ type AccountInfo = {
   crOrCivilIdNo?: string;
 };
 
-type Props = {
-  account: AccountInfo;
-  vouchers: Voucher[];
-  startDate?: string;
-  endDate?: string;
-  openingGold: number;
-  openingKwd: number;
+type LedgerEntry = {
+  date: string;
+  voucherId: string;
+  type: "INV" | "REC" | "GFV" | "Alloy" | "BAL";
+  description: string;
+  goldDebit: number;
+  goldCredit: number;
+  goldBalance: number;
+  kwdDebit: number;
+  kwdCredit: number;
+  kwdBalance: number;
+  pdfUrl?: string;
+  isOpeningBalance?: boolean;
+  isClosingBalance?: boolean;
+  originalDate?: string;
 };
 
 // Helper function to get current month date range
 const getCurrentMonthRange = () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
+    start: firstDay.toISOString().split('T')[0],
+    end: lastDay.toISOString().split('T')[0]
   };
 };
 
-// Helper function to get date range for different periods
-const getDateRangeForPeriod = (period: string) => {
-  const now = new Date();
-  const start = new Date();
-  const end = new Date();
+// Helper function to format balance with Cr/Db
+const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
+  const absoluteValue = Math.abs(balance);
+  const suffix = balance >= 0 ? 'Cr' : 'Db';
+  const unit = type === 'gold' ? 'g' : 'KWD';
+  
+  return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
+};
 
-  switch (period) {
-    case 'current-month':
-      start.setDate(1);
-      end.setMonth(end.getMonth() + 1);
-      end.setDate(0);
-      break;
-    case 'last-month':
-      start.setMonth(start.getMonth() - 1);
-      start.setDate(1);
-      end.setMonth(end.getMonth());
-      end.setDate(0);
-      break;
-    case '3-months':
-      start.setMonth(start.getMonth() - 3);
-      break;
-    case '6-months':
-      start.setMonth(start.getMonth() - 6);
-      break;
-    default:
-      start.setDate(1);
-      end.setMonth(end.getMonth() + 1);
-      end.setDate(0);
-  }
-
-  return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
-  };
+// Helper function to extract filename from URL
+const extractFileNameFromUrl = (url: string): string => {
+  if (!url) return '';
+  const parts = url.split('/');
+  return parts[parts.length - 1];
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -114,7 +104,71 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
 
-  // Step 1: Opening Balance (vouchers before startDate)
+  // Fetch vouchers with PDF URLs
+  const whereClause: any = { accountId: account.id };
+  if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
+  else if (startDate) whereClause.date = { gte: startDate };
+  else if (endDate) whereClause.date = { lte: endDate };
+
+  const vouchers = await prisma.voucher.findMany({
+    where: whereClause,
+    orderBy: { date: "asc" },
+    include: {
+      pdf: {
+        select: {
+          url: true
+        }
+      }
+    }
+  });
+
+  // Process vouchers into ledger entries
+  let runningGoldBalance = 0;
+  let runningKwdBalance = 0;
+  const processedVouchers = vouchers.map((voucher) => {
+    const entry: any = {
+      id: voucher.id,
+      date: voucher.date.toISOString().split('T')[0],
+      mvn: voucher.mvn,
+      description: voucher.description,
+      vt: voucher.vt,
+      accountId: voucher.accountId,
+      gold: voucher.gold,
+      kwd: voucher.kwd,
+      pdfUrl: voucher.pdf?.url
+    };
+
+    // Calculate debit/credit based on voucher type
+    if (voucher.vt === "INV" || voucher.vt === "Alloy") {
+      runningGoldBalance += voucher.gold;
+      runningKwdBalance += voucher.kwd;
+      entry.goldDebit = voucher.gold;
+      entry.goldCredit = 0;
+      entry.kwdDebit = voucher.kwd;
+      entry.kwdCredit = 0;
+    } else if (voucher.vt === "REC") {
+      runningGoldBalance -= voucher.gold;
+      runningKwdBalance -= voucher.kwd;
+      entry.goldDebit = 0;
+      entry.goldCredit = voucher.gold;
+      entry.kwdDebit = 0;
+      entry.kwdCredit = voucher.kwd;
+    } else if (voucher.vt === "GFV") {
+      runningGoldBalance += voucher.gold;
+      runningKwdBalance -= voucher.kwd;
+      entry.goldDebit = voucher.gold;
+      entry.goldCredit = 0;
+      entry.kwdDebit = 0;
+      entry.kwdCredit = voucher.kwd;
+    }
+
+    entry.goldBalance = runningGoldBalance;
+    entry.kwdBalance = runningKwdBalance;
+
+    return entry;
+  });
+
+  // Calculate opening balance (vouchers before startDate)
   let openingGold = 0;
   let openingKwd = 0;
 
@@ -141,33 +195,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     });
   }
 
-  // Step 2: Fetch vouchers within date range
-  const whereClause: any = { accountId: account.id };
-  if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
-  else if (startDate) whereClause.date = { gte: startDate };
-  else if (endDate) whereClause.date = { lte: endDate };
-
-  const vouchers = await prisma.voucher.findMany({
-    where: whereClause,
-    orderBy: { date: "asc" },
-  });
-
-  // Step 3: Compute running balances
-  let goldBalance = openingGold;
-  let kwdBalance = openingKwd;
-  const processed = vouchers.map((v) => {
-    if (v.vt === "INV" || v.vt === "Alloy") {
-      goldBalance += v.gold;
-      kwdBalance += v.kwd;
-    } else if (v.vt === "REC") {
-      goldBalance -= v.gold;
-      kwdBalance -= v.kwd;
-    } else if (v.vt === "GFV") {
-      goldBalance += v.gold;
-      kwdBalance -= v.kwd;
-    }
-    return { ...v, goldBalance, kwdBalance };
-  });
+  const closingGold = processedVouchers.length > 0 
+    ? processedVouchers[processedVouchers.length - 1].goldBalance 
+    : openingGold;
+  const closingKwd = processedVouchers.length > 0 
+    ? processedVouchers[processedVouchers.length - 1].kwdBalance 
+    : openingKwd;
 
   return {
     props: {
@@ -175,14 +208,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         id: account.id,
         name: account.name,
         type: accountType,
-        phone: account.phone || null,
-        crOrCivilIdNo: account.crOrCivilIdNo || null,
+        phone: account.phone || "",
+        crOrCivilIdNo: account.crOrCivilIdNo || "",
       },
-      vouchers: JSON.parse(JSON.stringify(processed)),
+      vouchers: JSON.parse(JSON.stringify(processedVouchers)),
       startDate: startDateParam || null,
       endDate: endDateParam || null,
       openingGold,
       openingKwd,
+      closingGold,
+      closingKwd,
     },
   };
 };
@@ -194,186 +229,175 @@ export default function BalanceSheetPage({
   endDate,
   openingGold,
   openingKwd,
-}: Props) {
+  closingGold,
+  closingKwd,
+}: {
+  account: AccountInfo;
+  vouchers: any[];
+  startDate?: string;
+  endDate?: string;
+  openingGold: number;
+  openingKwd: number;
+  closingGold: number;
+  closingKwd: number;
+}) {
   const router = useRouter();
-  const [start, setStart] = useState(startDate || getCurrentMonthRange().start);
-  const [end, setEnd] = useState(endDate || getCurrentMonthRange().end);
-  const [isFiltering, setIsFiltering] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<string | null>(null);
 
-  // Sync local state with props when they change
+  // Date range state
+  const [dateRange, setDateRange] = useState({
+    start: startDate || getCurrentMonthRange().start,
+    end: endDate || getCurrentMonthRange().end
+  });
+
+  // Process vouchers into ledger entries
+  const [allLedgerEntries, setAllLedgerEntries] = useState<LedgerEntry[]>([]);
+  const [filteredLedgerEntries, setFilteredLedgerEntries] = useState<LedgerEntry[]>([]);
+
+  // Initialize ledger entries
   useEffect(() => {
-    if (startDate !== undefined) {
-      setStart(startDate || getCurrentMonthRange().start);
-    }
-    if (endDate !== undefined) {
-      setEnd(endDate || getCurrentMonthRange().end);
-    }
-  }, [startDate, endDate]);
+    if (vouchers.length > 0) {
+      const entries: LedgerEntry[] = vouchers.map(voucher => {
+        const getVoucherDescription = () => {
+          if (voucher.description) return voucher.description;
+          if (voucher.mvn) return `Voucher ${voucher.mvn}`;
+          return `Transaction ${voucher.id.slice(0, 8)}`;
+        };
 
-  // Calculate debit/credit for each voucher
-  const ledgerData = useMemo(() => {
-    let currentGoldBalance = openingGold;
-    let currentKwdBalance = openingKwd;
-    let totalGoldDebit = 0;
-    let totalGoldCredit = 0;
-    let totalKwdDebit = 0;
-    let totalKwdCredit = 0;
-
-    const entries = vouchers.map(voucher => {
-      let goldDebit = 0;
-      let goldCredit = 0;
-      let kwdDebit = 0;
-      let kwdCredit = 0;
-
-      if (voucher.vt === 'INV' || voucher.vt === 'Alloy') {
-        goldDebit = voucher.gold;
-        kwdDebit = voucher.kwd;
-        totalGoldDebit += voucher.gold;
-        totalKwdDebit += voucher.kwd;
-      } else if (voucher.vt === 'REC') {
-        goldCredit = voucher.gold;
-        kwdCredit = voucher.kwd;
-        totalGoldCredit += voucher.gold;
-        totalKwdCredit += voucher.kwd;
-      } else if (voucher.vt === 'GFV') {
-        goldDebit = voucher.gold;
-        kwdCredit = voucher.kwd;
-        totalGoldDebit += voucher.gold;
-        totalKwdCredit += voucher.kwd;
-      }
-
-      // Update running balances
-      if (voucher.vt === 'INV' || voucher.vt === 'Alloy' || voucher.vt === 'GFV') {
-        currentGoldBalance += voucher.gold;
-      } else if (voucher.vt === 'REC') {
-        currentGoldBalance -= voucher.gold;
-      }
-
-      if (voucher.vt === 'INV' || voucher.vt === 'Alloy') {
-        currentKwdBalance += voucher.kwd;
-      } else if (voucher.vt === 'REC' || voucher.vt === 'GFV') {
-        currentKwdBalance -= voucher.kwd;
-      }
-
-      return {
-        ...voucher,
-        goldDebit,
-        goldCredit,
-        kwdDebit,
-        kwdCredit,
-        currentGoldBalance: voucher.goldBalance || currentGoldBalance,
-        currentKwdBalance: voucher.kwdBalance || currentKwdBalance,
-      };
-    });
-
-    const closingGold = vouchers.length > 0 
-      ? (vouchers[vouchers.length - 1].goldBalance || currentGoldBalance)
-      : openingGold;
-    const closingKwd = vouchers.length > 0 
-      ? (vouchers[vouchers.length - 1].kwdBalance || currentKwdBalance)
-      : openingKwd;
-
-    return {
-      entries,
-      totals: {
-        goldDebit: totalGoldDebit,
-        goldCredit: totalGoldCredit,
-        kwdDebit: totalKwdDebit,
-        kwdCredit: totalKwdCredit,
-        closingGold,
-        closingKwd,
-      }
-    };
-  }, [vouchers, openingGold, openingKwd]);
-
-  const handleQuickFilter = async (period: string) => {
-    setIsFiltering(true);
-    const range = getDateRangeForPeriod(period);
-    setStart(range.start);
-    setEnd(range.end);
-    
-    const params = new URLSearchParams();
-    params.append("startDate", range.start);
-    params.append("endDate", range.end);
-    params.append("accountType", account.type);
-    
-    await router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-    setIsFiltering(false);
-  };
-
-  const handleDownloadPDF = () => {
-    setIsGeneratingPDF(true);
-    
-    try {
-      const params = new URLSearchParams({
-        id: account.id,
-        accountType: account.type,
-        ...(start && { startDate: start }),
-        ...(end && { endDate: end }),
-        _t: Date.now().toString(),
+        return {
+          date: new Date(voucher.date).toLocaleDateString(),
+          voucherId: voucher.id,
+          type: voucher.vt,
+          description: getVoucherDescription(),
+          goldDebit: voucher.goldDebit || 0,
+          goldCredit: voucher.goldCredit || 0,
+          goldBalance: voucher.goldBalance,
+          kwdDebit: voucher.kwdDebit || 0,
+          kwdCredit: voucher.kwdCredit || 0,
+          kwdBalance: voucher.kwdBalance,
+          pdfUrl: voucher.pdfUrl,
+          originalDate: voucher.date
+        };
       });
-      
-      const pdfUrl = `/api/ledger/pdf?${params.toString()}`;
-      window.open(pdfUrl, '_blank');
-      
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
-    } finally {
-      setTimeout(() => setIsGeneratingPDF(false), 1000);
+
+      setAllLedgerEntries(entries);
+      setFilteredLedgerEntries(entries);
     }
-  };
+  }, [vouchers]);
 
-  const handleFilter = async () => {
-    setIsFiltering(true);
-    const params = new URLSearchParams();
-    if (start) params.append("startDate", start);
-    if (end) params.append("endDate", end);
-    if (account.type) params.append("accountType", account.type);
-    
-    await router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-    setIsFiltering(false);
-  };
+  // Filter entries by date range
+  useEffect(() => {
+    if (allLedgerEntries.length === 0) return;
 
-  const handleReset = async () => {
-    setIsFiltering(true);
-    const currentMonth = getCurrentMonthRange();
-    setStart(currentMonth.start);
-    setEnd(currentMonth.end);
-    
-    await router.push(`/balance-sheet/${account.id}?accountType=${account.type}&startDate=${currentMonth.start}&endDate=${currentMonth.end}`);
-    setIsFiltering(false);
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
-
-  const formatBalance = (value: number) => {
-    const absValue = Math.abs(value);
-    const suffix = value >= 0 ? 'Cr' : 'Db';
-    return `${formatCurrency(absValue)} ${suffix}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    const filtered = allLedgerEntries.filter((entry) => {
+      const entryDate = entry.originalDate || entry.date;
+      const startDate = dateRange.start;
+      const endDate = dateRange.end;
+      
+      return (!startDate || entryDate >= startDate) && 
+             (!endDate || entryDate <= endDate);
     });
+
+    setFilteredLedgerEntries(filtered);
+  }, [dateRange, allLedgerEntries]);
+
+  // Function to open PDF in viewer
+  const openPdf = (pdfUrl: string) => {
+    const fileName = extractFileNameFromUrl(pdfUrl);
+    setSelectedPdfFile(fileName);
   };
 
-  const getVoucherTypeStyle = (vt: string) => {
-    switch (vt) {
-      case 'REC': return 'bg-red-100 text-red-800';
-      case 'INV': return 'bg-green-100 text-green-800';
-      case 'GFV': return 'bg-yellow-100 text-yellow-800';
-      case 'Alloy': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+  // Calculate opening balance (balance before the date range)
+  const calculateOpeningBalance = () => {
+    if (!dateRange.start || allLedgerEntries.length === 0) {
+      return { gold: 0, kwd: 0 };
     }
+
+    const startDate = dateRange.start;
+    let openingGoldBalance = openingGold;
+    let openingKwdBalance = openingKwd;
+
+    // Find the last entry before the start date
+    for (let i = allLedgerEntries.length - 1; i >= 0; i--) {
+      const entryDate = allLedgerEntries[i].originalDate || allLedgerEntries[i].date;
+      if (entryDate < startDate) {
+        openingGoldBalance = allLedgerEntries[i].goldBalance;
+        openingKwdBalance = allLedgerEntries[i].kwdBalance;
+        break;
+      }
+    }
+
+    return { gold: openingGoldBalance, kwd: openingKwdBalance };
   };
 
+  // Calculate closing balance (balance at the end of date range)
+  const calculateClosingBalance = () => {
+    if (filteredLedgerEntries.length === 0) {
+      return calculateOpeningBalance();
+    }
+
+    const lastEntry = filteredLedgerEntries[filteredLedgerEntries.length - 1];
+    return { 
+      gold: lastEntry.goldBalance, 
+      kwd: lastEntry.kwdBalance 
+    };
+  };
+
+  // Create opening balance entry
+  const createOpeningBalanceEntry = (): LedgerEntry => ({
+    date: dateRange.start,
+    voucherId: "opening-balance",
+    type: "BAL",
+    description: "Opening Balance",
+    goldDebit: 0,
+    goldCredit: 0,
+    goldBalance: calculateOpeningBalance().gold,
+    kwdDebit: 0,
+    kwdCredit: 0,
+    kwdBalance: calculateOpeningBalance().kwd,
+    isOpeningBalance: true,
+  });
+
+  // Create closing balance entry
+  const createClosingBalanceEntry = (): LedgerEntry => ({
+    date: dateRange.end,
+    voucherId: "closing-balance",
+    type: "BAL",
+    description: "Closing Balance",
+    goldDebit: 0,
+    goldCredit: 0,
+    goldBalance: calculateClosingBalance().gold,
+    kwdDebit: 0,
+    kwdCredit: 0,
+    kwdBalance: calculateClosingBalance().kwd,
+    isClosingBalance: true,
+  });
+
+  // Add opening and closing balance rows
+  const entriesWithBalances: LedgerEntry[] = [
+    ...(dateRange.start ? [createOpeningBalanceEntry()] : []),
+    ...filteredLedgerEntries,
+    ...(dateRange.end ? [createClosingBalanceEntry()] : [])
+  ];
+
+  // Calculate totals for filtered results only
+  const totalGoldDebit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.goldDebit, 0);
+  const totalGoldCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.goldCredit, 0);
+  const totalKwdDebit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdDebit, 0);
+  const totalKwdCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdCredit, 0);
+
+  // Get current overall balances
+  const currentGoldBalance = allLedgerEntries.length > 0 
+    ? allLedgerEntries[allLedgerEntries.length - 1].goldBalance 
+    : openingGold;
+  const currentKwdBalance = allLedgerEntries.length > 0 
+    ? allLedgerEntries[allLedgerEntries.length - 1].kwdBalance 
+    : openingKwd;
+
+  // Get Voucher Type Text
   const getVoucherTypeText = (vt: string) => {
     switch (vt) {
       case 'REC': return 'Receipt';
@@ -384,435 +408,605 @@ export default function BalanceSheetPage({
     }
   };
 
+  // Get Voucher Type Style
+  const getVoucherTypeStyle = (vt: string) => {
+    switch (vt) {
+      case 'REC': return "bg-amber-100 text-amber-800 border border-amber-300";
+      case 'INV': return "bg-emerald-100 text-emerald-800 border border-emerald-300";
+      case 'GFV': return "bg-yellow-100 text-yellow-800 border border-yellow-300";
+      case 'Alloy': return "bg-purple-100 text-purple-800 border border-purple-300";
+      default: return "bg-gray-100 text-gray-800 border border-gray-300";
+    }
+  };
+
+  const clearFilters = () => {
+    setDateRange({ start: "", end: "" });
+    const params = new URLSearchParams();
+    params.append("accountType", account.type);
+    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+  };
+
+  const setCurrentMonth = () => {
+    const range = getCurrentMonthRange();
+    setDateRange(range);
+    const params = new URLSearchParams();
+    params.append("startDate", range.start);
+    params.append("endDate", range.end);
+    params.append("accountType", account.type);
+    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+  };
+
+  const setLastMonth = () => {
+    const now = new Date();
+    const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    const range = {
+      start: firstDayLastMonth.toISOString().split('T')[0],
+      end: lastDayLastMonth.toISOString().split('T')[0]
+    };
+    
+    setDateRange(range);
+    const params = new URLSearchParams();
+    params.append("startDate", range.start);
+    params.append("endDate", range.end);
+    params.append("accountType", account.type);
+    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+  };
+
+  const handleFilter = async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (dateRange.start) params.append("startDate", dateRange.start);
+    if (dateRange.end) params.append("endDate", dateRange.end);
+    params.append("accountType", account.type);
+    
+    await router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+    setLoading(false);
+  };
+
+  const downloadPdf = async () => {
+    try {
+      if (!account) {
+        alert("Account information is not available");
+        return;
+      }
+
+      setDownloadingPdf(true);
+
+      const pdfData = {
+        account: account,
+        dateRange,
+        ledgerEntries: entriesWithBalances,
+        openingBalance: calculateOpeningBalance(),
+        closingBalance: calculateClosingBalance(),
+        totals: {
+          goldDebit: totalGoldDebit,
+          goldCredit: totalGoldCredit,
+          kwdDebit: totalKwdDebit,
+          kwdCredit: totalKwdCredit,
+        },
+      };
+
+      const response = await fetch("/api/generate-ledger-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pdfData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("Server error:", result);
+        throw new Error(
+          result.details ||
+            result.error ||
+            `Failed to generate PDF: ${response.status} ${response.statusText}`
+        );
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate PDF");
+      }
+
+      // Convert base64 → Blob
+      const binaryString = atob(result.pdfData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: "application/pdf" });
+
+      const fileName = `ledger-${account.name}-${dateRange.start || "all"}-to-${
+        dateRange.end || "all"
+      }.pdf`;
+
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      // iOS detection
+      const ua = navigator.userAgent || navigator.vendor;
+      const isIOS =
+        /iPad|iPhone|iPod/.test(ua) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      // iOS → Share Sheet, Desktop → Download
+      if (isIOS && navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: "Ledger PDF",
+          files: [file],
+        });
+      } else {
+        // Desktop / Android / fallback
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-emerald-700 text-lg font-semibold">Loading ledger...</p>
+        </div>
+      </div>
+        <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
+          <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
+        </footer>
+        </>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
+    <>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <div className="text-left">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Ledger</h1>
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-gray-600">
-                <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {account.type}
-                </span>
-                <span className="text-lg font-semibold">{account.name}</span>
-                {account.phone && (
-                  <span className="text-sm text-gray-500">
-                    📞 {account.phone}
-                  </span>
-                )}
-                {account.crOrCivilIdNo && (
-                  <span className="text-sm text-gray-500">
-                    📄 {account.crOrCivilIdNo}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
-              <Link 
-                href="/vouchers/list" 
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                View Vouchers
-              </Link>
-              <Link 
-                href="/accounts" 
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                All Accounts
-              </Link>
-              <button
-                onClick={handleDownloadPDF}
-                disabled={isGeneratingPDF}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 transition-colors"
-              >
-                {isGeneratingPDF ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Download PDF
-                  </>
-                )}
-              </button>
+        <div className="text-center mb-12">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-3xl blur-lg opacity-30 transform scale-110 -z-10"></div>
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-amber-300 transform hover:scale-105 transition-transform duration-300">
+              <svg className="w-10 h-10 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
           </div>
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-700 to-emerald-900 bg-clip-text text-transparent mb-4 tracking-tight">
+            Account Ledger
+          </h1>
+          <p className="text-xl text-emerald-700 font-light">Account Type: {account.type}</p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">{vouchers.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Gold Movement</p>
-                <p className={`text-lg font-bold ${ledgerData.totals.goldDebit - ledgerData.totals.goldCredit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {ledgerData.totals.goldDebit - ledgerData.totals.goldCredit >= 0 ? '+' : ''}{formatCurrency(ledgerData.totals.goldDebit - ledgerData.totals.goldCredit)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">KWD Movement</p>
-                <p className={`text-lg font-bold ${ledgerData.totals.kwdDebit - ledgerData.totals.kwdCredit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {ledgerData.totals.kwdDebit - ledgerData.totals.kwdCredit >= 0 ? '+' : ''}{formatCurrency(ledgerData.totals.kwdDebit - ledgerData.totals.kwdCredit)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Closing Balance</p>
-                <p className="text-lg font-bold text-gray-900">
-                  Gold: {formatBalance(ledgerData.totals.closingGold)}<br />
-                  KWD: {formatBalance(ledgerData.totals.closingKwd)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Card with Quick Filters */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Transactions</h2>
+        {/* Account Info Card */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-8 border-2 border-emerald-300 relative overflow-hidden">
+          {/* Decorative elements */}
+          <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
+          <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200 to-emerald-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
           
-          {/* Quick Filter Buttons */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            <button
-              onClick={() => handleQuickFilter('current-month')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                start === getCurrentMonthRange().start ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Current Month
-            </button>
-            <button
-              onClick={() => handleQuickFilter('last-month')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                start === getDateRangeForPeriod('last-month').start ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Last Month
-            </button>
-            <button
-              onClick={() => handleQuickFilter('3-months')}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Last 3 Months
-            </button>
-            <button
-              onClick={() => handleQuickFilter('6-months')}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Last 6 Months
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+            <div>
+              <h3 className="text-sm font-medium text-emerald-700 mb-1">Account Name</h3>
+              <p className="text-lg font-semibold text-emerald-900">{account.name}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-emerald-700 mb-1">Account Type</h3>
+              <p className="text-lg font-semibold text-emerald-800">{account.type}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-emerald-700 mb-1">Phone</h3>
+              <p className="text-lg font-semibold text-emerald-900">{account.phone || "N/A"}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-emerald-700 mb-1">CR/ID No</h3>
+              <p className="text-lg font-semibold text-emerald-900">{account.crOrCivilIdNo || "N/A"}</p>
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-              />
+        {/* Date Range Filters */}
+        <div className="relative mb-6 rounded-3xl border-2 border-emerald-300 bg-white/80 p-6 shadow-2xl backdrop-blur-sm overflow-hidden">
+          <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 opacity-20 translate-x-12 -translate-y-12"></div>
+
+          <div className="relative z-10 flex flex-col gap-6">
+            {/* Date Filters */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
+              {/* From Date */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-emerald-700">From Date</label>
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) =>
+                    setDateRange(prev => ({ ...prev, start: e.target.value }))
+                  }
+                  className="w-full min-w-0 box-border rounded-xl border-2 border-emerald-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-emerald-700">To Date</label>
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) =>
+                    setDateRange(prev => ({ ...prev, end: e.target.value }))
+                  }
+                  className="w-full min-w-0 box-border rounded-xl border-2 border-emerald-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex flex-col gap-2">
+                <label className="pointer-events-none block text-sm font-medium text-emerald-700 opacity-0">
+                  Quick Actions
+                </label>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={setCurrentMonth}
+                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-800 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-emerald-700 hover:to-emerald-900 hover:shadow-xl"
+                  >
+                    Current Month
+                  </button>
+
+                  <button
+                    onClick={setLastMonth}
+                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-amber-600 hover:to-amber-700 hover:shadow-xl"
+                  >
+                    Last Month
+                  </button>
+
+                  <button
+                    onClick={handleFilter}
+                    disabled={loading}
+                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl disabled:opacity-50"
+                  >
+                    {loading ? "Filtering..." : "Apply Filter"}
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-              />
-            </div>
-            
-            <div className="flex gap-2">
+
+            {/* Clear Filter */}
+            <div className="flex justify-end">
               <button
-                onClick={handleFilter}
-                disabled={isFiltering}
-                className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors flex items-center justify-center"
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm font-semibold text-emerald-700 bg-emerald-100 border border-emerald-300 rounded-xl hover:bg-emerald-200 transition-colors"
               >
-                {isFiltering ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Filtering...
-                  </>
-                ) : (
-                  "Apply Filter"
-                )}
-              </button>
-              
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Reset
+                Clear All Filters
               </button>
             </div>
 
-            <div className="text-right">
-              <p className="text-sm text-gray-600">
-                Showing {vouchers.length} transaction{vouchers.length !== 1 ? 's' : ''}
-                {startDate && ` from ${formatDate(startDate)}`}
-                {endDate && ` to ${formatDate(endDate)}`}
+            {/* Active Filters Summary */}
+            <div className="flex flex-wrap gap-2">
+              {dateRange.start && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  From: {new Date(dateRange.start).toLocaleDateString()}
+                  <button
+                    onClick={() => setDateRange(prev => ({ ...prev, start: "" }))}
+                    className="ml-2 hover:text-emerald-900 text-lg"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {dateRange.end && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                  To: {new Date(dateRange.end).toLocaleDateString()}
+                  <button
+                    onClick={() => setDateRange(prev => ({ ...prev, end: "" }))}
+                    className="ml-2 hover:text-amber-900 text-lg"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Combined Balance Summary Card */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-8 border-2 border-emerald-300 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
+          <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200 to-emerald-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
+          
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-emerald-800">Current Balance Summary</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+            <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
+              currentGoldBalance >= 0 
+                ? "bg-gradient-to-r from-emerald-600 to-emerald-800 border-amber-400 text-white"
+                : "bg-gradient-to-r from-amber-500 to-amber-700 border-amber-400 text-white"
+            } transform hover:-translate-y-1 transition-transform duration-300`}>
+              <p className="text-lg font-semibold mb-2">Gold Balance</p>
+              <p className="text-3xl font-bold">{formatBalance(currentGoldBalance, 'gold')}</p>
+              <p className="text-sm mt-3 opacity-90 font-medium">
+                {currentGoldBalance >= 0 ? "Account Owes Gold" : "You Owe Gold"}
+              </p>
+            </div>
+            <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
+              currentKwdBalance >= 0 
+                ? "bg-gradient-to-r from-emerald-600 to-emerald-800 border-amber-400 text-white"
+                : "bg-gradient-to-r from-amber-500 to-amber-700 border-amber-400 text-white"
+            } transform hover:-translate-y-1 transition-transform duration-300`}>
+              <p className="text-lg font-semibold mb-2">Amount Balance</p>
+              <p className="text-3xl font-bold">{formatBalance(currentKwdBalance, 'kwd')}</p>
+              <p className="text-sm mt-3 opacity-90 font-medium">
+                {currentKwdBalance >= 0 ? "Account Owes Amount" : "You Owe Amount"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Ledger Table */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Transaction Ledger</h2>
+        {/* Results Summary */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-emerald-300">
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <div>
+              <h3 className="text-xl font-bold text-emerald-800">
+                Showing {filteredLedgerEntries.length} of {allLedgerEntries.length} transactions
+              </h3>
+              <p className="text-emerald-700">
+                {dateRange.start || dateRange.end ? "Filtered by date range" : "All transactions"}
+              </p>
+            </div>
+            <div className="flex gap-6 mt-4 sm:mt-0">
+              <div className="text-center">
+                <p className="text-sm text-emerald-700 font-medium">Period Gold Change</p>
+                <p className={`text-xl font-bold ${(calculateClosingBalance().gold - calculateOpeningBalance().gold) >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {formatBalance(calculateClosingBalance().gold - calculateOpeningBalance().gold, 'gold')}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-emerald-700 font-medium">Period Amount Change</p>
+                <p className={`text-xl font-bold ${(calculateClosingBalance().kwd - calculateOpeningBalance().kwd) >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {formatBalance(calculateClosingBalance().kwd - calculateOpeningBalance().kwd, 'kwd')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ledger Table with Opening/Closing Balances */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-emerald-300">
+          <div className="px-6 py-4 border-b-2 border-emerald-300 bg-emerald-100">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-emerald-800">Transaction History</h2>
+              <span className="text-emerald-700 font-medium">
+                {filteredLedgerEntries.length} transaction(s)
+              </span>
+            </div>
           </div>
 
-          {vouchers.length === 0 ? (
+          {entriesWithBalances.length === 0 ? (
             <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 text-emerald-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No transactions found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {startDate || endDate ? "Try adjusting your date filters" : "No transactions recorded for this account"}
+              <h3 className="text-lg font-medium text-emerald-800 mb-2">No transactions found</h3>
+              <p className="text-emerald-600">
+                {dateRange.start || dateRange.end 
+                  ? "No transactions match the selected date range" 
+                  : "This account hasn't made any transactions"}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voucher</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                    <th colSpan={3} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l-2 border-r-2 border-gray-300">
-                      Gold
+              <table className="min-w-full border-collapse">
+                <thead className="bg-emerald-100">
+                  <tr>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Date
                     </th>
-                    <th colSpan={3} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Type
                     </th>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2"></th>
-                    <th className="px-4 py-2"></th>
-                    <th className="px-4 py-2"></th>
-                    <th className="px-4 py-2"></th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r-2 border-gray-300">Balance</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Description
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Gold Debit (g)
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Gold Credit (g)
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Gold Balance
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Amount Debit
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Amount Credit
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Amount Balance
+                    </th>
+                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {/* Opening Balance Row */}
-                  <tr className="bg-yellow-50 font-semibold">
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {formatDate(start || new Date().toISOString())}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        BAL
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">Opening Balance</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right border-r-2 border-gray-300">
-                      {formatBalance(openingGold)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatBalance(openingKwd)}
-                    </td>
-                  </tr>
-
-                  {ledgerData.entries.map((entry, index) => (
-                    <tr key={entry.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(entry.date)}
+                <tbody className="divide-y divide-emerald-300">
+                  {entriesWithBalances.map((entry) => (
+                    <tr 
+                      key={entry.voucherId} 
+                      className={`transition-colors duration-150 ${
+                        entry.isOpeningBalance ? 'bg-emerald-50' : 
+                        entry.isClosingBalance ? 'bg-amber-50' : 
+                        'bg-white hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-emerald-700 text-center">
+                        {entry.isOpeningBalance || entry.isClosingBalance 
+                          ? new Date(entry.date).toLocaleDateString() 
+                          : entry.date
+                        }
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {entry.mvn || entry.id.substring(0, 8)}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-center">
+                        {!entry.isOpeningBalance && !entry.isClosingBalance ? (
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle(entry.type)}`}>
+                            {getVoucherTypeText(entry.type)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-200 text-emerald-900 border border-emerald-400">
+                            BAL
+                          </span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getVoucherTypeStyle(entry.vt)}`}>
-                          {getVoucherTypeText(entry.vt)}
-                        </span>
+                      <td className="border border-emerald-300 px-4 py-3 text-sm text-emerald-700 max-w-xs truncate text-center">
+                        {entry.description}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 max-w-xs">
-                        <div className="truncate max-w-[200px]">{entry.description || entry.mvn || 'No description'}</div>
+                      {/* Gold Columns */}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
+                        {entry.goldDebit > 0 ? entry.goldDebit.toFixed(3) : "-"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {entry.goldDebit > 0 ? formatCurrency(entry.goldDebit) : '-'}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
+                        {entry.goldCredit > 0 ? entry.goldCredit.toFixed(3) : "-"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {entry.goldCredit > 0 ? formatCurrency(entry.goldCredit) : '-'}
+                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                        entry.goldBalance >= 0 ? "text-emerald-700" : "text-amber-700"
+                      }`}>
+                        {formatBalance(entry.goldBalance, 'gold')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 text-right border-r-2 border-gray-300">
-                        {formatBalance(entry.currentGoldBalance)}
+                      {/* Amount Columns */}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
+                        {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {entry.kwdDebit > 0 ? formatCurrency(entry.kwdDebit) : '-'}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
+                        {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {entry.kwdCredit > 0 ? formatCurrency(entry.kwdCredit) : '-'}
+                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                        entry.kwdBalance >= 0 ? "text-emerald-700" : "text-amber-700"
+                      }`}>
+                        {formatBalance(entry.kwdBalance, 'kwd')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                        {formatBalance(entry.currentKwdBalance)}
+                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                        {entry.pdfUrl && !entry.isOpeningBalance && !entry.isClosingBalance && (
+                          <button
+                            onClick={() => openPdf(entry.pdfUrl!)}
+                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs font-semibold rounded-xl hover:from-emerald-700 hover:to-emerald-900 transition-all duration-200 border-2 border-amber-400 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            PDF
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
-
-                  {/* Closing Balance Row */}
-                  <tr className="bg-green-50 font-bold">
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {formatDate(end || new Date().toISOString())}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">-</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        BAL
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">Closing Balance</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatCurrency(ledgerData.totals.goldDebit)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatCurrency(ledgerData.totals.goldCredit)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right border-r-2 border-gray-300">
-                      {formatBalance(ledgerData.totals.closingGold)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatCurrency(ledgerData.totals.kwdDebit)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatCurrency(ledgerData.totals.kwdCredit)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                      {formatBalance(ledgerData.totals.closingKwd)}
-                    </td>
-                  </tr>
                 </tbody>
+                <tfoot className="bg-emerald-100">
+                  <tr>
+                    <td colSpan={3} className="border border-emerald-300 px-4 py-4 text-sm font-semibold text-emerald-800 text-right">
+                      Filtered Period Totals:
+                    </td>
+                    {/* Gold Totals */}
+                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
+                      {totalGoldDebit.toFixed(3)}
+                    </td>
+                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
+                      {totalGoldCredit.toFixed(3)}
+                    </td>
+                    <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                      calculateClosingBalance().gold >= 0 ? "text-emerald-700" : "text-amber-700"
+                    }`}>
+                      {formatBalance(calculateClosingBalance().gold, 'gold')}
+                    </td>
+                    {/* Amount Totals */}
+                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
+                      {totalKwdDebit.toFixed(3)}
+                    </td>
+                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
+                      {totalKwdCredit.toFixed(3)}
+                    </td>
+                    <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                      calculateClosingBalance().kwd >= 0 ? "text-emerald-700" : "text-amber-700"
+                    }`}>
+                      {formatBalance(calculateClosingBalance().kwd, 'kwd')}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
         </div>
 
-        {/* Summary Footer */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
-            <h3 className="text-lg font-semibold mb-2">Account Summary</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm opacity-90">Opening Balance</p>
-                <p className="text-lg font-bold">Gold: {formatBalance(openingGold)}</p>
-                <p className="text-lg font-bold">KWD: {formatBalance(openingKwd)}</p>
-              </div>
-              <div>
-                <p className="text-sm opacity-90">Closing Balance</p>
-                <p className="text-lg font-bold">Gold: {formatBalance(ledgerData.totals.closingGold)}</p>
-                <p className="text-lg font-bold">KWD: {formatBalance(ledgerData.totals.closingKwd)}</p>
-              </div>
-            </div>
-          </div>
+        {/* Action Buttons */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={downloadPdf}
+            disabled={downloadingPdf || entriesWithBalances.length === 0 || !account}
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white font-bold text-lg rounded-2xl hover:from-emerald-700 hover:to-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {downloadingPdf ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF
+              </>
+            )}
+          </button>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Period Activity</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Transactions:</span>
-                <span className="font-semibold">{vouchers.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Date Range:</span>
-                <span className="font-semibold">
-                  {startDate ? formatDate(startDate) : 'Start'} - {endDate ? formatDate(endDate) : 'Present'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Gold Debit Total:</span>
-                <span className="font-semibold text-green-600">{formatCurrency(ledgerData.totals.goldDebit)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Gold Credit Total:</span>
-                <span className="font-semibold text-red-600">{formatCurrency(ledgerData.totals.goldCredit)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">KWD Debit Total:</span>
-                <span className="font-semibold text-green-600">{formatCurrency(ledgerData.totals.kwdDebit)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">KWD Credit Total:</span>
-                <span className="font-semibold text-red-600">{formatCurrency(ledgerData.totals.kwdCredit)}</span>
-              </div>
-            </div>
-          </div>
+          <Link
+            href="/vouchers/list"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1"
+          >
+            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            View Vouchers
+          </Link>
+
+          <Link
+            href="/accounts"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-lg rounded-2xl hover:from-amber-600 hover:to-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-all duration-300 border-2 border-amber-400 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
+          >
+            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            All Accounts
+          </Link>
         </div>
       </div>
-    </main>
+
+      {/* PDF Viewer Popup */}
+      <PdfViewer
+        fileName={selectedPdfFile}
+        onClose={() => setSelectedPdfFile(null)}
+      />
+    </div>
+      <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
+          <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
+        </footer>
+        </>
   );
 }
