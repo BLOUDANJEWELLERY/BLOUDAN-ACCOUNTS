@@ -245,14 +245,13 @@ export default function BalanceSheetPage({
   closingKwd: number;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const isProjectAccount = account.type === "Project";
 
-  // Date range state
+  // Date range state - initialize with empty strings to show all transactions
   const [dateRange, setDateRange] = useState({
-    start: startDate || getCurrentMonthRange().start,
-    end: endDate || getCurrentMonthRange().end
+    start: startDate || "",
+    end: endDate || ""
   });
 
   // Process vouchers into ledger entries
@@ -320,6 +319,19 @@ export default function BalanceSheetPage({
       setFilteredLedgerEntries(filtered);
     }
   }, [dateRange, allLedgerEntries]);
+
+  // Handle date range change - apply filters automatically
+  const handleDateRangeChange = async (newStart: string, newEnd: string) => {
+    const newRange = { start: newStart, end: newEnd };
+    setDateRange(newRange);
+    
+    const params = new URLSearchParams();
+    if (newStart) params.append("startDate", newStart);
+    if (newEnd) params.append("endDate", newEnd);
+    params.append("accountType", account.type);
+    
+    await router.push(`/balance-sheet/${account.id}?${params.toString()}`, undefined, { shallow: true });
+  };
 
   // Calculate opening balance (balance before the date range)
   const calculateOpeningBalance = () => {
@@ -389,9 +401,9 @@ export default function BalanceSheetPage({
 
   // Add opening and closing balance rows
   const entriesWithBalances: LedgerEntry[] = [
-    ...(dateRange.start || !dateRange.start && !dateRange.end ? [createOpeningBalanceEntry()] : []),
+    ...(dateRange.start || (!dateRange.start && !dateRange.end) ? [createOpeningBalanceEntry()] : []),
     ...filteredLedgerEntries,
-    ...(dateRange.end || !dateRange.start && !dateRange.end ? [createClosingBalanceEntry()] : [])
+    ...(dateRange.end || (!dateRange.start && !dateRange.end) ? [createClosingBalanceEntry()] : [])
   ];
 
   // Calculate totals for filtered results only
@@ -431,20 +443,12 @@ export default function BalanceSheetPage({
   };
 
   const clearFilters = () => {
-    setDateRange({ start: "", end: "" });
-    const params = new URLSearchParams();
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+    handleDateRangeChange("", "");
   };
 
   const setCurrentMonth = () => {
     const range = getCurrentMonthRange();
-    setDateRange(range);
-    const params = new URLSearchParams();
-    params.append("startDate", range.start);
-    params.append("endDate", range.end);
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
+    handleDateRangeChange(range.start, range.end);
   };
 
   const setLastMonth = () => {
@@ -457,23 +461,7 @@ export default function BalanceSheetPage({
       end: lastDayLastMonth.toISOString().split('T')[0]
     };
     
-    setDateRange(range);
-    const params = new URLSearchParams();
-    params.append("startDate", range.start);
-    params.append("endDate", range.end);
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-  };
-
-  const handleFilter = async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (dateRange.start) params.append("startDate", dateRange.start);
-    if (dateRange.end) params.append("endDate", dateRange.end);
-    params.append("accountType", account.type);
-    
-    await router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-    setLoading(false);
+    handleDateRangeChange(range.start, range.end);
   };
 
   const downloadPdf = async () => {
@@ -568,22 +556,6 @@ export default function BalanceSheetPage({
     }
   };
 
-  if (loading) {
-    return (
-      <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-blue-700 text-lg font-semibold">Loading ledger...</p>
-        </div>
-      </div>
-        <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-blue-800 to-blue-900 text-white text-xs sm:text-sm border-t border-blue-700 select-none mt-0">
-          <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
-        </footer>
-        </>
-    );
-  }
-
   return (
     <>
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -647,9 +619,7 @@ export default function BalanceSheetPage({
                 <input
                   type="date"
                   value={dateRange.start}
-                  onChange={(e) =>
-                    setDateRange(prev => ({ ...prev, start: e.target.value }))
-                  }
+                  onChange={(e) => handleDateRangeChange(e.target.value, dateRange.end)}
                   className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -660,9 +630,7 @@ export default function BalanceSheetPage({
                 <input
                   type="date"
                   value={dateRange.end}
-                  onChange={(e) =>
-                    setDateRange(prev => ({ ...prev, end: e.target.value }))
-                  }
+                  onChange={(e) => handleDateRangeChange(dateRange.start, e.target.value)}
                   className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -689,24 +657,13 @@ export default function BalanceSheetPage({
                   </button>
 
                   <button
-                    onClick={handleFilter}
-                    disabled={loading}
-                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl disabled:opacity-50"
+                    onClick={clearFilters}
+                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
                   >
-                    {loading ? "Filtering..." : "Apply Filter"}
+                    Clear Filters
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Clear Filter */}
-            <div className="flex justify-end">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-100 border border-blue-300 rounded-xl hover:bg-blue-200 transition-colors"
-              >
-                {dateRange.start || dateRange.end ? "Clear All Filters" : "Showing All Transactions"}
-              </button>
             </div>
 
             {/* Active Filters Summary */}
@@ -715,7 +672,7 @@ export default function BalanceSheetPage({
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
                   From: {new Date(dateRange.start).toLocaleDateString()}
                   <button
-                    onClick={() => setDateRange(prev => ({ ...prev, start: "" }))}
+                    onClick={() => handleDateRangeChange("", dateRange.end)}
                     className="ml-2 hover:text-blue-900 text-lg"
                   >
                     ×
@@ -730,7 +687,7 @@ export default function BalanceSheetPage({
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-300">
                   To: {new Date(dateRange.end).toLocaleDateString()}
                   <button
-                    onClick={() => setDateRange(prev => ({ ...prev, end: "" }))}
+                    onClick={() => handleDateRangeChange(dateRange.start, "")}
                     className="ml-2 hover:text-indigo-900 text-lg"
                   >
                     ×
