@@ -149,23 +149,58 @@ const handleDownloadPDF = async () => {
     // Call the PDF API
     const response = await fetch(`/api/ledger/pdf?${params.toString()}`);
     
+    // Log response details for debugging
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
     if (!response.ok) {
-      throw new Error('Failed to generate PDF');
+      // Try to get error message
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Failed to generate PDF: ${response.status} ${response.statusText}`);
+    }
+
+    // Ensure it's a PDF
+    if (!contentType || !contentType.includes('application/pdf')) {
+      const errorText = await response.text();
+      console.error('Not a PDF response:', errorText);
+      throw new Error('Server returned non-PDF response');
     }
 
     // Create blob and download
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ledger-${account.name}-${start || 'all'}-to-${end || 'all'}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    console.log('Blob type:', blob.type, 'size:', blob.size);
+    
+    // For iOS Safari, we need to use a different approach
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
+      // iOS Safari workaround
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64data = reader.result;
+        const link = document.createElement('a');
+        link.href = base64data as string;
+        link.download = `ledger-${account.name}-${start || 'all'}-to-${end || 'all'}.pdf`;
+        link.click();
+      };
+      reader.readAsDataURL(blob);
+    } else {
+      // Standard download for other browsers
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ledger-${account.name}-${start || 'all'}-to-${end || 'all'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
   } catch (error) {
     console.error('Error downloading PDF:', error);
-    alert('Failed to generate PDF. Please try again.');
+    alert('Failed to generate PDF. Please check console for details.');
   } finally {
     setIsGeneratingPDF(false);
   }
