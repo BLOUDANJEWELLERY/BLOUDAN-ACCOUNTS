@@ -1,33 +1,11 @@
-// pages/balance-sheet/[id].tsx
-import { GetServerSideProps } from "next";
-import { prisma } from "@/lib/prisma";
-import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
-import Link from "next/link";
+// pages/api/generate-ledger-pdf.ts
+import type { NextApiRequest, NextApiResponse } from "next";
+import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "pdf-lib";
 
-type Voucher = {
-  id: string;
-  date: string;
-  mvn?: string;
-  description?: string;
-  vt: "REC" | "INV" | "GFV" | "Alloy";
-  accountId: string;
-  gold: number;
-  kwd: number;
-};
-
-type AccountInfo = {
-  id: string;
-  name: string;
-  type: string;
-  phone?: string;
-  crOrCivilIdNo?: string;
-};
-
-type LedgerEntry = {
+interface LedgerEntry {
   date: string;
   voucherId: string;
-  type: "INV" | "REC" | "GFV" | "Alloy" | "BAL";
+  type: "INV" | "REC";
   description: string;
   goldDebit: number;
   goldCredit: number;
@@ -37,926 +15,785 @@ type LedgerEntry = {
   kwdBalance: number;
   isOpeningBalance?: boolean;
   isClosingBalance?: boolean;
-  originalDate?: string;
-};
+  pdfUrl?: string;
+}
 
-// Helper function to get current month date range
-const getCurrentMonthRange = () => {
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
-  return {
-    start: firstDay.toISOString().split('T')[0],
-    end: lastDay.toISOString().split('T')[0]
+interface Account {
+  id: string;
+  accountNo: string;
+  name: string;
+  phone: string;
+  cr: string;
+}
+
+interface PdfRequestData {
+  account: Account;
+  dateRange: {
+    start: string;
+    end: string;
   };
-};
+  ledgerEntries: LedgerEntry[];
+  openingBalance: { gold: number; kwd: number };
+  closingBalance: { gold: number; kwd: number };
+  totals: {
+    goldDebit: number;
+    goldCredit: number;
+    kwdDebit: number;
+    kwdCredit: number;
+  };
+}
 
-// Helper function to format balance with Cr/Db
-const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
+// Helper function to format balance - no units
+const formatBalance = (balance: number): string => {
+  if (balance === undefined || balance === null) {
+    return `0.000 Cr`;
+  }
   const absoluteValue = Math.abs(balance);
   const suffix = balance >= 0 ? 'Cr' : 'Db';
-  const unit = type === 'gold' ? 'g' : 'KWD';
-  
-  return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
+  return `${absoluteValue.toFixed(3)} ${suffix}`;
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const id = context.params?.id as string;
-  const accountType = context.query.accountType as string;
-  let startDateParam = context.query.startDate as string | undefined;
-  let endDateParam = context.query.endDate as string | undefined;
-
-  // If no dates provided, default to current month
-  if (!startDateParam && !endDateParam) {
-    const currentMonth = getCurrentMonthRange();
-    startDateParam = currentMonth.start;
-    endDateParam = currentMonth.end;
-  }
-
-  const startDate = startDateParam ? new Date(startDateParam) : undefined;
-  const endDate = endDateParam ? new Date(endDateParam) : undefined;
-
-  // Fetch account with all fields
-  const account = await prisma.account.findUnique({ 
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      phone: true,
-      crOrCivilIdNo: true,
-    }
-  });
+// Helper function to clean description
+const cleanDescription = (description: string, isOpeningBalance?: boolean, isClosingBalance?: boolean): string => {
+  if (isOpeningBalance) return "Opening Balance";
+  if (isClosingBalance) return "Closing Balance";
   
-  if (!account) return { notFound: true };
-  if (!accountType || account.type !== accountType) {
-    return { notFound: true };
+  return description
+    .replace(/^Invoice - /, '')
+    .replace(/^Receipt - /, '');
+};
+
+// Constants for layout
+const A4_LANDSCAPE_WIDTH = 841.89;
+const A4_LANDSCAPE_HEIGHT = 595.28;
+const MARGIN = 30;
+const ROW_HEIGHT = 18;
+const HEADER_HEIGHT = 40;
+const FOOTER_HEIGHT = 30;
+
+// Colors
+const COLORS = {
+  emerald50: rgb(236 / 255, 253 / 255, 245 / 255),
+  emerald100: rgb(209 / 255, 250 / 255, 229 / 255),
+  emerald300: rgb(110 / 255, 231 / 255, 183 / 255),
+  emerald700: rgb(4 / 255, 120 / 255, 87 / 255),
+  emerald800: rgb(6 / 255, 95 / 255, 70 / 255),
+  emerald900: rgb(6 / 255, 78 / 255, 59 / 255),
+  white: rgb(1, 1, 1),
+  gray: rgb(107 / 255, 114 / 255, 128 / 255)
+};
+
+interface PageConfig {
+  width: number;
+  height: number;
+  contentWidth: number;
+  contentHeight: number;
+  tableStartY: number;
+  tableEndY: number;
+  maxRowsPerPage: number;
+}
+
+class PDFGenerator {
+  private pdfDoc: PDFDocument | null = null;
+  private font: PDFFont | null = null;
+  private boldFont: PDFFont | null = null;
+  private pageConfig: PageConfig;
+  private isInitialized: boolean = false;
+
+  constructor() {
+    this.pageConfig = this.calculatePageConfig();
   }
 
-  // Fetch vouchers
-  const whereClause: any = { accountId: account.id };
-  if (startDate && endDate) whereClause.date = { gte: startDate, lte: endDate };
-  else if (startDate) whereClause.date = { gte: startDate };
-  else if (endDate) whereClause.date = { lte: endDate };
+  private calculatePageConfig(): PageConfig {
+    const width = A4_LANDSCAPE_WIDTH;
+    const height = A4_LANDSCAPE_HEIGHT;
+    const contentWidth = width - (MARGIN * 2);
+    const contentHeight = height - (MARGIN * 2);
+    
+    // Calculate available space for table (after header and before footer)
+    const headerSectionHeight = 180; // Space for company header, account info, etc.
+    const footerSectionHeight = FOOTER_HEIGHT;
+    const tableStartY = height - MARGIN - headerSectionHeight;
+    const tableEndY = MARGIN + footerSectionHeight;
+    const availableTableHeight = tableStartY - tableEndY;
+    
+    const maxRowsPerPage = Math.floor((availableTableHeight - HEADER_HEIGHT) / ROW_HEIGHT);
 
-  const vouchers = await prisma.voucher.findMany({
-    where: whereClause,
-    orderBy: { date: "asc" },
-  });
-
-  // Process vouchers into ledger entries
-  let runningGoldBalance = 0;
-  let runningKwdBalance = 0;
-  const processedVouchers = vouchers.map((voucher) => {
-    const entry: any = {
-      id: voucher.id,
-      date: voucher.date.toISOString().split('T')[0],
-      mvn: voucher.mvn,
-      description: voucher.description,
-      vt: voucher.vt,
-      accountId: voucher.accountId,
-      gold: voucher.gold,
-      kwd: voucher.kwd,
+    return {
+      width,
+      height,
+      contentWidth,
+      contentHeight,
+      tableStartY,
+      tableEndY,
+      maxRowsPerPage
     };
-
-    // Calculate debit/credit based on voucher type
-    if (voucher.vt === "INV" || voucher.vt === "Alloy") {
-      runningGoldBalance += voucher.gold;
-      runningKwdBalance += voucher.kwd;
-      entry.goldDebit = voucher.gold;
-      entry.goldCredit = 0;
-      entry.kwdDebit = voucher.kwd;
-      entry.kwdCredit = 0;
-    } else if (voucher.vt === "REC") {
-      runningGoldBalance -= voucher.gold;
-      runningKwdBalance -= voucher.kwd;
-      entry.goldDebit = 0;
-      entry.goldCredit = voucher.gold;
-      entry.kwdDebit = 0;
-      entry.kwdCredit = voucher.kwd;
-    } else if (voucher.vt === "GFV") {
-      runningGoldBalance += voucher.gold;
-      runningKwdBalance -= voucher.kwd;
-      entry.goldDebit = voucher.gold;
-      entry.goldCredit = 0;
-      entry.kwdDebit = 0;
-      entry.kwdCredit = voucher.kwd;
-    }
-
-    entry.goldBalance = runningGoldBalance;
-    entry.kwdBalance = runningKwdBalance;
-
-    return entry;
-  });
-
-  // Calculate opening balance (vouchers before startDate)
-  let openingGold = 0;
-  let openingKwd = 0;
-
-  if (startDate) {
-    const previousVouchers = await prisma.voucher.findMany({
-      where: {
-        accountId: account.id,
-        date: { lt: startDate },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    previousVouchers.forEach((v) => {
-      if (v.vt === "INV" || v.vt === "Alloy") {
-        openingGold += v.gold;
-        openingKwd += v.kwd;
-      } else if (v.vt === "REC") {
-        openingGold -= v.gold;
-        openingKwd -= v.kwd;
-      } else if (v.vt === "GFV") {
-        openingGold += v.gold;
-        openingKwd -= v.kwd;
-      }
-    });
   }
 
-  const closingGold = processedVouchers.length > 0 
-    ? processedVouchers[processedVouchers.length - 1].goldBalance 
-    : openingGold;
-  const closingKwd = processedVouchers.length > 0 
-    ? processedVouchers[processedVouchers.length - 1].kwdBalance 
-    : openingKwd;
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    // Create PDF document first
+    this.pdfDoc = await PDFDocument.create();
+    
+    // Then embed fonts
+    this.font = await this.pdfDoc.embedFont(StandardFonts.Helvetica);
+    this.boldFont = await this.pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    this.isInitialized = true;
+  }
 
-  return {
-    props: {
-      account: {
-        id: account.id,
-        name: account.name,
-        type: accountType,
-        phone: account.phone || "",
-        crOrCivilIdNo: account.crOrCivilIdNo || "",
-      },
-      vouchers: JSON.parse(JSON.stringify(processedVouchers)),
-      startDate: startDateParam || null,
-      endDate: endDateParam || null,
-      openingGold,
-      openingKwd,
-      closingGold,
-      closingKwd,
-    },
-  };
-};
-
-export default function BalanceSheetPage({
-  account,
-  vouchers,
-  startDate,
-  endDate,
-  openingGold,
-  openingKwd,
-  closingGold,
-  closingKwd,
-}: {
-  account: AccountInfo;
-  vouchers: any[];
-  startDate?: string;
-  endDate?: string;
-  openingGold: number;
-  openingKwd: number;
-  closingGold: number;
-  closingKwd: number;
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  // Date range state
-  const [dateRange, setDateRange] = useState({
-    start: startDate || getCurrentMonthRange().start,
-    end: endDate || getCurrentMonthRange().end
-  });
-
-  // Process vouchers into ledger entries
-  const [allLedgerEntries, setAllLedgerEntries] = useState<LedgerEntry[]>([]);
-  const [filteredLedgerEntries, setFilteredLedgerEntries] = useState<LedgerEntry[]>([]);
-
-  // Initialize ledger entries
-  useEffect(() => {
-    if (vouchers.length > 0) {
-      const entries: LedgerEntry[] = vouchers.map(voucher => {
-        const getVoucherDescription = () => {
-          if (voucher.description) return voucher.description;
-          if (voucher.mvn) return `Voucher ${voucher.mvn}`;
-          return `Transaction ${voucher.id.slice(0, 8)}`;
-        };
-
-        return {
-          date: new Date(voucher.date).toLocaleDateString(),
-          voucherId: voucher.id,
-          type: voucher.vt,
-          description: getVoucherDescription(),
-          goldDebit: voucher.goldDebit || 0,
-          goldCredit: voucher.goldCredit || 0,
-          goldBalance: voucher.goldBalance,
-          kwdDebit: voucher.kwdDebit || 0,
-          kwdCredit: voucher.kwdCredit || 0,
-          kwdBalance: voucher.kwdBalance,
-          originalDate: voucher.date
-        };
-      });
-
-      setAllLedgerEntries(entries);
-      setFilteredLedgerEntries(entries);
+  private ensureInitialized(): void {
+    if (!this.isInitialized || !this.pdfDoc || !this.font || !this.boldFont) {
+      throw new Error("PDFGenerator not initialized. Call initialize() first.");
     }
-  }, [vouchers]);
+  }
 
-  // Filter entries by date range
-  useEffect(() => {
-    if (allLedgerEntries.length === 0) return;
+  private getPDFDoc(): PDFDocument {
+    this.ensureInitialized();
+    return this.pdfDoc!;
+  }
 
-    const filtered = allLedgerEntries.filter((entry) => {
-      const entryDate = entry.originalDate || entry.date;
-      const startDate = dateRange.start;
-      const endDate = dateRange.end;
+  private getFonts(): { font: PDFFont; boldFont: PDFFont } {
+    this.ensureInitialized();
+    return { font: this.font!, boldFont: this.boldFont! };
+  }
+
+  private createNewPage(): PDFPage {
+    const pdfDoc = this.getPDFDoc();
+    const page = pdfDoc.addPage([A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT]);
+    
+    // Background
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: this.pageConfig.width,
+      height: this.pageConfig.height,
+      color: COLORS.emerald50,
+    });
+
+    // Main container
+    page.drawRectangle({
+      x: MARGIN,
+      y: MARGIN,
+      width: this.pageConfig.contentWidth,
+      height: this.pageConfig.contentHeight,
+      color: COLORS.white,
+      borderColor: COLORS.emerald300,
+      borderWidth: 2,
+    });
+
+    return page;
+  }
+
+  private drawPageHeader(page: PDFPage, data: PdfRequestData, pageNumber: number, totalPages: number): number {
+    const { font, boldFont } = this.getFonts();
+    let currentY = this.pageConfig.height - MARGIN - 30;
+
+    // Header
+    page.drawText("ZAMZAM JEWELLERY", {
+      x: MARGIN + 20,
+      y: currentY,
+      size: 20,
+      font: boldFont,
+      color: COLORS.emerald800,
+    });
+
+    page.drawText("Account Ledger Statement", {
+      x: MARGIN + 20,
+      y: currentY - 25,
+      size: 16,
+      font: boldFont,
+      color: COLORS.emerald700,
+    });
+
+    currentY -= 50;
+
+    // Account Information
+    const accountBoxHeight = 40;
+    page.drawRectangle({
+      x: MARGIN + 20,
+      y: currentY - accountBoxHeight,
+      width: this.pageConfig.contentWidth - 40,
+      height: accountBoxHeight,
+      color: COLORS.emerald50,
+      borderColor: COLORS.emerald300,
+      borderWidth: 1,
+    });
+
+    const accountInfo = `Account: ${data.account.accountNo} | Name: ${data.account.name} | Phone: ${data.account.phone || 'N/A'} | CR No: ${data.account.cr || 'N/A'}`;
+    page.drawText(accountInfo, {
+      x: MARGIN + 35,
+      y: currentY - 25,
+      size: 10,
+      font: font,
+      color: COLORS.emerald700,
+    });
+
+    currentY -= 60;
+
+    // Date Range
+    const startDate = data.dateRange.start ? new Date(data.dateRange.start).toLocaleDateString() : 'All';
+    const endDate = data.dateRange.end ? new Date(data.dateRange.end).toLocaleDateString() : 'All';
+    
+    const periodInfo = `Period: ${startDate} to ${endDate}`;
+    page.drawText(periodInfo, {
+      x: MARGIN + 20,
+      y: currentY,
+      size: 12,
+      font: boldFont,
+      color: COLORS.emerald800,
+    });
+
+    // Page number
+    const pageInfo = `Page ${pageNumber} of ${totalPages}`;
+    page.drawText(pageInfo, {
+      x: this.pageConfig.width - MARGIN - 20 - boldFont.widthOfTextAtSize(pageInfo, 10),
+      y: currentY,
+      size: 10,
+      font: boldFont,
+      color: COLORS.emerald800,
+    });
+
+    currentY -= 30;
+
+    // Ledger Table Header
+    page.drawText("Transaction History", {
+      x: MARGIN + 20,
+      y: currentY,
+      size: 14,
+      font: boldFont,
+      color: COLORS.emerald800,
+    });
+
+    return currentY - 25;
+  }
+
+  private drawTableHeader(page: PDFPage, tableTop: number): { tableTop: number; colWidths: number[] } {
+    const { boldFont } = this.getFonts();
+    const tableWidth = this.pageConfig.contentWidth - 40;
+    
+    // Column widths (9 columns total) - matching your original structure
+    let colWidths = [50, 35, 200, 60, 60, 75, 60, 60, 75]; // Total: 675
+    
+    // Calculate missing width and distribute proportionally
+    const currentTotal = colWidths.reduce((a, b) => a + b, 0);
+    const missing = tableWidth - currentTotal;
+    
+    if (missing > 0) {
+      const extraPerColumn = missing / colWidths.length;
+      colWidths = colWidths.map(w => w + extraPerColumn);
+    }
+
+    // Draw table container
+    page.drawRectangle({
+      x: MARGIN + 20,
+      y: tableTop - HEADER_HEIGHT,
+      width: tableWidth,
+      height: HEADER_HEIGHT,
+      borderColor: COLORS.emerald300,
+      borderWidth: 2,
+    });
+
+    // Table header background (full height for both header rows)
+    page.drawRectangle({
+      x: MARGIN + 20,
+      y: tableTop - HEADER_HEIGHT,
+      width: tableWidth,
+      height: HEADER_HEIGHT,
+      color: COLORS.emerald100,
+    });
+
+    // Calculate positions for grouped headers - matching your original structure
+    let xPos = MARGIN + 20;
+    
+    // First three columns (Date, Type, Description) span full header height
+    const firstThreeColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2];
+    
+    // Gold group header (spans G Debit, G Credit, G Balance)
+    const goldGroupStartX = xPos + firstThreeColumnsWidth;
+    const goldGroupWidth = colWidths[3] + colWidths[4] + colWidths[5];
+    
+    // Amount group header (spans KWD Debit, KWD Credit, KWD Balance)
+    const amountGroupStartX = goldGroupStartX + goldGroupWidth;
+    const amountGroupWidth = colWidths[6] + colWidths[7] + colWidths[8];
+
+    // Draw grouped header backgrounds (only for Gold and Amount sections)
+    page.drawRectangle({
+      x: goldGroupStartX,
+      y: tableTop - 20,
+      width: goldGroupWidth,
+      height: 20,
+      color: COLORS.emerald800,
+    });
+
+    page.drawRectangle({
+      x: amountGroupStartX,
+      y: tableTop - 20,
+      width: amountGroupWidth,
+      height: 20,
+      color: COLORS.emerald800,
+    });
+
+    // ========== SEGMENTED VERTICAL LINES ==========
+
+    // Segment A: FULL-HEIGHT vertical lines for first three columns
+    xPos = MARGIN + 20;
+    for (let col = 0; col <= 3; col++) {
+      page.drawLine({
+        start: { x: xPos, y: tableTop },
+        end: { x: xPos, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.emerald300,
+        thickness: 0.5,
+      });
+      if (col < 3) {
+        xPos += colWidths[col];
+      }
+    }
+
+    // Segment B: Vertical lines INSIDE Gold group
+    let groupXPos = goldGroupStartX;
+    
+    // Gold group left border
+    page.drawLine({
+      start: { x: groupXPos, y: tableTop },
+      end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Gold group internal vertical borders (only in bottom header row)
+    page.drawLine({
+      start: { x: groupXPos + colWidths[3], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[3], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+    
+    page.drawLine({
+      start: { x: groupXPos + colWidths[3] + colWidths[4], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[3] + colWidths[4], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Gold group right border
+    page.drawLine({
+      start: { x: groupXPos + goldGroupWidth, y: tableTop },
+      end: { x: groupXPos + goldGroupWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Segment C: Vertical lines INSIDE Amount group
+    groupXPos = amountGroupStartX;
+    
+    // Amount group left border
+    page.drawLine({
+      start: { x: groupXPos, y: tableTop },
+      end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Amount group internal vertical borders (only in bottom header row)
+    page.drawLine({
+      start: { x: groupXPos + colWidths[6], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[6], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+    
+    page.drawLine({
+      start: { x: groupXPos + colWidths[6] + colWidths[7], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[6] + colWidths[7], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Amount group right border
+    page.drawLine({
+      start: { x: groupXPos + amountGroupWidth, y: tableTop },
+      end: { x: groupXPos + amountGroupWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // RIGHTMOST TABLE BORDER
+    const tableRightEdge = MARGIN + 20 + tableWidth;
+    page.drawLine({
+      start: { x: tableRightEdge, y: tableTop },
+      end: { x: tableRightEdge, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 0.5,
+    });
+
+    // Draw horizontal line between grouped header and column headers
+    page.drawLine({
+      start: { x: goldGroupStartX, y: tableTop - 20 },
+      end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
+      color: COLORS.emerald300,
+      thickness: 1,
+    });
+
+    // Draw horizontal line at bottom of header
+    page.drawLine({
+      start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
+      end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.emerald300,
+      thickness: 1,
+    });
+
+    // First three column headers (Date, Type, Description) - centered in full header height
+    xPos = MARGIN + 20;
+    const firstThreeHeaders = ["Date", "Type", "Description"];
+    
+    firstThreeHeaders.forEach((header, index) => {
+      const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 9)) / 2;
       
-      return (!startDate || entryDate >= startDate) && 
-             (!endDate || entryDate <= endDate);
+      page.drawText(header, {
+        x: textX,
+        y: tableTop - 24,
+        size: 9,
+        font: boldFont,
+        color: COLORS.emerald800,
+      });
+      
+      xPos += colWidths[index];
     });
 
-    setFilteredLedgerEntries(filtered);
-  }, [dateRange, allLedgerEntries]);
-
-  // Calculate opening balance (balance before the date range)
-  const calculateOpeningBalance = () => {
-    if (!dateRange.start || allLedgerEntries.length === 0) {
-      return { gold: 0, kwd: 0 };
-    }
-
-    const startDate = dateRange.start;
-    let openingGoldBalance = openingGold;
-    let openingKwdBalance = openingKwd;
-
-    // Find the last entry before the start date
-    for (let i = allLedgerEntries.length - 1; i >= 0; i--) {
-      const entryDate = allLedgerEntries[i].originalDate || allLedgerEntries[i].date;
-      if (entryDate < startDate) {
-        openingGoldBalance = allLedgerEntries[i].goldBalance;
-        openingKwdBalance = allLedgerEntries[i].kwdBalance;
-        break;
-      }
-    }
-
-    return { gold: openingGoldBalance, kwd: openingKwdBalance };
-  };
-
-  // Calculate closing balance (balance at the end of date range)
-  const calculateClosingBalance = () => {
-    if (filteredLedgerEntries.length === 0) {
-      return calculateOpeningBalance();
-    }
-
-    const lastEntry = filteredLedgerEntries[filteredLedgerEntries.length - 1];
-    return { 
-      gold: lastEntry.goldBalance, 
-      kwd: lastEntry.kwdBalance 
-    };
-  };
-
-  // Create opening balance entry
-  const createOpeningBalanceEntry = (): LedgerEntry => ({
-    date: dateRange.start,
-    voucherId: "opening-balance",
-    type: "BAL",
-    description: "Opening Balance",
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: calculateOpeningBalance().gold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: calculateOpeningBalance().kwd,
-    isOpeningBalance: true,
-  });
-
-  // Create closing balance entry
-  const createClosingBalanceEntry = (): LedgerEntry => ({
-    date: dateRange.end,
-    voucherId: "closing-balance",
-    type: "BAL",
-    description: "Closing Balance",
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: calculateClosingBalance().gold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: calculateClosingBalance().kwd,
-    isClosingBalance: true,
-  });
-
-  // Add opening and closing balance rows
-  const entriesWithBalances: LedgerEntry[] = [
-    ...(dateRange.start ? [createOpeningBalanceEntry()] : []),
-    ...filteredLedgerEntries,
-    ...(dateRange.end ? [createClosingBalanceEntry()] : [])
-  ];
-
-  // Calculate totals for filtered results only
-  const totalGoldDebit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.goldDebit, 0);
-  const totalGoldCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.goldCredit, 0);
-  const totalKwdDebit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdDebit, 0);
-  const totalKwdCredit = filteredLedgerEntries.reduce((sum, entry) => sum + entry.kwdCredit, 0);
-
-  // Get current overall balances
-  const currentGoldBalance = allLedgerEntries.length > 0 
-    ? allLedgerEntries[allLedgerEntries.length - 1].goldBalance 
-    : openingGold;
-  const currentKwdBalance = allLedgerEntries.length > 0 
-    ? allLedgerEntries[allLedgerEntries.length - 1].kwdBalance 
-    : openingKwd;
-
-  // Get Voucher Type Text
-  const getVoucherTypeText = (vt: string) => {
-    switch (vt) {
-      case 'REC': return 'Receipt';
-      case 'INV': return 'Invoice';
-      case 'GFV': return 'Gold Form Voucher';
-      case 'Alloy': return 'Alloy';
-      default: return vt;
-    }
-  };
-
-  // Get Voucher Type Style
-  const getVoucherTypeStyle = (vt: string) => {
-    switch (vt) {
-      case 'REC': return "bg-amber-100 text-amber-800 border border-amber-300";
-      case 'INV': return "bg-emerald-100 text-emerald-800 border border-emerald-300";
-      case 'GFV': return "bg-yellow-100 text-yellow-800 border border-yellow-300";
-      case 'Alloy': return "bg-purple-100 text-purple-800 border border-purple-300";
-      default: return "bg-gray-100 text-gray-800 border border-gray-300";
-    }
-  };
-
-  const clearFilters = () => {
-    setDateRange({ start: "", end: "" });
-    const params = new URLSearchParams();
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-  };
-
-  const setCurrentMonth = () => {
-    const range = getCurrentMonthRange();
-    setDateRange(range);
-    const params = new URLSearchParams();
-    params.append("startDate", range.start);
-    params.append("endDate", range.end);
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-  };
-
-  const setLastMonth = () => {
-    const now = new Date();
-    const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    // Column header text for Gold and Amount sections (second row only) - All centered
+    const goldHeaders = ["Debit", "Credit", "Balance"];
+    const amountHeaders = ["Debit", "Credit", "Balance"];
     
-    const range = {
-      start: firstDayLastMonth.toISOString().split('T')[0],
-      end: lastDayLastMonth.toISOString().split('T')[0]
-    };
-    
-    setDateRange(range);
-    const params = new URLSearchParams();
-    params.append("startDate", range.start);
-    params.append("endDate", range.end);
-    params.append("accountType", account.type);
-    router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-  };
-
-  const handleFilter = async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (dateRange.start) params.append("startDate", dateRange.start);
-    if (dateRange.end) params.append("endDate", dateRange.end);
-    params.append("accountType", account.type);
-    
-    await router.push(`/balance-sheet/${account.id}?${params.toString()}`);
-    setLoading(false);
-  };
-
-  const downloadPdf = async () => {
-    try {
-      if (!account) {
-        alert("Account information is not available");
-        return;
-      }
-
-      setDownloadingPdf(true);
-
-      const pdfData = {
-        account: account,
-        dateRange,
-        ledgerEntries: entriesWithBalances,
-        openingBalance: calculateOpeningBalance(),
-        closingBalance: calculateClosingBalance(),
-        totals: {
-          goldDebit: totalGoldDebit,
-          goldCredit: totalGoldCredit,
-          kwdDebit: totalKwdDebit,
-          kwdCredit: totalKwdCredit,
-        },
-      };
-
-      const response = await fetch("/api/generate-ledger-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pdfData),
+    // Gold section headers - All centered horizontally
+    xPos = goldGroupStartX;
+    goldHeaders.forEach((header, index) => {
+      const colIndex = 3 + index;
+      const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+      
+      page.drawText(header, {
+        x: textX,
+        y: tableTop - 34,
+        size: 8,
+        font: boldFont,
+        color: COLORS.emerald800,
       });
+      
+      xPos += colWidths[colIndex];
+    });
 
-      const result = await response.json();
+    // Amount section headers - All centered horizontally
+    xPos = amountGroupStartX;
+    amountHeaders.forEach((header, index) => {
+      const colIndex = 6 + index;
+      const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+      
+      page.drawText(header, {
+        x: textX,
+        y: tableTop - 34,
+        size: 8,
+        font: boldFont,
+        color: COLORS.emerald800,
+      });
+      
+      xPos += colWidths[colIndex];
+    });
 
-      if (!response.ok) {
-        console.error("Server error:", result);
-        throw new Error(
-          result.details ||
-            result.error ||
-            `Failed to generate PDF: ${response.status} ${response.statusText}`
-        );
-      }
+    // Draw grouped header text - Centered both horizontally and vertically
+    page.drawText("GOLD", {
+      x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2,
+      y: tableTop - 12,
+      size: 10,
+      font: boldFont,
+      color: COLORS.white,
+    });
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to generate PDF");
-      }
+    page.drawText("AMOUNT", {
+      x: amountGroupStartX + (amountGroupWidth - boldFont.widthOfTextAtSize("AMOUNT", 10)) / 2,
+      y: tableTop - 12,
+      size: 10,
+      font: boldFont,
+      color: COLORS.white,
+    });
 
-      // Convert base64 → Blob
-      const binaryString = atob(result.pdfData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const blob = new Blob([bytes], { type: "application/pdf" });
-
-      const fileName = `ledger-${account.name}-${dateRange.start || "all"}-to-${
-        dateRange.end || "all"
-      }.pdf`;
-
-      const file = new File([blob], fileName, { type: "application/pdf" });
-
-      // iOS detection
-      const ua = navigator.userAgent || navigator.vendor;
-      const isIOS =
-        /iPad|iPhone|iPod/.test(ua) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-      // iOS → Share Sheet, Desktop → Download
-      if (isIOS && navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: "Ledger PDF",
-          files: [file],
-        });
-      } else {
-        // Desktop / Android / fallback
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
-
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF. Please try again.");
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-emerald-700 text-lg font-semibold">Loading ledger...</p>
-        </div>
-      </div>
-        <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
-          <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
-        </footer>
-        </>
-    );
+    return { tableTop: tableTop - HEADER_HEIGHT, colWidths };
   }
 
-  return (
-    <>
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-3xl blur-lg opacity-30 transform scale-110 -z-10"></div>
-            <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-amber-300 transform hover:scale-105 transition-transform duration-300">
-              <svg className="w-10 h-10 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-700 to-emerald-900 bg-clip-text text-transparent mb-4 tracking-tight">
-            Account Ledger
-          </h1>
-          <p className="text-xl text-emerald-700 font-light">Account Type: {account.type}</p>
-        </div>
+  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[], isHeader: boolean = false): void {
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    let xPos = MARGIN + 20;
 
-        {/* Account Info Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-8 border-2 border-emerald-300 relative overflow-hidden">
-          {/* Decorative elements */}
-          <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200 to-emerald-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-            <div>
-              <h3 className="text-sm font-medium text-emerald-700 mb-1">Account Name</h3>
-              <p className="text-lg font-semibold text-emerald-900">{account.name}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-emerald-700 mb-1">Account Type</h3>
-              <p className="text-lg font-semibold text-emerald-800">{account.type}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-emerald-700 mb-1">Phone</h3>
-              <p className="text-lg font-semibold text-emerald-900">{account.phone || "N/A"}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-emerald-700 mb-1">CR/ID No</h3>
-              <p className="text-lg font-semibold text-emerald-900">{account.crOrCivilIdNo || "N/A"}</p>
-            </div>
-          </div>
-        </div>
+    // Vertical lines
+    for (let col = 0; col <= colWidths.length; col++) {
+      const lineStartY = isHeader ? startY : startY - height;
+      const lineEndY = isHeader ? startY - height : startY;
+      
+      page.drawLine({
+        start: { x: xPos, y: lineStartY },
+        end: { x: xPos, y: lineEndY },
+        color: COLORS.emerald300,
+        thickness: 0.5,
+      });
+      
+      if (col < colWidths.length) {
+        xPos += colWidths[col];
+      }
+    }
 
-        {/* Date Range Filters */}
-        <div className="relative mb-6 rounded-3xl border-2 border-emerald-300 bg-white/80 p-6 shadow-2xl backdrop-blur-sm overflow-hidden">
-          <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 opacity-20 translate-x-12 -translate-y-12"></div>
+    // Horizontal lines
+    if (isHeader) {
+      page.drawLine({
+        start: { x: MARGIN + 20, y: startY - 20 },
+        end: { x: MARGIN + 20 + tableWidth, y: startY - 20 },
+        color: COLORS.emerald300,
+        thickness: 1,
+      });
+    }
+    
+    page.drawLine({
+      start: { x: MARGIN + 20, y: startY - height },
+      end: { x: MARGIN + 20 + tableWidth, y: startY - height },
+      color: COLORS.emerald300,
+      thickness: 1,
+    });
+  }
 
-          <div className="relative z-10 flex flex-col gap-6">
-            {/* Date Filters */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
-              {/* From Date */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-emerald-700">From Date</label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) =>
-                    setDateRange(prev => ({ ...prev, start: e.target.value }))
-                  }
-                  className="w-full min-w-0 box-border rounded-xl border-2 border-emerald-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+  private drawTableRows(page: PDFPage, entries: LedgerEntry[], startY: number, colWidths: number[]): number {
+    const { font, boldFont } = this.getFonts();
+    const ROW_OFFSET = 10; // Move rows down by 12px (adjust as you like)
+let currentY = startY - ROW_OFFSET;
 
-              {/* To Date */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-emerald-700">To Date</label>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) =>
-                    setDateRange(prev => ({ ...prev, end: e.target.value }))
-                  }
-                  className="w-full min-w-0 box-border rounded-xl border-2 border-emerald-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+    // Draw rows
+    entries.forEach((entry, index) => {
+      const rowTop = currentY + ROW_HEIGHT / 2;
+      const rowBottom = currentY - ROW_HEIGHT / 2;
 
-              {/* Quick Actions */}
-              <div className="flex flex-col gap-2">
-                <label className="pointer-events-none block text-sm font-medium text-emerald-700 opacity-0">
-                  Quick Actions
-                </label>
+      // Row background
+      const rowBgColor = entry.isOpeningBalance || entry.isClosingBalance 
+        ? COLORS.emerald50 
+        : (index % 2 === 0 ? COLORS.white : rgb(254 / 255, 243 / 255, 199 / 255));
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={setCurrentMonth}
-                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-800 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-emerald-700 hover:to-emerald-900 hover:shadow-xl"
-                  >
-                    Current Month
-                  </button>
+      let xPos = MARGIN + 20;
+      colWidths.forEach(width => {
+        page.drawRectangle({
+          x: xPos,
+          y: rowBottom,
+          width: width,
+          height: ROW_HEIGHT,
+          color: rowBgColor,
+        });
+        xPos += width;
+      });
 
-                  <button
-                    onClick={setLastMonth}
-                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-amber-600 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-amber-600 hover:to-amber-700 hover:shadow-xl"
-                  >
-                    Last Month
-                  </button>
+      // Row data
+      const displayDate = entry.isOpeningBalance || entry.isClosingBalance 
+        ? new Date(entry.date).toLocaleDateString() 
+        : (entry.date || '').split('/').slice(0, 2).join('/');
 
-                  <button
-                    onClick={handleFilter}
-                    disabled={loading}
-                    className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-amber-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl disabled:opacity-50"
-                  >
-                    {loading ? "Filtering..." : "Apply Filter"}
-                  </button>
-                </div>
-              </div>
-            </div>
+      const cleanedDescription = cleanDescription(
+        entry.description || '',
+        entry.isOpeningBalance,
+        entry.isClosingBalance
+      );
 
-            {/* Clear Filter */}
-            <div className="flex justify-end">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm font-semibold text-emerald-700 bg-emerald-100 border border-emerald-300 rounded-xl hover:bg-emerald-200 transition-colors"
-              >
-                Clear All Filters
-              </button>
-            </div>
+      const rowData = [
+        displayDate,
+        entry.isOpeningBalance || entry.isClosingBalance ? 'BAL' : (entry.type || ''),
+        cleanedDescription.substring(0, 40) + (cleanedDescription.length > 40 ? '...' : ''),
+        entry.goldDebit > 0 ? (entry.goldDebit || 0).toFixed(3) : '-',
+        entry.goldCredit > 0 ? (entry.goldCredit || 0).toFixed(3) : '-',
+        formatBalance(entry.goldBalance || 0),
+        entry.kwdDebit > 0 ? (entry.kwdDebit || 0).toFixed(3) : '-',
+        entry.kwdCredit > 0 ? (entry.kwdCredit || 0).toFixed(3) : '-',
+        formatBalance(entry.kwdBalance || 0)
+      ];
 
-            {/* Active Filters Summary */}
-            <div className="flex flex-wrap gap-2">
-              {dateRange.start && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  From: {new Date(dateRange.start).toLocaleDateString()}
-                  <button
-                    onClick={() => setDateRange(prev => ({ ...prev, start: "" }))}
-                    className="ml-2 hover:text-emerald-900 text-lg"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {dateRange.end && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 border border-amber-300">
-                  To: {new Date(dateRange.end).toLocaleDateString()}
-                  <button
-                    onClick={() => setDateRange(prev => ({ ...prev, end: "" }))}
-                    className="ml-2 hover:text-amber-900 text-lg"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+      // Draw cell text - All centered except description
+      xPos = MARGIN + 20;
+      rowData.forEach((data, colIndex) => {
+        const isLeftAligned = colIndex === 2; // Only description is left-aligned
+        const textColor = COLORS.emerald700;
+        const textFont = (entry.isOpeningBalance || entry.isClosingBalance) ? boldFont : font;
+        
+        const textX = isLeftAligned ? 
+          xPos + 5 : 
+          xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 7)) / 2;
+        
+        page.drawText(data, {
+          x: textX,
+          y: currentY - 3,
+          size: 7,
+          font: textFont,
+          color: textColor,
+        });
+        
+        xPos += colWidths[colIndex];
+      });
 
-        {/* Combined Balance Summary Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-8 border-2 border-emerald-300 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
-          <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200 to-emerald-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
-          
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-emerald-800">Current Balance Summary</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-            <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-              currentGoldBalance >= 0 
-                ? "bg-gradient-to-r from-emerald-600 to-emerald-800 border-amber-400 text-white"
-                : "bg-gradient-to-r from-amber-500 to-amber-700 border-amber-400 text-white"
-            } transform hover:-translate-y-1 transition-transform duration-300`}>
-              <p className="text-lg font-semibold mb-2">Gold Balance</p>
-              <p className="text-3xl font-bold">{formatBalance(currentGoldBalance, 'gold')}</p>
-              <p className="text-sm mt-3 opacity-90 font-medium">
-                {currentGoldBalance >= 0 ? "Account Owes Gold" : "You Owe Gold"}
-              </p>
-            </div>
-            <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-              currentKwdBalance >= 0 
-                ? "bg-gradient-to-r from-emerald-600 to-emerald-800 border-amber-400 text-white"
-                : "bg-gradient-to-r from-amber-500 to-amber-700 border-amber-400 text-white"
-            } transform hover:-translate-y-1 transition-transform duration-300`}>
-              <p className="text-lg font-semibold mb-2">Amount Balance</p>
-              <p className="text-3xl font-bold">{formatBalance(currentKwdBalance, 'kwd')}</p>
-              <p className="text-sm mt-3 opacity-90 font-medium">
-                {currentKwdBalance >= 0 ? "Account Owes Amount" : "You Owe Amount"}
-              </p>
-            </div>
-          </div>
-        </div>
+      // Draw row grid
+      this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
 
-        {/* Results Summary */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-emerald-300">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <div>
-              <h3 className="text-xl font-bold text-emerald-800">
-                Showing {filteredLedgerEntries.length} of {allLedgerEntries.length} transactions
-              </h3>
-              <p className="text-emerald-700">
-                {dateRange.start || dateRange.end ? "Filtered by date range" : "All transactions"}
-              </p>
-            </div>
-            <div className="flex gap-6 mt-4 sm:mt-0">
-              <div className="text-center">
-                <p className="text-sm text-emerald-700 font-medium">Period Gold Change</p>
-                <p className={`text-xl font-bold ${(calculateClosingBalance().gold - calculateOpeningBalance().gold) >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  {formatBalance(calculateClosingBalance().gold - calculateOpeningBalance().gold, 'gold')}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-emerald-700 font-medium">Period Amount Change</p>
-                <p className={`text-xl font-bold ${(calculateClosingBalance().kwd - calculateOpeningBalance().kwd) >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  {formatBalance(calculateClosingBalance().kwd - calculateOpeningBalance().kwd, 'kwd')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+      currentY -= ROW_HEIGHT;
+    });
 
-        {/* Ledger Table with Opening/Closing Balances */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-emerald-300">
-          <div className="px-6 py-4 border-b-2 border-emerald-300 bg-emerald-100">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-emerald-800">Transaction History</h2>
-              <span className="text-emerald-700 font-medium">
-                {filteredLedgerEntries.length} transaction(s)
-              </span>
-            </div>
-          </div>
+    return currentY;
+  }
 
-          {entriesWithBalances.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-emerald-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="text-lg font-medium text-emerald-800 mb-2">No transactions found</h3>
-              <p className="text-emerald-600">
-                {dateRange.start || dateRange.end 
-                  ? "No transactions match the selected date range" 
-                  : "This account hasn't made any transactions"}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
-                <thead className="bg-emerald-100">
-                  <tr>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Gold Debit (g)
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Gold Credit (g)
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Gold Balance
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Amount Debit
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Amount Credit
-                    </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Amount Balance
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-emerald-300">
-                  {entriesWithBalances.map((entry) => (
-                    <tr 
-                      key={entry.voucherId} 
-                      className={`transition-colors duration-150 ${
-                        entry.isOpeningBalance ? 'bg-emerald-50' : 
-                        entry.isClosingBalance ? 'bg-amber-50' : 
-                        'bg-white hover:bg-emerald-50/50'
-                      }`}
-                    >
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-emerald-700 text-center">
-                        {entry.isOpeningBalance || entry.isClosingBalance 
-                          ? new Date(entry.date).toLocaleDateString() 
-                          : entry.date
-                        }
-                      </td>
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-center">
-                        {!entry.isOpeningBalance && !entry.isClosingBalance ? (
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle(entry.type)}`}>
-                            {getVoucherTypeText(entry.type)}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-200 text-emerald-900 border border-emerald-400">
-                            BAL
-                          </span>
-                        )}
-                      </td>
-                      <td className="border border-emerald-300 px-4 py-3 text-sm text-emerald-700 max-w-xs truncate text-center">
-                        {entry.description}
-                      </td>
-                      {/* Gold Columns */}
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
-                        {entry.goldDebit > 0 ? entry.goldDebit.toFixed(3) : "-"}
-                      </td>
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
-                        {entry.goldCredit > 0 ? entry.goldCredit.toFixed(3) : "-"}
-                      </td>
-                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                        entry.goldBalance >= 0 ? "text-emerald-700" : "text-amber-700"
-                      }`}>
-                        {formatBalance(entry.goldBalance, 'gold')}
-                      </td>
-                      {/* Amount Columns */}
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
-                        {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
-                      </td>
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center text-emerald-700 font-mono">
-                        {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
-                      </td>
-                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                        entry.kwdBalance >= 0 ? "text-emerald-700" : "text-amber-700"
-                      }`}>
-                        {formatBalance(entry.kwdBalance, 'kwd')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-emerald-100">
-                  <tr>
-                    <td colSpan={3} className="border border-emerald-300 px-4 py-4 text-sm font-semibold text-emerald-800 text-right">
-                      Filtered Period Totals:
-                    </td>
-                    {/* Gold Totals */}
-                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
-                      {totalGoldDebit.toFixed(3)}
-                    </td>
-                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
-                      {totalGoldCredit.toFixed(3)}
-                    </td>
-                    <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                      calculateClosingBalance().gold >= 0 ? "text-emerald-700" : "text-amber-700"
-                    }`}>
-                      {formatBalance(calculateClosingBalance().gold, 'gold')}
-                    </td>
-                    {/* Amount Totals */}
-                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
-                      {totalKwdDebit.toFixed(3)}
-                    </td>
-                    <td className="border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center text-emerald-800 font-mono font-bold">
-                      {totalKwdCredit.toFixed(3)}
-                    </td>
-                    <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                      calculateClosingBalance().kwd >= 0 ? "text-emerald-700" : "text-amber-700"
-                    }`}>
-                      {formatBalance(calculateClosingBalance().kwd, 'kwd')}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
+  private drawTotalsRow(page: PDFPage, data: PdfRequestData, startY: number, colWidths: number[]): number {
+    const { font, boldFont } = this.getFonts();
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    const rowTop = startY + ROW_HEIGHT / 2;
+    
+    // Totals row background
+    let xPos = MARGIN + 20;
+    colWidths.forEach(width => {
+      page.drawRectangle({
+        x: xPos,
+        y: startY - ROW_HEIGHT / 2,
+        width: width,
+        height: ROW_HEIGHT,
+        color: COLORS.emerald100,
+      });
+      xPos += width;
+    });
 
-        {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={downloadPdf}
-            disabled={downloadingPdf || entriesWithBalances.length === 0 || !account}
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white font-bold text-lg rounded-2xl hover:from-emerald-700 hover:to-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {downloadingPdf ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating PDF...
-              </>
-            ) : (
-              <>
-                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Download PDF
-              </>
-            )}
-          </button>
+    // Totals row data
+    const totalsRowData = [
+      "Totals", "", "",
+      data.totals.goldDebit.toFixed(3),
+      data.totals.goldCredit.toFixed(3),
+      formatBalance(data.closingBalance.gold),
+      data.totals.kwdDebit.toFixed(3),
+      data.totals.kwdCredit.toFixed(3),
+      formatBalance(data.closingBalance.kwd)
+    ];
 
-          <Link
-            href="/vouchers/list"
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1"
-          >
-            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            View Vouchers
-          </Link>
+    // Draw totals text
+    xPos = MARGIN + 20;
+    totalsRowData.forEach((data, colIndex) => {
+      const isLeftAligned = colIndex === 2;
+      const textColor = COLORS.emerald900;
+      const textFont = colIndex >= 3 ? boldFont : font;
+      
+      const textX = isLeftAligned ? 
+        xPos + 5 : 
+        xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 8)) / 2;
+      
+      page.drawText(data, {
+        x: textX,
+        y: startY - 3,
+        size: 8,
+        font: textFont,
+        color: textColor,
+      });
+      
+      xPos += colWidths[colIndex];
+    });
 
-          <Link
-            href="/accounts"
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-lg rounded-2xl hover:from-amber-600 hover:to-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-all duration-300 border-2 border-amber-400 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
-          >
-            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            All Accounts
-          </Link>
-        </div>
-      </div>
-    </div>
-      <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
-          <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
-        </footer>
-        </>
-  );
+    // Draw totals row grid
+    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
+
+    return startY - ROW_HEIGHT;
+  }
+
+  private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
+    const { font } = this.getFonts();
+    const footerY = MARGIN + 10;
+    const footerText = `Generated by ZamZam Jewellery - Account Ledger System - Page ${pageNumber} of ${totalPages}`;
+    
+    page.drawText(footerText, {
+      x: (this.pageConfig.width - font.widthOfTextAtSize(footerText, 9)) / 2,
+      y: footerY,
+      size: 9,
+      font: font,
+      color: COLORS.gray,
+    });
+  }
+
+  async generatePDF(data: PdfRequestData): Promise<Uint8Array> {
+    await this.initialize();
+    const pdfDoc = this.getPDFDoc();
+    
+    const allEntries = data.ledgerEntries;
+    const totalPages = Math.ceil(allEntries.length / this.pageConfig.maxRowsPerPage);
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const page = this.createNewPage();
+      const startIdx = (pageNum - 1) * this.pageConfig.maxRowsPerPage;
+      const endIdx = Math.min(startIdx + this.pageConfig.maxRowsPerPage, allEntries.length);
+      const pageEntries = allEntries.slice(startIdx, endIdx);
+      const isLastPage = pageNum === totalPages;
+
+      // Draw page header
+      const tableTop = this.drawPageHeader(page, data, pageNum, totalPages);
+      
+      // Draw table header
+      const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
+      
+      // Draw table rows
+      let currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths);
+      
+      // Draw totals row only on last page
+      if (isLastPage) {
+        currentY = this.drawTotalsRow(page, data, currentY, colWidths);
+      }
+      
+      // Draw footer
+      this.drawFooter(page, pageNum, totalPages);
+    }
+
+    return await pdfDoc.save();
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method not allowed" });
+  }
+
+  try {
+    console.log("Starting PDF generation...");
+    
+    const data: PdfRequestData = req.body;
+
+    // Validate required data
+    if (!data.account) {
+      return res.status(400).json({ success: false, error: "Account data is required" });
+    }
+
+    if (!data.ledgerEntries) {
+      return res.status(400).json({ success: false, error: "Ledger entries are required" });
+    }
+
+    console.log(`Generating PDF for account: ${data.account.accountNo}, entries: ${data.ledgerEntries.length}`);
+
+    // Generate PDF
+    const generator = new PDFGenerator();
+    const pdfBytes = await generator.generatePDF(data);
+    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+
+    console.log("PDF generated successfully with pagination");
+
+    return res.json({ 
+      success: true, 
+      pdfData: pdfBase64,
+      message: "Ledger PDF generated successfully" 
+    });
+
+  } catch (err) {
+    console.error("PDF generation failed:", err);
+    
+    if (err instanceof Error) {
+      console.error("Error name:", err.name);
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      error: "PDF generation failed",
+      details: err instanceof Error ? err.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    });
+  }
 }
