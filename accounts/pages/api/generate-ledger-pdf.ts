@@ -20,7 +20,7 @@ interface LedgerEntry {
 
 interface Account {
   id: string;
-  accountNo: int;
+  accountNo: number;
   name: string;
   phone: string;
   crOrCivilIdNo: string;
