@@ -62,6 +62,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (voucher.chequeAmount !== undefined) {
             data.chequeAmount = parseFloat(voucher.chequeAmount) || 0;
           }
+// Include quantity if sent
+if (voucher.quantity !== undefined) {
+  data.quantity = parseFloat(voucher.quantity) || 0;
+}
+// Include rate if sent
+if (voucher.rate !== undefined) {
+  data.rate = parseFloat(voucher.rate) || 0;
+}
         }
 
         return data;
