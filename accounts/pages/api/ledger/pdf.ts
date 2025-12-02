@@ -3,6 +3,10 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { prisma } from '@/lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Set CORS headers for cross-origin requests (helpful for debugging)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -11,17 +15,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { id, startDate, endDate, accountType } = req.query;
 
     if (!id || typeof id !== 'string') {
-      return res.status(400).json({ error: 'Account ID is required' });
+      return res.status(400).json({ 
+        error: 'Account ID is required',
+        details: 'Please provide a valid account ID'
+      });
     }
 
     // Fetch account
     const account = await prisma.account.findUnique({ where: { id } });
     if (!account) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.status(404).json({ 
+        error: 'Account not found',
+        details: `No account found with ID: ${id}`
+      });
     }
 
-    const start = startDate ? new Date(startDate as string) : undefined;
-    const end = endDate ? new Date(endDate as string) : undefined;
+    // Validate dates if provided
+    let start: Date | undefined;
+    let end: Date | undefined;
+    
+    if (startDate) {
+      start = new Date(startDate as string);
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({ 
+          error: 'Invalid start date',
+          details: 'Please provide a valid start date'
+        });
+      }
+    }
+    
+    if (endDate) {
+      end = new Date(endDate as string);
+      if (isNaN(end.getTime())) {
+        return res.status(400).json({ 
+          error: 'Invalid end date',
+          details: 'Please provide a valid end date'
+        });
+      }
+    }
 
     // Calculate opening balances
     let openingGold = 0;
@@ -59,9 +90,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const vouchers = await prisma.voucher.findMany({
       where: whereClause,
       orderBy: { date: 'asc' },
-      include: {
-        account: true,
-      },
     });
 
     // Calculate running balances
@@ -340,17 +368,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Save PDF
     const pdfBytes = await pdfDoc.save();
 
-    // Set response headers
+    // Set response headers - VERY IMPORTANT for iOS
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', pdfBytes.length.toString());
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="ledger-${account.name}-${startDate || 'all'}-to-${endDate || 'all'}.pdf"`
+      `attachment; filename="ledger-${account.name.replace(/\s+/g, '-')}-${startDate || 'all'}-to-${endDate || 'all'}.pdf"`
     );
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     // Send PDF
-    res.status(200).send(pdfBytes);
+    res.status(200).send(Buffer.from(pdfBytes));
+
   } catch (error) {
     console.error('PDF generation error:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
+    
+    // Return JSON error
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ 
+      error: 'Failed to generate PDF',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
