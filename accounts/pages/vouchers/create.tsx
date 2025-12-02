@@ -710,11 +710,6 @@ export default function CreateVouchersPage({ accounts }: Props) {
           baseVoucher.quantity = parseInt(form.quantity.toString()) || 0;
         }
 
-        // Include rate for Faceting REC vouchers (can be 0)
-        if (shouldShowFacetingFields(form) && form.rate !== undefined) {
-          baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
-        }
-
         // Include rate for Casting vouchers (can be 0)
         if (shouldShowCastingCalculation(form) && form.rate !== undefined) {
           baseVoucher.rate = parseFloat(form.rate.toString()) || 0;
