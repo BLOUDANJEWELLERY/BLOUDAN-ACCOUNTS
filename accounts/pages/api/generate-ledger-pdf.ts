@@ -772,74 +772,74 @@ class PDFGenerator {
     });
   }
 
-  private drawTotalsRow(page: PDFPage, data: PdfRequestData, startY: number, colWidths: number[]): number {
-    const { font, boldFont } = this.getFonts();
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-    const rowTop = startY + ROW_HEIGHT / 2;
-    
-    // Totals row background
-    let xPos = MARGIN + 20;
-    colWidths.forEach(width => {
-      page.drawRectangle({
-        x: xPos,
-        y: startY - ROW_HEIGHT / 2,
-        width: width,
-        height: ROW_HEIGHT,
-        color: COLORS.blue100,
-      });
-      xPos += width;
+private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, colWidths: number[]): number {
+  const { font, boldFont } = this.getFonts();
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+  const rowTop = startY + ROW_HEIGHT / 2;
+  
+  // Totals row background
+  let xPos = MARGIN + 20;
+  colWidths.forEach(width => {
+    page.drawRectangle({
+      x: xPos,
+      y: startY - ROW_HEIGHT / 2,
+      width: width,
+      height: ROW_HEIGHT,
+      color: COLORS.blue100,
     });
+    xPos += width;
+  });
 
-    // Totals row data
-    const totalsRowData = [
-      "Filtered Period Totals", "", "",
-      data.totals.goldDebit.toFixed(3),
-      data.totals.goldCredit.toFixed(3),
-      formatBalance(data.closingBalance.gold, 'gold'),
-    ];
+  // Totals row data
+  const totalsRowData = [
+    "Filtered Period Totals", "", "",
+    pdfData.totals.goldDebit.toFixed(3),
+    pdfData.totals.goldCredit.toFixed(3),
+    formatBalance(pdfData.closingBalance.gold, 'gold'),
+  ];
 
-    if (!this.isProjectAccount) {
-      totalsRowData.push(
-        data.totals.kwdDebit.toFixed(3),
-        data.totals.kwdCredit.toFixed(3),
-        formatBalance(data.closingBalance.kwd, 'kwd')
-      );
+  if (!this.isProjectAccount) {
+    totalsRowData.push(
+      pdfData.totals.kwdDebit.toFixed(3),
+      pdfData.totals.kwdCredit.toFixed(3),
+      formatBalance(pdfData.closingBalance.kwd, 'kwd')
+    );
+  }
+
+  // Draw totals text
+  xPos = MARGIN + 20;
+  totalsRowData.forEach((cellData, colIndex) => { // Changed from 'data' to 'cellData'
+    const isLeftAligned = colIndex === 2;
+    const isBalance = colIndex === 5 || colIndex === 8;
+    
+    let textColor = COLORS.blue800;
+    const textFont = colIndex >= 3 ? boldFont : font;
+    
+    if (isBalance) {
+      const balanceValue = colIndex === 5 ? pdfData.closingBalance.gold : pdfData.closingBalance.kwd;
+      textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red700;
     }
 
-    // Draw totals text
-    xPos = MARGIN + 20;
-    totalsRowData.forEach((data, colIndex) => {
-      const isLeftAligned = colIndex === 2;
-      const isBalance = colIndex === 5 || colIndex === 8;
-      
-      let textColor = COLORS.blue800;
-      const textFont = colIndex >= 3 ? boldFont : font;
-      
-      if (isBalance) {
-        const balanceValue = colIndex === 5 ? data.closingBalance.gold : data.closingBalance.kwd;
-        textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red700;
-      }
-
-      const textX = isLeftAligned ? 
-        xPos + 5 : 
-        xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 8)) / 2;
-      
-      page.drawText(data, {
-        x: textX,
-        y: startY - 3,
-        size: 8,
-        font: textFont,
-        color: textColor,
-      });
-      
-      xPos += colWidths[colIndex];
+    const textX = isLeftAligned ? 
+      xPos + 5 : 
+      xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(cellData, 8)) / 2;
+    
+    page.drawText(cellData, {
+      x: textX,
+      y: startY - 3,
+      size: 8,
+      font: textFont,
+      color: textColor,
     });
+    
+    xPos += colWidths[colIndex];
+  });
 
-    // Draw totals row grid
-    this.drawRowGrid(page, rowTop, ROW_HEIGHT, colWidths, {} as LedgerEntry);
+  // Draw totals row grid
+  this.drawRowGrid(page, rowTop, ROW_HEIGHT, colWidths, {} as LedgerEntry);
 
-    return startY - ROW_HEIGHT;
-  }
+  return startY - ROW_HEIGHT;
+}
 
   private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
     const { font } = this.getFonts();
