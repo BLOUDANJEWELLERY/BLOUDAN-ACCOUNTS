@@ -23,10 +23,6 @@ type OpenBalanceVoucher = {
   fixingAmount?: number;
   goldBalance: number;
   kwdBalance: number;
-  goldDebit?: number;
-  goldCredit?: number;
-  kwdDebit?: number;
-  kwdCredit?: number;
 };
 
 type Props = {
@@ -35,28 +31,6 @@ type Props = {
   endDate?: string;
   openingGold: number;
   openingKwd: number;
-};
-
-type LedgerEntry = {
-  date: string;
-  voucherId: string;
-  accountName: string;
-  accountNo: number;
-  accountType: string;
-  type: "REC" | "GFV" | "BAL";
-  description: string;
-  goldRate?: number;
-  goldDebit: number;
-  goldCredit: number;
-  goldBalance: number;
-  kwdDebit: number;
-  kwdCredit: number;
-  kwdBalance: number;
-  isOpeningBalance?: boolean;
-  isClosingBalance?: boolean;
-  originalDate?: string;
-  mvn?: string;
-  fixingAmount?: number;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -166,33 +140,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   let kwdBalance = openingKwd;
   
   const processedVouchers = vouchers.map((v) => {
-    let goldDebit = 0;
-    let goldCredit = 0;
-    let kwdDebit = 0;
-    let kwdCredit = 0;
-
     if (v.vt === "REC" && v.goldRate) {
       // Market REC with Gold Fixing: Gold positive, Fixing Amount positive
       goldBalance += v.gold;
       kwdBalance += v.fixingAmount || 0;
-      goldDebit = v.gold;
-      kwdDebit = v.fixingAmount || 0;
     } else if (v.vt === "GFV") {
       // GFV: Gold negative, KWD negative
       goldBalance -= v.gold;
       kwdBalance -= v.kwd;
-      goldCredit = v.gold;
-      kwdCredit = v.kwd;
     }
     
     return { 
       ...v, 
       goldBalance, 
-      kwdBalance,
-      goldDebit,
-      goldCredit,
-      kwdDebit,
-      kwdCredit,
+      kwdBalance 
     };
   });
 
@@ -207,6 +168,24 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   };
 };
 
+type LedgerEntry = {
+  date: string;
+  voucherId: string;
+  accountName: string;
+  accountNo: number;
+  accountType: string;
+  type: "REC" | "GFV" | "BAL";
+  description: string;
+  goldRate?: number;
+  gold: number;
+  amount: number;
+  goldBalance: number;
+  kwdBalance: number;
+  isOpeningBalance?: boolean;
+  isClosingBalance?: boolean;
+  originalDate?: string;
+};
+
 export default function OpenBalanceSheet({
   vouchers,
   startDate,
@@ -215,132 +194,101 @@ export default function OpenBalanceSheet({
   openingKwd,
 }: Props) {
   const router = useRouter();
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [start, setStart] = useState(startDate || "");
   const [end, setEnd] = useState(endDate || "");
   const [isFiltering, setIsFiltering] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Process vouchers into ledger entries
-  const allLedgerEntries = useMemo<LedgerEntry[]>(() => {
-    if (vouchers.length === 0) return [];
+  const ledgerEntries = useMemo<LedgerEntry[]>(() => {
+    const entries: LedgerEntry[] = [];
+    
+    // Add opening balance entry
+    entries.push({
+      date: startDate || "Beginning",
+      voucherId: "opening-balance",
+      accountName: "All Accounts",
+      accountNo: 0,
+      accountType: "All",
+      type: "BAL",
+      description: "Opening Balance",
+      gold: openingGold,
+      amount: openingKwd,
+      goldBalance: openingGold,
+      kwdBalance: openingKwd,
+      isOpeningBalance: true,
+      originalDate: startDate || undefined,
+    });
 
-    return vouchers.map(voucher => {
-      const getVoucherDescription = () => {
-        let description = voucher.description || "";
-        
-        if (!description && voucher.mvn) {
-          description = `Voucher ${voucher.mvn}`;
-        } else if (!description) {
-          description = `Transaction ${voucher.id.slice(0, 8)}`;
+    // Add voucher entries
+    vouchers.forEach((v) => {
+      const getDescription = () => {
+        let description = v.description || "";
+        if (v.mvn) {
+          description = description ? `${v.mvn} - ${description}` : `Voucher ${v.mvn}`;
         }
-        
+        if (!description) {
+          description = `Transaction ${v.id.slice(0, 8)}`;
+        }
         return description;
       };
 
-      return {
-        date: new Date(voucher.date).toLocaleDateString(),
-        voucherId: voucher.id,
-        accountName: voucher.account.name,
-        accountNo: voucher.account.accountNo,
-        accountType: voucher.account.type,
-        type: voucher.vt,
-        description: getVoucherDescription(),
-        goldRate: voucher.goldRate || undefined,
-        goldDebit: voucher.goldDebit || 0,
-        goldCredit: voucher.goldCredit || 0,
-        goldBalance: voucher.goldBalance,
-        kwdDebit: voucher.kwdDebit || 0,
-        kwdCredit: voucher.kwdCredit || 0,
-        kwdBalance: voucher.kwdBalance,
-        originalDate: voucher.date,
-        mvn: voucher.mvn,
-        fixingAmount: voucher.fixingAmount,
+      const getDisplayAmounts = () => {
+        if (v.vt === "REC" && v.goldRate) {
+          return {
+            gold: v.gold,
+            amount: v.fixingAmount || 0
+          };
+        } else if (v.vt === "GFV") {
+          return {
+            gold: -v.gold,
+            amount: -v.kwd
+          };
+        }
+        return { gold: 0, amount: 0 };
       };
+
+      const amounts = getDisplayAmounts();
+
+      entries.push({
+        date: new Date(v.date).toLocaleDateString(),
+        voucherId: v.id,
+        accountName: v.account.name,
+        accountNo: v.account.accountNo,
+        accountType: v.account.type,
+        type: v.vt,
+        description: getDescription(),
+        goldRate: v.goldRate || undefined,
+        gold: amounts.gold,
+        amount: amounts.amount,
+        goldBalance: v.goldBalance,
+        kwdBalance: v.kwdBalance,
+        originalDate: v.date,
+      });
     });
-  }, [vouchers]);
 
-  // Calculate closing balance
-  const calculateClosingBalance = useMemo(() => {
-    if (allLedgerEntries.length === 0) {
-      return { gold: openingGold, kwd: openingKwd };
-    }
+    // Add closing balance entry
+    const closingGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
+    const closingKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
+    
+    entries.push({
+      date: endDate || "Present",
+      voucherId: "closing-balance",
+      accountName: "All Accounts",
+      accountNo: 0,
+      accountType: "All",
+      type: "BAL",
+      description: "Closing Balance",
+      gold: 0,
+      amount: 0,
+      goldBalance: closingGold,
+      kwdBalance: closingKwd,
+      isClosingBalance: true,
+      originalDate: endDate || undefined,
+    });
 
-    const lastEntry = allLedgerEntries[allLedgerEntries.length - 1];
-    return { 
-      gold: lastEntry.goldBalance, 
-      kwd: lastEntry.kwdBalance 
-    };
-  }, [allLedgerEntries, openingGold, openingKwd]);
-
-  // Create opening balance entry
-  const createOpeningBalanceEntry = (): LedgerEntry => ({
-    date: startDate || "Beginning",
-    voucherId: "opening-balance",
-    accountName: "Opening Balance",
-    accountNo: 0,
-    accountType: "BAL",
-    type: "BAL",
-    description: "Opening Balance",
-    goldRate: undefined,
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: openingGold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: openingKwd,
-    isOpeningBalance: true,
-  });
-
-  // Create closing balance entry
-  const createClosingBalanceEntry = (): LedgerEntry => ({
-    date: endDate || "Present",
-    voucherId: "closing-balance",
-    accountName: "Closing Balance",
-    accountNo: 0,
-    accountType: "BAL",
-    type: "BAL",
-    description: "Closing Balance",
-    goldRate: undefined,
-    goldDebit: 0,
-    goldCredit: 0,
-    goldBalance: calculateClosingBalance.gold,
-    kwdDebit: 0,
-    kwdCredit: 0,
-    kwdBalance: calculateClosingBalance.kwd,
-    isClosingBalance: true,
-  });
-
-  // Add opening and closing balance rows
-  const entriesWithBalances: LedgerEntry[] = [
-    ...(startDate || (!startDate && !endDate) ? [createOpeningBalanceEntry()] : []),
-    ...allLedgerEntries,
-    ...(endDate || (!startDate && !endDate) ? [createClosingBalanceEntry()] : [])
-  ];
-
-  // Calculate totals for filtered results only
-  const totalGoldDebit = allLedgerEntries.reduce((sum, entry) => sum + entry.goldDebit, 0);
-  const totalGoldCredit = allLedgerEntries.reduce((sum, entry) => sum + entry.goldCredit, 0);
-  const totalKwdDebit = allLedgerEntries.reduce((sum, entry) => sum + entry.kwdDebit, 0);
-  const totalKwdCredit = allLedgerEntries.reduce((sum, entry) => sum + entry.kwdCredit, 0);
-
-  // Calculate period totals
-  const periodGold = allLedgerEntries.reduce((sum, v) => {
-    if (v.type === "REC") {
-      return sum + v.goldDebit;
-    } else if (v.type === "GFV") {
-      return sum - v.goldCredit;
-    }
-    return sum;
-  }, 0);
-
-  const periodKwd = allLedgerEntries.reduce((sum, v) => {
-    if (v.type === "REC") {
-      return sum + v.kwdDebit;
-    } else if (v.type === "GFV") {
-      return sum - v.kwdCredit;
-    }
-    return sum;
-  }, 0);
+    return entries;
+  }, [vouchers, openingGold, openingKwd, startDate, endDate]);
 
   const handleFilter = async () => {
     setIsFiltering(true);
@@ -348,63 +296,82 @@ export default function OpenBalanceSheet({
     if (start) params.append("startDate", start);
     if (end) params.append("endDate", end);
     
-    await router.push(`/open-balance?${params.toString()}`);
+    await router.push(`/balance-sheet/open-balance?${params.toString()}`);
     setIsFiltering(false);
   };
 
   const handleReset = async () => {
     setIsFiltering(true);
-    await router.push(`/open-balance`);
+    setStart("");
+    setEnd("");
+    await router.push(`/balance-sheet/open-balance`);
     setIsFiltering(false);
   };
 
-  // Helper function to get display amount with proper sign
-  const getDisplayAmount = (voucher: OpenBalanceVoucher, field: 'gold' | 'kwd' | 'fixingAmount') => {
-    if (voucher.vt === "REC" && voucher.goldRate) {
-      // Market REC with Gold Fixing: Gold positive, Fixing Amount positive
-      if (field === 'gold') return voucher.gold;
-      if (field === 'fixingAmount') return voucher.fixingAmount || 0;
-      if (field === 'kwd') return 0;
-    } else if (voucher.vt === "GFV") {
-      // GFV: Gold negative, KWD negative
-      if (field === 'gold') return -voucher.gold;
-      if (field === 'kwd') return -voucher.kwd;
-      if (field === 'fixingAmount') return 0;
-    }
-    return 0;
-  };
+  // Calculate totals
+  const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
+  const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
 
-  // Get voucher type label
-  const getVoucherTypeLabel = (voucher: OpenBalanceVoucher) => {
-    if (voucher.vt === "REC" && voucher.goldRate) {
+  // Calculate period totals
+  const periodGold = vouchers.reduce((sum, v) => {
+    if (v.vt === "REC" && v.goldRate) {
+      return sum + v.gold;
+    } else if (v.vt === "GFV") {
+      return sum - v.gold;
+    }
+    return sum;
+  }, 0);
+
+  const periodKwd = vouchers.reduce((sum, v) => {
+    if (v.vt === "REC" && v.goldRate) {
+      return sum + (v.fixingAmount || 0);
+    } else if (v.vt === "GFV") {
+      return sum - v.kwd;
+    }
+    return sum;
+  }, 0);
+
+  // Helper function to get voucher type label
+  const getVoucherTypeLabel = (vt: string, goldRate?: number) => {
+    if (vt === "REC" && goldRate) {
       return "REC (Gold Fixing)";
-    } else if (voucher.vt === "GFV") {
+    } else if (vt === "GFV") {
       return "GFV (Gold Fixing)";
     }
-    return voucher.vt;
+    return vt;
   };
 
-  // Get voucher type styling - Updated to match first page
-  const getVoucherTypeStyle = (voucher: OpenBalanceVoucher) => {
-    if (voucher.vt === "REC" && voucher.goldRate) {
+  // Get voucher type styling
+  const getVoucherTypeStyle = (vt: string, goldRate?: number) => {
+    if (vt === "REC" && goldRate) {
       return "bg-yellow-100 text-yellow-800 border border-yellow-300";
-    } else if (voucher.vt === "GFV") {
+    } else if (vt === "GFV") {
+      return "bg-purple-100 text-purple-800 border border-purple-300";
+    } else if (vt === "BAL") {
       return "bg-blue-100 text-blue-800 border border-blue-300";
     }
     return "bg-gray-100 text-gray-800 border border-gray-300";
   };
 
-  // Get account type styling - Updated to match first page
+  // Get account type styling
   const getAccountTypeStyle = (type: string) => {
-    const colors = {
-      Market: 'bg-blue-100 text-blue-800 border border-blue-300',
-      'Gold Fixing': 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+    const styles = {
+      'Market': "bg-blue-100 text-blue-800 border border-blue-300",
+      'Gold Fixing': "bg-yellow-100 text-yellow-800 border border-yellow-300",
     };
-    return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800 border border-gray-300';
+    return styles[type as keyof typeof styles] || "bg-gray-100 text-gray-800 border border-gray-300";
   };
 
   const formatCurrency = (value: number) => {
-    return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return value.toFixed(3);
+  };
+
+  const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
+    const absoluteValue = Math.abs(balance);
+    const suffix = balance >= 0 ? 'Cr' : 'Db';
+    const unit = type === 'gold' ? 'g' : 'KWD';
+    
+    return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -416,16 +383,7 @@ export default function OpenBalanceSheet({
     });
   };
 
-  // Helper function to format balance with Cr/Db - Same as first page
-  const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
-    const absoluteValue = Math.abs(balance);
-    const suffix = balance >= 0 ? 'Cr' : 'Db';
-    const unit = type === 'gold' ? 'g' : 'KWD';
-    
-    return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
-  };
-
-  // Get current month date range - Same as first page
+  // Helper function to get current month date range
   const getCurrentMonthRange = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -437,7 +395,7 @@ export default function OpenBalanceSheet({
     };
   };
 
-  // Get last month date range - Same as first page
+  // Helper function to get last month date range
   const getLastMonthRange = () => {
     const now = new Date();
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -461,34 +419,33 @@ export default function OpenBalanceSheet({
     setEnd(range.end);
   };
 
-  const clearFilters = () => {
-    setStart("");
-    setEnd("");
-  };
-
   const downloadPdf = async () => {
     try {
-      if (!start && !end && entriesWithBalances.length === 0) {
-        alert("No transactions available to generate PDF");
-        return;
-      }
-
       setDownloadingPdf(true);
 
       const pdfData = {
+        title: "Open Balance Ledger",
+        subtitle: "Gold Fixing Transactions",
         startDate: start,
         endDate: end,
-        ledgerEntries: entriesWithBalances,
-        openingBalance: { gold: openingGold, kwd: openingKwd },
-        closingBalance: calculateClosingBalance,
-        totals: {
-          goldDebit: totalGoldDebit,
-          goldCredit: totalGoldCredit,
-          kwdDebit: totalKwdDebit,
-          kwdCredit: totalKwdCredit,
+        ledgerEntries,
+        openingBalance: {
+          gold: openingGold,
+          kwd: openingKwd
         },
-        periodGold,
-        periodKwd,
+        closingBalance: {
+          gold: totalGold,
+          kwd: totalKwd
+        },
+        totals: {
+          periodGold,
+          periodKwd
+        },
+        voucherSummary: {
+          marketRec: vouchers.filter(v => v.vt === "REC" && v.goldRate).length,
+          gfv: vouchers.filter(v => v.vt === "GFV").length,
+          total: vouchers.length
+        }
       };
 
       const response = await fetch("/api/generate-open-balance-pdf", {
@@ -521,7 +478,9 @@ export default function OpenBalanceSheet({
 
       const blob = new Blob([bytes], { type: "application/pdf" });
 
-      const fileName = `open-balance-ledger-${start || "all"}-to-${end || "all"}.pdf`;
+      const fileName = `open-balance-ledger-${start || "all"}-to-${
+        end || "all"
+      }.pdf`;
 
       const file = new File([blob], fileName, { type: "application/pdf" });
 
@@ -565,7 +524,7 @@ export default function OpenBalanceSheet({
           <div className="text-center mb-12">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl blur-lg opacity-30 transform scale-110 -z-10"></div>
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-blue-300 transform hover:scale-105 transition-transform duration-300">
+              <div className="w-20 h-20 bg-gradient-to-r from-yellow-600 to-yellow-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-yellow-300 transform hover:scale-105 transition-transform duration-300">
                 <svg className="w-10 h-10 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -575,7 +534,7 @@ export default function OpenBalanceSheet({
               Open Balance Ledger
             </h1>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <span className="inline-flex px-6 py-3 rounded-full text-lg font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+              <span className="inline-flex px-6 py-3 rounded-full text-lg font-semibold bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border-2 border-yellow-300">
                 Gold Fixing Transactions
               </span>
               <p className="text-xl text-blue-700 font-light">
@@ -584,7 +543,7 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Summary Cards - Blue theme */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
               <div className="flex items-center">
@@ -595,7 +554,7 @@ export default function OpenBalanceSheet({
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-blue-700">Total Transactions</p>
-                  <p className="text-2xl font-bold text-blue-800">{allLedgerEntries.length}</p>
+                  <p className="text-2xl font-bold text-blue-800">{vouchers.length}</p>
                 </div>
               </div>
             </div>
@@ -621,20 +580,6 @@ export default function OpenBalanceSheet({
               <div className="flex items-center">
                 <div className="p-3 bg-purple-100 rounded-lg">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-blue-700">Filtered Transactions</p>
-                  <p className="text-2xl font-bold text-blue-800">{allLedgerEntries.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
-              <div className="flex items-center">
-                <div className="p-3 bg-amber-100 rounded-lg">
-                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
@@ -647,44 +592,61 @@ export default function OpenBalanceSheet({
                 </div>
               </div>
             </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
+              <div className="flex items-center">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-blue-700">Closing Balance</p>
+                  <p className="text-lg font-bold text-blue-800">
+                    {formatBalance(totalGold, 'gold')}<br />
+                    {formatBalance(totalKwd, 'kwd')}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Combined Balance Summary Card - Blue theme */}
+          {/* Balance Summary Card */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-8 border-2 border-blue-300 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-blue-200 to-blue-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
-            <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-indigo-200 to-indigo-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
+            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
+            <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-200 to-blue-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
             
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-blue-800">Current Balance Summary</h2>
+              <h2 className="text-2xl font-bold text-blue-800">Open Balance Summary</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-                calculateClosingBalance.gold >= 0 
+                totalGold >= openingGold 
                   ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Gold Balance</p>
-                <p className="text-3xl font-bold">{formatBalance(calculateClosingBalance.gold, 'gold')}</p>
+                <p className="text-3xl font-bold">{formatBalance(totalGold, 'gold')}</p>
                 <p className="text-sm mt-3 opacity-90 font-medium">
-                  {calculateClosingBalance.gold >= 0 ? "Gold Credit Balance" : "Gold Debit Balance"}
+                  Net Change: {periodGold >= 0 ? '+' : ''}{formatCurrency(periodGold)}g
                 </p>
               </div>
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-                calculateClosingBalance.kwd >= 0 
+                totalKwd >= openingKwd 
                   ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
-                <p className="text-3xl font-bold">{formatBalance(calculateClosingBalance.kwd, 'kwd')}</p>
+                <p className="text-3xl font-bold">{formatBalance(totalKwd, 'kwd')}</p>
                 <p className="text-sm mt-3 opacity-90 font-medium">
-                  {calculateClosingBalance.kwd >= 0 ? "Amount Credit Balance" : "Amount Debit Balance"}
+                  Net Change: {periodKwd >= 0 ? '+' : ''}{formatCurrency(periodKwd)} KWD
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Date Range Filters - Blue theme */}
+          {/* Date Range Filters */}
           <div className="relative mb-6 rounded-3xl border-2 border-blue-300 bg-white/80 p-6 shadow-2xl backdrop-blur-sm overflow-hidden">
             <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-gradient-to-br from-blue-200 to-blue-400 opacity-20 translate-x-12 -translate-y-12"></div>
 
@@ -735,7 +697,7 @@ export default function OpenBalanceSheet({
                     </button>
 
                     <button
-                      onClick={clearFilters}
+                      onClick={handleReset}
                       className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
                     >
                       Clear Filters
@@ -744,31 +706,29 @@ export default function OpenBalanceSheet({
                 </div>
               </div>
 
-              {/* Filter Buttons */}
-              <div className="flex gap-2">
+              {/* Apply Filter Button */}
+              <div className="flex justify-end">
                 <button
                   onClick={handleFilter}
                   disabled={isFiltering}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-900 disabled:from-blue-400 disabled:to-blue-600 transition-all duration-300 border-2 border-blue-400 shadow-lg hover:shadow-xl"
+                  className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isFiltering ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Filtering...
                     </>
                   ) : (
-                    "Apply Filter"
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Apply Filter
+                    </>
                   )}
-                </button>
-                
-                <button
-                  onClick={handleReset}
-                  className="px-6 py-3 border-2 border-blue-300 text-blue-700 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  Reset
                 </button>
               </div>
 
@@ -808,17 +768,17 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Results Summary - Blue theme */}
+          {/* Results Summary */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-blue-300">
             <div className="flex flex-col sm:flex-row justify-between items-center">
               <div>
                 <h3 className="text-xl font-bold text-blue-800">
-                  Showing {allLedgerEntries.length} transactions
+                  Showing {vouchers.length} of {vouchers.length} transactions
                 </h3>
                 <p className="text-blue-700">
                   {start || end 
                     ? `Filtered by date range ${start ? `from ${formatDate(start)}` : ''} ${end ? `to ${formatDate(end)}` : ''}`
-                    : "Showing all transactions"}
+                    : "Showing all Gold Fixing transactions"}
                 </p>
               </div>
               <div className="flex gap-6 mt-4 sm:mt-0">
@@ -838,18 +798,86 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Ledger Table with Opening/Closing Balances - Blue theme */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300">
+          {/* Transaction Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border-2 border-blue-300">
+              <h3 className="text-lg font-semibold text-blue-800 mb-4">Transaction Breakdown</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-700">Market REC (Gold Fixing):</span>
+                  <span className="font-semibold text-blue-800">
+                    {vouchers.filter(v => v.vt === "REC" && v.goldRate).length} transactions
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-700">GFV Vouchers:</span>
+                  <span className="font-semibold text-blue-800">
+                    {vouchers.filter(v => v.vt === "GFV").length} transactions
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-blue-300">
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Net Change Gold:</span>
+                    <span className={`font-semibold ${periodGold >= 0 ? 'text-blue-800' : 'text-red-700'}`}>
+                      {periodGold >= 0 ? '+' : ''}{formatCurrency(periodGold)}g
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Net Change KWD:</span>
+                    <span className={`font-semibold ${periodKwd >= 0 ? 'text-blue-800' : 'text-red-700'}`}>
+                      {periodKwd >= 0 ? '+' : ''}{formatCurrency(periodKwd)} KWD
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border-2 border-blue-300">
+              <h3 className="text-lg font-semibold text-blue-800 mb-4">Legend</h3>
+              <div className="space-y-4 text-sm">
+                <div>
+                  <div className="flex items-center mb-2">
+                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 mr-3">
+                      REC (Gold Fixing)
+                    </span>
+                    <span className="text-blue-700">Market REC with Gold Rate</span>
+                  </div>
+                  <ul className="text-blue-600 text-xs space-y-1 ml-4">
+                    <li>• Gold: Positive (+)</li>
+                    <li>• Fixing Amount: Positive (+)</li>
+                    <li>• Gold Rate: Required</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="flex items-center mb-2">
+                    <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300 mr-3">
+                      GFV (Gold Fixing)
+                    </span>
+                    <span className="text-blue-700">Gold Fixing Vouchers</span>
+                  </div>
+                  <ul className="text-blue-600 text-xs space-y-1 ml-4">
+                    <li>• Gold: Negative (-)</li>
+                    <li>• KWD: Negative (-)</li>
+                    <li>• Gold Rate: May be present</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Open Balance Ledger Table */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300 mb-8">
             <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger</h2>
+                <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger Transactions</h2>
                 <span className="text-blue-700 font-medium">
-                  {allLedgerEntries.length} Gold Fixing transaction(s)
+                  {vouchers.length} transaction(s)
                 </span>
               </div>
             </div>
 
-            {entriesWithBalances.length === 0 ? (
+            {ledgerEntries.length === 0 ? (
               <div className="text-center py-12">
                 <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -873,28 +901,22 @@ export default function OpenBalanceSheet({
                         Account
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Details
+                        Type
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Type
+                        Description
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Rate
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Debit (g)
+                        Gold (g)
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Credit (g)
+                        Amount (KWD)
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Balance
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount Debit (KWD)
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount Credit (KWD)
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Amount Balance
@@ -902,12 +924,12 @@ export default function OpenBalanceSheet({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-300">
-                    {entriesWithBalances.map((entry) => (
+                    {ledgerEntries.map((entry) => (
                       <tr 
                         key={entry.voucherId} 
                         className={`transition-colors duration-150 ${
-                          entry.isOpeningBalance ? 'bg-blue-50' : 
-                          entry.isClosingBalance ? 'bg-indigo-50' : 
+                          entry.isOpeningBalance ? 'bg-yellow-50' : 
+                          entry.isClosingBalance ? 'bg-green-50' : 
                           'bg-white hover:bg-blue-50/50'
                         }`}
                       >
@@ -915,56 +937,48 @@ export default function OpenBalanceSheet({
                           {entry.isOpeningBalance || entry.isClosingBalance 
                             ? (entry.date === "Beginning" || entry.date === "Present" 
                                 ? entry.date 
-                                : formatDate(entry.date))
-                            : formatDate(entry.date)
+                                : new Date(entry.date).toLocaleDateString())
+                            : entry.date
                           }
                         </td>
                         <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
                           <div className="flex flex-col">
                             <span className="font-semibold text-blue-900">{entry.accountName}</span>
                             {entry.accountNo > 0 && (
-                              <span className="text-xs text-blue-600">#{entry.accountNo}</span>
+                              <>
+                                <span className="text-xs text-blue-600">#{entry.accountNo}</span>
+                                <span className={`inline-flex px-2 py-0.5 text-xs rounded-full mt-1 ${getAccountTypeStyle(entry.accountType)}`}>
+                                  {entry.accountType}
+                                </span>
+                              </>
                             )}
-                            <span className={`inline-flex px-2 py-1 mt-1 text-xs font-semibold rounded-full ${getAccountTypeStyle(entry.accountType)}`}>
-                              {entry.accountType}
-                            </span>
                           </div>
                         </td>
-                        <td className="border border-blue-300 px-4 py-3 text-sm text-blue-700 max-w-xs truncate text-center">
-                          {entry.mvn ? `MVN: ${entry.mvn} - ${entry.description}` : entry.description}
-                        </td>
                         <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
-                          {!entry.isOpeningBalance && !entry.isClosingBalance ? (
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle({vt: entry.type as "REC" | "GFV", goldRate: entry.goldRate})}`}>
-                              {entry.type === "REC" ? "REC (Gold Fixing)" : "GFV"}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-200 text-blue-900 border border-blue-400">
-                              BAL
-                            </span>
-                          )}
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle(entry.type, entry.goldRate)}`}>
+                            {getVoucherTypeLabel(entry.type, entry.goldRate)}
+                          </span>
+                        </td>
+                        <td className="border border-blue-300 px-4 py-3 text-sm text-blue-700 max-w-xs truncate text-center">
+                          {entry.description}
                         </td>
                         <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldRate ? formatCurrency(entry.goldRate) : "-"}
+                          {entry.goldRate ? entry.goldRate.toFixed(3) : '-'}
                         </td>
-                        {/* Gold Columns */}
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldDebit > 0 ? entry.goldDebit.toFixed(3) : "-"}
+                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono ${
+                          entry.gold > 0 ? 'text-green-700' : entry.gold < 0 ? 'text-red-700' : 'text-blue-700'
+                        }`}>
+                          {entry.gold !== 0 ? (entry.gold > 0 ? '+' : '') + formatCurrency(entry.gold) : '-'}
                         </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldCredit > 0 ? entry.goldCredit.toFixed(3) : "-"}
+                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono ${
+                          entry.amount > 0 ? 'text-green-700' : entry.amount < 0 ? 'text-red-700' : 'text-blue-700'
+                        }`}>
+                          {entry.amount !== 0 ? (entry.amount > 0 ? '+' : '') + formatCurrency(entry.amount) : '-'}
                         </td>
                         <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
                           entry.goldBalance >= 0 ? "text-blue-700" : "text-red-700"
                         }`}>
                           {formatBalance(entry.goldBalance, 'gold')}
-                        </td>
-                        {/* Amount Columns */}
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
                         </td>
                         <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
                           entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
@@ -974,131 +988,16 @@ export default function OpenBalanceSheet({
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-blue-100">
-                    <tr>
-                      <td colSpan={5} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
-                        Totals:
-                      </td>
-                      {/* Gold Totals */}
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalGoldDebit.toFixed(3)}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalGoldCredit.toFixed(3)}
-                      </td>
-                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.gold >= 0 ? "text-blue-700" : "text-red-700"
-                      }`}>
-                        {formatBalance(calculateClosingBalance.gold, 'gold')}
-                      </td>
-                      {/* Amount Totals */}
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalKwdDebit.toFixed(3)}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalKwdCredit.toFixed(3)}
-                      </td>
-                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.kwd >= 0 ? "text-blue-700" : "text-red-700"
-                      }`}>
-                        {formatBalance(calculateClosingBalance.kwd, 'kwd')}
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             )}
           </div>
 
-          {/* Transaction Summary - Blue theme */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-800 rounded-3xl p-8 text-white shadow-2xl border-2 border-blue-400">
-              <h3 className="text-xl font-bold mb-4">Open Balance Summary</h3>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm opacity-90 mb-2">Opening Balance</p>
-                  <p className="text-lg font-bold">{formatBalance(openingGold, 'gold')}</p>
-                  <p className="text-lg font-bold">{formatBalance(openingKwd, 'kwd')}</p>
-                </div>
-                <div>
-                  <p className="text-sm opacity-90 mb-2">Closing Balance</p>
-                  <p className="text-lg font-bold">{formatBalance(calculateClosingBalance.gold, 'gold')}</p>
-                  <p className="text-lg font-bold">{formatBalance(calculateClosingBalance.kwd, 'kwd')}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-blue-300">
-              <h3 className="text-xl font-bold text-blue-800 mb-4">Transaction Breakdown</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-blue-700">Market REC (Gold Fixing):</span>
-                  <span className="font-semibold text-blue-800">
-                    {allLedgerEntries.filter(v => v.type === "REC").length} transactions
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-blue-700">GFV Vouchers:</span>
-                  <span className="font-semibold text-blue-800">
-                    {allLedgerEntries.filter(v => v.type === "GFV").length} transactions
-                  </span>
-                </div>
-                <div className="pt-4 border-t border-blue-300">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-blue-700">Net Change Gold:</span>
-                    <span className={`font-bold ${periodGold >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                      {formatBalance(periodGold, 'gold')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-700">Net Change KWD:</span>
-                    <span className={`font-bold ${periodKwd >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                      {formatBalance(periodKwd, 'kwd')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Legend - Blue theme */}
-          <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-blue-300">
-            <h3 className="text-xl font-bold text-blue-800 mb-4">Legend</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <div className="flex items-center mb-3">
-                  <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 mr-3">
-                    REC (Gold Fixing)
-                  </span>
-                  <span className="text-blue-700">Market REC with Gold Rate</span>
-                </div>
-                <ul className="text-blue-600 text-sm space-y-1 ml-4">
-                  <li>• Gold: Positive (+)</li>
-                  <li>• Fixing Amount: Positive (+)</li>
-                  <li>• Gold Rate: Required</li>
-                </ul>
-              </div>
-              <div>
-                <div className="flex items-center mb-3">
-                  <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300 mr-3">
-                    GFV (Gold Fixing)
-                  </span>
-                  <span className="text-blue-700">Gold Fixing Vouchers</span>
-                </div>
-                <ul className="text-blue-600 text-sm space-y-1 ml-4">
-                  <li>• Gold: Negative (-)</li>
-                  <li>• KWD: Negative (-)</li>
-                  <li>• Gold Rate: May be present</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons - Blue theme */}
+          {/* Action Buttons */}
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={downloadPdf}
-              disabled={downloadingPdf || entriesWithBalances.length === 0}
+              disabled={downloadingPdf || ledgerEntries.length === 0}
               className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {downloadingPdf ? (
