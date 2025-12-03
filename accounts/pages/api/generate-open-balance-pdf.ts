@@ -622,14 +622,14 @@ class OpenBalancePDFGenerator {
         : `${entry.accountNo} - ${entry.accountName}`;
 
       // Get voucher type with proper labels
-      let typeDisplay = entry.type;
-      if (entry.type === "REC" && entry.goldRate) {
-        typeDisplay = "REC (Gold Fixing)";
-      } else if (entry.type === "GFV") {
-        typeDisplay = "GFV (Gold Fixing)";
-      } else if (entry.type === "BAL") {
-        typeDisplay = "BAL";
-      }
+     let typeDisplay: string = entry.type;
+if (entry.type === "REC" && entry.goldRate) {
+  typeDisplay = "REC (Gold Fixing)";
+} else if (entry.type === "GFV") {
+  typeDisplay = "GFV (Gold Fixing)";
+} else if (entry.type === "BAL") {
+  typeDisplay = "BAL";
+}
 
       // Truncate description if too long
       let description = entry.description || '';
