@@ -519,7 +519,7 @@ class FullLedgerPDFGenerator {
           y: tableTop - 34,
           size: 8,
           font: boldFont,
-          color: COLORS.white,
+          color: COLORS.blue800,
         });
         
         xPos += colWidths[colIndex];
