@@ -75,6 +75,7 @@ const HEADER_HEIGHT = 40;
 const FOOTER_HEIGHT = 30;
 
 // Updated Colors to match page theme
+// Add red800 to your COLORS object
 const COLORS = {
   // Blue theme colors
   blue50: rgb(239 / 255, 246 / 255, 255 / 255),
@@ -94,10 +95,11 @@ const COLORS = {
   indigo700: rgb(67 / 255, 56 / 255, 202 / 255),
   indigo800: rgb(55 / 255, 48 / 255, 163 / 255),
   
-  // Status colors
+  // Status colors - ADD red800 here
   red100: rgb(254 / 255, 226 / 255, 226 / 255),
   red600: rgb(220 / 255, 38 / 255, 38 / 255),
   red700: rgb(185 / 255, 28 / 255, 28 / 255),
+  red800: rgb(153 / 255, 27 / 255, 27 / 255), // Add this line
   
   green100: rgb(220 / 255, 252 / 255, 231 / 255),
   green600: rgb(22 / 255, 163 / 255, 74 / 255),
