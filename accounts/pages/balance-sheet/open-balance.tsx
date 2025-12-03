@@ -21,108 +21,29 @@ type OpenBalanceVoucher = {
   kwd: number;
   goldRate?: number;
   fixingAmount?: number;
-  goldBalance: number;
-  kwdBalance: number;
 };
 
 type Props = {
-  vouchers: OpenBalanceVoucher[];
-  startDate?: string;
-  endDate?: string;
-  openingGold: number;
-  openingKwd: number;
+  allVouchers: OpenBalanceVoucher[];
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const startDateParam = context.query.startDate as string | undefined;
-  const endDateParam = context.query.endDate as string | undefined;
-
-  const startDate = startDateParam ? new Date(startDateParam) : undefined;
-  const endDate = endDateParam ? new Date(endDateParam) : undefined;
-
-  // Step 1: Calculate Opening Balance (vouchers before startDate)
-  let openingGold = 0;
-  let openingKwd = 0;
-
-  if (startDate) {
-    // Get Market REC vouchers with goldRate (Gold Fixing) before start date
-    const previousMarketRecVouchers = await prisma.voucher.findMany({
-      where: {
-        vt: "REC",
-        account: { type: "Market" },
-        goldRate: { not: null },
-        date: { lt: startDate },
-      },
-      include: {
-        account: {
-          select: {
-            name: true,
-            accountNo: true,
-            type: true,
-          },
+export const getServerSideProps: GetServerSideProps = async () => {
+  // Fetch ALL vouchers for Open Balance without any date filtering
+  const allVouchers = await prisma.voucher.findMany({
+    where: {
+      OR: [
+        // Market REC vouchers with goldRate (Gold Fixing)
+        {
+          vt: "REC",
+          account: { type: "Market" },
+          goldRate: { not: null },
         },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // Get GFV vouchers before start date
-    const previousGfvVouchers = await prisma.voucher.findMany({
-      where: {
-        vt: "GFV",
-        date: { lt: startDate },
-      },
-      include: {
-        account: {
-          select: {
-            name: true,
-            accountNo: true,
-            type: true,
-          },
+        // GFV vouchers
+        {
+          vt: "GFV",
         },
-      },
-      orderBy: { date: "asc" },
-    });
-
-    // Calculate opening balance
-    previousMarketRecVouchers.forEach((v) => {
-      // Market REC with goldRate: Gold positive, Fixing Amount positive
-      openingGold += v.gold;
-      openingKwd += v.fixingAmount || 0;
-    });
-
-    previousGfvVouchers.forEach((v) => {
-      // GFV: Gold negative, KWD negative
-      openingGold -= v.gold;
-      openingKwd -= v.kwd;
-    });
-  }
-
-  // Step 2: Fetch vouchers within date range for Open Balance
-  const whereClause: any = {
-    OR: [
-      // Market REC vouchers with goldRate (Gold Fixing)
-      {
-        vt: "REC",
-        account: { type: "Market" },
-        goldRate: { not: null },
-      },
-      // GFV vouchers
-      {
-        vt: "GFV",
-      },
-    ],
-  };
-  
-  if (startDate && endDate) {
-    whereClause.date = { gte: startDate, lte: endDate };
-  } else if (startDate) {
-    whereClause.date = { gte: startDate };
-  } else if (endDate) {
-    whereClause.date = { lte: endDate };
-  }
-
-  const vouchers = await prisma.voucher.findMany({
-    where: whereClause,
+      ],
+    },
     include: {
       account: {
         select: {
@@ -135,35 +56,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  // Step 3: Compute running balances for Open Balance
-  let goldBalance = openingGold;
-  let kwdBalance = openingKwd;
-  
-  const processedVouchers = vouchers.map((v) => {
-    if (v.vt === "REC" && v.goldRate) {
-      // Market REC with Gold Fixing: Gold positive, Fixing Amount positive
-      goldBalance += v.gold;
-      kwdBalance += v.fixingAmount || 0;
-    } else if (v.vt === "GFV") {
-      // GFV: Gold negative, KWD negative
-      goldBalance -= v.gold;
-      kwdBalance -= v.kwd;
-    }
-    
-    return { 
-      ...v, 
-      goldBalance, 
-      kwdBalance 
-    };
-  });
-
   return {
     props: {
-      vouchers: JSON.parse(JSON.stringify(processedVouchers)),
-      startDate: startDateParam || null,
-      endDate: endDateParam || null,
-      openingGold,
-      openingKwd,
+      allVouchers: JSON.parse(JSON.stringify(allVouchers)),
     },
   };
 };
@@ -184,152 +79,232 @@ type LedgerEntry = {
   isOpeningBalance?: boolean;
   isClosingBalance?: boolean;
   originalDate?: string;
+  goldDebit?: number;
+  goldCredit?: number;
+  kwdDebit?: number;
+  kwdCredit?: number;
 };
 
 export default function OpenBalanceSheet({
-  vouchers,
-  startDate,
-  endDate,
-  openingGold,
-  openingKwd,
+  allVouchers,
 }: Props) {
   const router = useRouter();
-  const [start, setStart] = useState(startDate || "");
-  const [end, setEnd] = useState(endDate || "");
-  const [isFiltering, setIsFiltering] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  // Process vouchers into ledger entries
-  const ledgerEntries = useMemo<LedgerEntry[]>(() => {
-    const entries: LedgerEntry[] = [];
+  
+  // Get current month range for default
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     
-    // Add opening balance entry
-    entries.push({
-      date: startDate || "Beginning",
-      voucherId: "opening-balance",
-      accountName: "All Accounts",
-      accountNo: 0,
-      accountType: "All",
-      type: "BAL",
-      description: "Opening Balance",
-      gold: openingGold,
-      amount: openingKwd,
-      goldBalance: openingGold,
-      kwdBalance: openingKwd,
-      isOpeningBalance: true,
-      originalDate: startDate || undefined,
-    });
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
+    };
+  };
 
-    // Add voucher entries
-    vouchers.forEach((v) => {
+  // Date range state - initialize with current month
+  const [dateRange, setDateRange] = useState({
+    start: "",
+    end: ""
+  });
+
+  // Set default to current month on component mount
+  useEffect(() => {
+    const currentMonth = getCurrentMonthRange();
+    setDateRange({
+      start: currentMonth.start,
+      end: currentMonth.end
+    });
+  }, []);
+
+  // Process all vouchers into ledger entries with running balances
+  const allLedgerEntries = useMemo<LedgerEntry[]>(() => {
+    if (allVouchers.length === 0) return [];
+
+    let goldBalance = 0;
+    let kwdBalance = 0;
+    
+    return allVouchers.map((voucher) => {
+      let goldDebit = 0;
+      let goldCredit = 0;
+      let kwdDebit = 0;
+      let kwdCredit = 0;
+
       const getDescription = () => {
-        let description = v.description || "";
-        if (v.mvn) {
-          description = description ? `${v.mvn} - ${description}` : `Voucher ${v.mvn}`;
+        let description = voucher.description || "";
+        if (voucher.mvn) {
+          description = description ? `${voucher.mvn} - ${description}` : `Voucher ${voucher.mvn}`;
         }
         if (!description) {
-          description = `Transaction ${v.id.slice(0, 8)}`;
+          description = `Transaction ${voucher.id.slice(0, 8)}`;
         }
         return description;
       };
 
-      const getDisplayAmounts = () => {
-        if (v.vt === "REC" && v.goldRate) {
-          return {
-            gold: v.gold,
-            amount: v.fixingAmount || 0
-          };
-        } else if (v.vt === "GFV") {
-          return {
-            gold: -v.gold,
-            amount: -v.kwd
-          };
-        }
-        return { gold: 0, amount: 0 };
-      };
+      if (voucher.vt === "REC" && voucher.goldRate) {
+        // Market REC with Gold Fixing: Gold positive, Fixing Amount positive
+        goldBalance += voucher.gold;
+        kwdBalance += voucher.fixingAmount || 0;
+        goldDebit = voucher.gold;
+        kwdDebit = voucher.fixingAmount || 0;
+      } else if (voucher.vt === "GFV") {
+        // GFV: Gold negative, KWD negative
+        goldBalance -= voucher.gold;
+        kwdBalance -= voucher.kwd;
+        goldCredit = voucher.gold;
+        kwdCredit = voucher.kwd;
+      }
 
-      const amounts = getDisplayAmounts();
-
-      entries.push({
-        date: new Date(v.date).toLocaleDateString(),
-        voucherId: v.id,
-        accountName: v.account.name,
-        accountNo: v.account.accountNo,
-        accountType: v.account.type,
-        type: v.vt,
+      return {
+        date: new Date(voucher.date).toLocaleDateString(),
+        voucherId: voucher.id,
+        accountName: voucher.account.name,
+        accountNo: voucher.account.accountNo,
+        accountType: voucher.account.type,
+        type: voucher.vt,
         description: getDescription(),
-        goldRate: v.goldRate || undefined,
-        gold: amounts.gold,
-        amount: amounts.amount,
-        goldBalance: v.goldBalance,
-        kwdBalance: v.kwdBalance,
-        originalDate: v.date,
-      });
+        goldRate: voucher.goldRate || undefined,
+        gold: voucher.vt === "REC" ? voucher.gold : -voucher.gold,
+        amount: voucher.vt === "REC" ? (voucher.fixingAmount || 0) : -voucher.kwd,
+        goldBalance,
+        kwdBalance,
+        originalDate: voucher.date,
+        goldDebit,
+        goldCredit,
+        kwdDebit,
+        kwdCredit,
+      };
     });
+  }, [allVouchers]);
 
-    // Add closing balance entry
-    const closingGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
-    const closingKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
-    
-    entries.push({
-      date: endDate || "Present",
-      voucherId: "closing-balance",
-      accountName: "All Accounts",
-      accountNo: 0,
-      accountType: "All",
-      type: "BAL",
-      description: "Closing Balance",
-      gold: 0,
-      amount: 0,
-      goldBalance: closingGold,
-      kwdBalance: closingKwd,
-      isClosingBalance: true,
-      originalDate: endDate || undefined,
+  // Filter entries by date range (client-side)
+  const filteredLedgerEntries = useMemo(() => {
+    if (allLedgerEntries.length === 0) return [];
+
+    if (!dateRange.start && !dateRange.end) {
+      return allLedgerEntries;
+    }
+
+    return allLedgerEntries.filter((entry) => {
+      const entryDate = entry.originalDate || entry.date;
+      const startDate = dateRange.start;
+      const endDate = dateRange.end;
+      
+      return (!startDate || entryDate >= startDate) && 
+             (!endDate || entryDate <= endDate);
     });
+  }, [allLedgerEntries, dateRange.start, dateRange.end]);
 
-    return entries;
-  }, [vouchers, openingGold, openingKwd, startDate, endDate]);
+  // Calculate opening balance for filtered period
+  const calculateOpeningBalance = useMemo(() => {
+    if (!dateRange.start || allLedgerEntries.length === 0) {
+      return { gold: 0, kwd: 0 };
+    }
 
-  const handleFilter = async () => {
-    setIsFiltering(true);
-    const params = new URLSearchParams();
-    if (start) params.append("startDate", start);
-    if (end) params.append("endDate", end);
-    
-    await router.push(`/balance-sheet/open-balance?${params.toString()}`);
-    setIsFiltering(false);
-  };
+    const startDate = dateRange.start;
+    let openingGoldBalance = 0;
+    let openingKwdBalance = 0;
 
-  const handleReset = async () => {
-    setIsFiltering(true);
-    setStart("");
-    setEnd("");
-    await router.push(`/balance-sheet/open-balance`);
-    setIsFiltering(false);
-  };
+    // Find the last entry before the start date
+    for (let i = allLedgerEntries.length - 1; i >= 0; i--) {
+      const entryDate = allLedgerEntries[i].originalDate || allLedgerEntries[i].date;
+      if (entryDate < startDate) {
+        openingGoldBalance = allLedgerEntries[i].goldBalance;
+        openingKwdBalance = allLedgerEntries[i].kwdBalance;
+        break;
+      }
+    }
 
-  // Calculate totals
-  const totalGold = vouchers.length > 0 ? vouchers[vouchers.length - 1].goldBalance : openingGold;
-  const totalKwd = vouchers.length > 0 ? vouchers[vouchers.length - 1].kwdBalance : openingKwd;
+    return { gold: openingGoldBalance, kwd: openingKwdBalance };
+  }, [allLedgerEntries, dateRange.start]);
 
-  // Calculate period totals
-  const periodGold = vouchers.reduce((sum, v) => {
-    if (v.vt === "REC" && v.goldRate) {
-      return sum + v.gold;
-    } else if (v.vt === "GFV") {
-      return sum - v.gold;
+  // Calculate closing balance for filtered period
+  const calculateClosingBalance = useMemo(() => {
+    if (filteredLedgerEntries.length === 0) {
+      return calculateOpeningBalance;
+    }
+
+    const lastEntry = filteredLedgerEntries[filteredLedgerEntries.length - 1];
+    return { 
+      gold: lastEntry.goldBalance, 
+      kwd: lastEntry.kwdBalance 
+    };
+  }, [filteredLedgerEntries, calculateOpeningBalance]);
+
+  // Calculate totals for filtered results
+  const totalGoldDebit = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.goldDebit || 0), 0);
+  const totalGoldCredit = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.goldCredit || 0), 0);
+  const totalKwdDebit = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.kwdDebit || 0), 0);
+  const totalKwdCredit = filteredLedgerEntries.reduce((sum, entry) => sum + (entry.kwdCredit || 0), 0);
+
+  // Create opening balance entry
+  const createOpeningBalanceEntry = (): LedgerEntry => ({
+    date: dateRange.start || "Beginning",
+    voucherId: "opening-balance",
+    accountName: "All Accounts",
+    accountNo: 0,
+    accountType: "All",
+    type: "BAL",
+    description: "Opening Balance",
+    gold: 0,
+    amount: 0,
+    goldBalance: calculateOpeningBalance.gold,
+    kwdBalance: calculateOpeningBalance.kwd,
+    isOpeningBalance: true,
+    originalDate: dateRange.start || undefined,
+  });
+
+  // Create closing balance entry
+  const createClosingBalanceEntry = (): LedgerEntry => ({
+    date: dateRange.end || "Present",
+    voucherId: "closing-balance",
+    accountName: "All Accounts",
+    accountNo: 0,
+    accountType: "All",
+    type: "BAL",
+    description: "Closing Balance",
+    gold: 0,
+    amount: 0,
+    goldBalance: calculateClosingBalance.gold,
+    kwdBalance: calculateClosingBalance.kwd,
+    isClosingBalance: true,
+    originalDate: dateRange.end || undefined,
+  });
+
+  // Add opening and closing balance rows
+  const entriesWithBalances: LedgerEntry[] = [
+    ...(dateRange.start || (!dateRange.start && !dateRange.end) ? [createOpeningBalanceEntry()] : []),
+    ...filteredLedgerEntries,
+    ...(dateRange.end || (!dateRange.start && !dateRange.end) ? [createClosingBalanceEntry()] : [])
+  ];
+
+  // Calculate period totals (net change)
+  const periodGold = filteredLedgerEntries.reduce((sum, entry) => {
+    if (entry.type === "REC") {
+      return sum + (entry.goldDebit || 0);
+    } else if (entry.type === "GFV") {
+      return sum - (entry.goldCredit || 0);
     }
     return sum;
   }, 0);
 
-  const periodKwd = vouchers.reduce((sum, v) => {
-    if (v.vt === "REC" && v.goldRate) {
-      return sum + (v.fixingAmount || 0);
-    } else if (v.vt === "GFV") {
-      return sum - v.kwd;
+  const periodKwd = filteredLedgerEntries.reduce((sum, entry) => {
+    if (entry.type === "REC") {
+      return sum + (entry.kwdDebit || 0);
+    } else if (entry.type === "GFV") {
+      return sum - (entry.kwdCredit || 0);
     }
     return sum;
   }, 0);
+
+  // Get current overall balances
+  const currentGoldBalance = allLedgerEntries.length > 0 
+    ? allLedgerEntries[allLedgerEntries.length - 1].goldBalance 
+    : 0;
+  const currentKwdBalance = allLedgerEntries.length > 0 
+    ? allLedgerEntries[allLedgerEntries.length - 1].kwdBalance 
+    : 0;
 
   // Helper function to get voucher type label
   const getVoucherTypeLabel = (vt: string, goldRate?: number) => {
@@ -337,6 +312,8 @@ export default function OpenBalanceSheet({
       return "REC (Gold Fixing)";
     } else if (vt === "GFV") {
       return "GFV (Gold Fixing)";
+    } else if (vt === "BAL") {
+      return "Balance";
     }
     return vt;
   };
@@ -383,18 +360,6 @@ export default function OpenBalanceSheet({
     });
   };
 
-  // Helper function to get current month date range
-  const getCurrentMonthRange = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
-    };
-  };
-
   // Helper function to get last month date range
   const getLastMonthRange = () => {
     const now = new Date();
@@ -407,16 +372,23 @@ export default function OpenBalanceSheet({
     };
   };
 
+  // Handle date range change
+  const handleDateRangeChange = (newStart: string, newEnd: string) => {
+    setDateRange({ start: newStart, end: newEnd });
+  };
+
   const setCurrentMonth = () => {
     const range = getCurrentMonthRange();
-    setStart(range.start);
-    setEnd(range.end);
+    handleDateRangeChange(range.start, range.end);
   };
 
   const setLastMonth = () => {
     const range = getLastMonthRange();
-    setStart(range.start);
-    setEnd(range.end);
+    handleDateRangeChange(range.start, range.end);
+  };
+
+  const clearFilters = () => {
+    handleDateRangeChange("", "");
   };
 
   const downloadPdf = async () => {
@@ -426,25 +398,23 @@ export default function OpenBalanceSheet({
       const pdfData = {
         title: "Open Balance Ledger",
         subtitle: "Gold Fixing Transactions",
-        startDate: start,
-        endDate: end,
-        ledgerEntries,
-        openingBalance: {
-          gold: openingGold,
-          kwd: openingKwd
-        },
-        closingBalance: {
-          gold: totalGold,
-          kwd: totalKwd
-        },
+        startDate: dateRange.start,
+        endDate: dateRange.end,
+        ledgerEntries: entriesWithBalances,
+        openingBalance: calculateOpeningBalance,
+        closingBalance: calculateClosingBalance,
         totals: {
           periodGold,
-          periodKwd
+          periodKwd,
+          goldDebit: totalGoldDebit,
+          goldCredit: totalGoldCredit,
+          kwdDebit: totalKwdDebit,
+          kwdCredit: totalKwdCredit,
         },
         voucherSummary: {
-          marketRec: vouchers.filter(v => v.vt === "REC" && v.goldRate).length,
-          gfv: vouchers.filter(v => v.vt === "GFV").length,
-          total: vouchers.length
+          marketRec: filteredLedgerEntries.filter(v => v.type === "REC").length,
+          gfv: filteredLedgerEntries.filter(v => v.type === "GFV").length,
+          total: filteredLedgerEntries.length
         }
       };
 
@@ -478,8 +448,8 @@ export default function OpenBalanceSheet({
 
       const blob = new Blob([bytes], { type: "application/pdf" });
 
-      const fileName = `open-balance-ledger-${start || "all"}-to-${
-        end || "all"
+      const fileName = `open-balance-ledger-${dateRange.start || "all"}-to-${
+        dateRange.end || "all"
       }.pdf`;
 
       const file = new File([blob], fileName, { type: "application/pdf" });
@@ -554,7 +524,7 @@ export default function OpenBalanceSheet({
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-blue-700">Total Transactions</p>
-                  <p className="text-2xl font-bold text-blue-800">{vouchers.length}</p>
+                  <p className="text-2xl font-bold text-blue-800">{allVouchers.length}</p>
                 </div>
               </div>
             </div>
@@ -567,10 +537,10 @@ export default function OpenBalanceSheet({
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-blue-700">Opening Balance</p>
+                  <p className="text-sm font-medium text-blue-700">Current Balance</p>
                   <p className="text-lg font-bold text-blue-800">
-                    {formatBalance(openingGold, 'gold')}<br />
-                    {formatBalance(openingKwd, 'kwd')}
+                    {formatBalance(currentGoldBalance, 'gold')}<br />
+                    {formatBalance(currentKwdBalance, 'kwd')}
                   </p>
                 </div>
               </div>
@@ -584,11 +554,8 @@ export default function OpenBalanceSheet({
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-blue-700">Net Change</p>
-                  <p className="text-lg font-bold text-blue-800">
-                    {formatBalance(periodGold, 'gold')}<br />
-                    {formatBalance(periodKwd, 'kwd')}
-                  </p>
+                  <p className="text-sm font-medium text-blue-700">Filtered Transactions</p>
+                  <p className="text-2xl font-bold text-blue-800">{filteredLedgerEntries.length}</p>
                 </div>
               </div>
             </div>
@@ -601,10 +568,10 @@ export default function OpenBalanceSheet({
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-blue-700">Closing Balance</p>
+                  <p className="text-sm font-medium text-blue-700">Net Change</p>
                   <p className="text-lg font-bold text-blue-800">
-                    {formatBalance(totalGold, 'gold')}<br />
-                    {formatBalance(totalKwd, 'kwd')}
+                    {formatBalance(periodGold, 'gold')}<br />
+                    {formatBalance(periodKwd, 'kwd')}
                   </p>
                 </div>
               </div>
@@ -622,25 +589,25 @@ export default function OpenBalanceSheet({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-                totalGold >= openingGold 
+                calculateClosingBalance.gold >= calculateOpeningBalance.gold 
                   ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Gold Balance</p>
-                <p className="text-3xl font-bold">{formatBalance(totalGold, 'gold')}</p>
+                <p className="text-3xl font-bold">{formatBalance(calculateClosingBalance.gold, 'gold')}</p>
                 <p className="text-sm mt-3 opacity-90 font-medium">
-                  Net Change: {periodGold >= 0 ? '+' : ''}{formatCurrency(periodGold)}g
+                  Net Change: {formatBalance(periodGold, 'gold')}
                 </p>
               </div>
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
-                totalKwd >= openingKwd 
+                calculateClosingBalance.kwd >= calculateOpeningBalance.kwd 
                   ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
-                <p className="text-3xl font-bold">{formatBalance(totalKwd, 'kwd')}</p>
+                <p className="text-3xl font-bold">{formatBalance(calculateClosingBalance.kwd, 'kwd')}</p>
                 <p className="text-sm mt-3 opacity-90 font-medium">
-                  Net Change: {periodKwd >= 0 ? '+' : ''}{formatCurrency(periodKwd)} KWD
+                  Net Change: {formatBalance(periodKwd, 'kwd')}
                 </p>
               </div>
             </div>
@@ -658,8 +625,8 @@ export default function OpenBalanceSheet({
                   <label className="block text-sm font-medium text-blue-700">From Date</label>
                   <input
                     type="date"
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
+                    value={dateRange.start}
+                    onChange={(e) => handleDateRangeChange(e.target.value, dateRange.end)}
                     className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
@@ -669,8 +636,8 @@ export default function OpenBalanceSheet({
                   <label className="block text-sm font-medium text-blue-700">To Date</label>
                   <input
                     type="date"
-                    value={end}
-                    onChange={(e) => setEnd(e.target.value)}
+                    value={dateRange.end}
+                    onChange={(e) => handleDateRangeChange(dateRange.start, e.target.value)}
                     className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
@@ -697,7 +664,7 @@ export default function OpenBalanceSheet({
                     </button>
 
                     <button
-                      onClick={handleReset}
+                      onClick={clearFilters}
                       className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
                     >
                       Clear Filters
@@ -706,39 +673,13 @@ export default function OpenBalanceSheet({
                 </div>
               </div>
 
-              {/* Apply Filter Button */}
-              <div className="flex justify-end">
-                <button
-                  onClick={handleFilter}
-                  disabled={isFiltering}
-                  className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isFiltering ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Filtering...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                      </svg>
-                      Apply Filter
-                    </>
-                  )}
-                </button>
-              </div>
-
               {/* Active Filters Summary */}
               <div className="flex flex-wrap gap-2">
-                {start ? (
+                {dateRange.start ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
-                    From: {formatDate(start)}
+                    From: {formatDate(dateRange.start)}
                     <button
-                      onClick={() => setStart("")}
+                      onClick={() => handleDateRangeChange("", dateRange.end)}
                       className="ml-2 hover:text-blue-900 text-lg"
                     >
                       ×
@@ -749,11 +690,11 @@ export default function OpenBalanceSheet({
                     From: Beginning
                   </span>
                 )}
-                {end ? (
+                {dateRange.end ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-300">
-                    To: {formatDate(end)}
+                    To: {formatDate(dateRange.end)}
                     <button
-                      onClick={() => setEnd("")}
+                      onClick={() => handleDateRangeChange(dateRange.start, "")}
                       className="ml-2 hover:text-indigo-900 text-lg"
                     >
                       ×
@@ -773,11 +714,11 @@ export default function OpenBalanceSheet({
             <div className="flex flex-col sm:flex-row justify-between items-center">
               <div>
                 <h3 className="text-xl font-bold text-blue-800">
-                  Showing {vouchers.length} of {vouchers.length} transactions
+                  Showing {filteredLedgerEntries.length} of {allLedgerEntries.length} transactions
                 </h3>
                 <p className="text-blue-700">
-                  {start || end 
-                    ? `Filtered by date range ${start ? `from ${formatDate(start)}` : ''} ${end ? `to ${formatDate(end)}` : ''}`
+                  {dateRange.start || dateRange.end 
+                    ? `Filtered by date range ${dateRange.start ? `from ${formatDate(dateRange.start)}` : ''} ${dateRange.end ? `to ${formatDate(dateRange.end)}` : ''}`
                     : "Showing all Gold Fixing transactions"}
                 </p>
               </div>
@@ -806,26 +747,38 @@ export default function OpenBalanceSheet({
                 <div className="flex justify-between items-center">
                   <span className="text-blue-700">Market REC (Gold Fixing):</span>
                   <span className="font-semibold text-blue-800">
-                    {vouchers.filter(v => v.vt === "REC" && v.goldRate).length} transactions
+                    {filteredLedgerEntries.filter(v => v.type === "REC").length} transactions
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-blue-700">GFV Vouchers:</span>
                   <span className="font-semibold text-blue-800">
-                    {vouchers.filter(v => v.vt === "GFV").length} transactions
+                    {filteredLedgerEntries.filter(v => v.type === "GFV").length} transactions
                   </span>
                 </div>
                 <div className="pt-2 border-t border-blue-300">
                   <div className="flex justify-between">
-                    <span className="text-blue-700">Net Change Gold:</span>
-                    <span className={`font-semibold ${periodGold >= 0 ? 'text-blue-800' : 'text-red-700'}`}>
-                      {periodGold >= 0 ? '+' : ''}{formatCurrency(periodGold)}g
+                    <span className="text-blue-700">Total Gold Debit:</span>
+                    <span className="font-semibold text-blue-800">
+                      {formatCurrency(totalGoldDebit)}g
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-700">Net Change KWD:</span>
-                    <span className={`font-semibold ${periodKwd >= 0 ? 'text-blue-800' : 'text-red-700'}`}>
-                      {periodKwd >= 0 ? '+' : ''}{formatCurrency(periodKwd)} KWD
+                    <span className="text-blue-700">Total Gold Credit:</span>
+                    <span className="font-semibold text-blue-800">
+                      {formatCurrency(totalGoldCredit)}g
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Total Amount Debit:</span>
+                    <span className="font-semibold text-blue-800">
+                      {formatCurrency(totalKwdDebit)} KWD
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">Total Amount Credit:</span>
+                    <span className="font-semibold text-blue-800">
+                      {formatCurrency(totalKwdCredit)} KWD
                     </span>
                   </div>
                 </div>
@@ -872,19 +825,19 @@ export default function OpenBalanceSheet({
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger Transactions</h2>
                 <span className="text-blue-700 font-medium">
-                  {vouchers.length} transaction(s)
+                  {filteredLedgerEntries.length} transaction(s)
                 </span>
               </div>
             </div>
 
-            {ledgerEntries.length === 0 ? (
+            {entriesWithBalances.length === 0 ? (
               <div className="text-center py-12">
                 <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <h3 className="text-lg font-medium text-blue-800 mb-2">No transactions found</h3>
                 <p className="text-blue-600">
-                  {start || end 
+                  {dateRange.start || dateRange.end 
                     ? "No transactions match the selected date range" 
                     : "No Gold Fixing transactions recorded"}
                 </p>
@@ -910,10 +863,16 @@ export default function OpenBalanceSheet({
                         Gold Rate
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold (g)
+                        Gold Debit (g)
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount (KWD)
+                        Gold Credit (g)
+                      </th>
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                        Amount Debit (KWD)
+                      </th>
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                        Amount Credit (KWD)
                       </th>
                       <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Balance
@@ -924,7 +883,7 @@ export default function OpenBalanceSheet({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-300">
-                    {ledgerEntries.map((entry) => (
+                    {entriesWithBalances.map((entry) => (
                       <tr 
                         key={entry.voucherId} 
                         className={`transition-colors duration-150 ${
@@ -965,15 +924,17 @@ export default function OpenBalanceSheet({
                         <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.goldRate ? entry.goldRate.toFixed(3) : '-'}
                         </td>
-                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono ${
-                          entry.gold > 0 ? 'text-green-700' : entry.gold < 0 ? 'text-red-700' : 'text-blue-700'
-                        }`}>
-                          {entry.gold !== 0 ? (entry.gold > 0 ? '+' : '') + formatCurrency(entry.gold) : '-'}
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                          {entry.goldDebit && entry.goldDebit > 0 ? formatCurrency(entry.goldDebit) : '-'}
                         </td>
-                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono ${
-                          entry.amount > 0 ? 'text-green-700' : entry.amount < 0 ? 'text-red-700' : 'text-blue-700'
-                        }`}>
-                          {entry.amount !== 0 ? (entry.amount > 0 ? '+' : '') + formatCurrency(entry.amount) : '-'}
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                          {entry.goldCredit && entry.goldCredit > 0 ? formatCurrency(entry.goldCredit) : '-'}
+                        </td>
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                          {entry.kwdDebit && entry.kwdDebit > 0 ? formatCurrency(entry.kwdDebit) : '-'}
+                        </td>
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                          {entry.kwdCredit && entry.kwdCredit > 0 ? formatCurrency(entry.kwdCredit) : '-'}
                         </td>
                         <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
                           entry.goldBalance >= 0 ? "text-blue-700" : "text-red-700"
@@ -988,6 +949,35 @@ export default function OpenBalanceSheet({
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot className="bg-blue-100">
+                    <tr>
+                      <td colSpan={5} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
+                        Totals:
+                      </td>
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                        {totalGoldDebit.toFixed(3)}
+                      </td>
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                        {totalGoldCredit.toFixed(3)}
+                      </td>
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                        {totalKwdDebit.toFixed(3)}
+                      </td>
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+                        {totalKwdCredit.toFixed(3)}
+                      </td>
+                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                        calculateClosingBalance.gold >= 0 ? "text-blue-700" : "text-red-700"
+                      }`}>
+                        {formatBalance(calculateClosingBalance.gold, 'gold')}
+                      </td>
+                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                        calculateClosingBalance.kwd >= 0 ? "text-blue-700" : "text-red-700"
+                      }`}>
+                        {formatBalance(calculateClosingBalance.kwd, 'kwd')}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
@@ -997,7 +987,7 @@ export default function OpenBalanceSheet({
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={downloadPdf}
-              disabled={downloadingPdf || ledgerEntries.length === 0}
+              disabled={downloadingPdf || entriesWithBalances.length === 0}
               className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {downloadingPdf ? (
