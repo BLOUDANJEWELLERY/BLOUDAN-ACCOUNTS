@@ -483,8 +483,8 @@ class OpenBalancePDFGenerator {
     });
 
     // Column header text for Gold and Amount sections (second row only) - All centered
-    const goldHeaders = ["Gold Debit", "Gold Credit", "Gold Balance"];
-    const amountHeaders = ["Amount Debit", "Amount Credit", "Amount Balance"];
+    const goldHeaders = ["Debit", "Credit", "Balance"];
+    const amountHeaders = ["Debit", "Credit", "Balance"];
     
     // Gold section headers - All centered horizontally
     xPos = goldGroupStartX;
@@ -624,9 +624,9 @@ class OpenBalancePDFGenerator {
       // Get voucher type with proper labels
      let typeDisplay: string = entry.type;
 if (entry.type === "REC" && entry.goldRate) {
-  typeDisplay = "REC (Gold Fixing)";
+  typeDisplay = "REC";
 } else if (entry.type === "GFV") {
-  typeDisplay = "GFV (Gold Fixing)";
+  typeDisplay = "GFV";
 } else if (entry.type === "BAL") {
   typeDisplay = "BAL";
 }
