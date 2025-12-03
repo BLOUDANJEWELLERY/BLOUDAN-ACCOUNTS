@@ -86,7 +86,7 @@ const A4_LANDSCAPE_WIDTH = 841.89;
 const A4_LANDSCAPE_HEIGHT = 595.28;
 const MARGIN = 30;
 const ROW_HEIGHT = 18;
-const HEADER_HEIGHT = 40;
+const HEADER_HEIGHT = 60; // Increased for two-row header
 const FOOTER_HEIGHT = 30;
 
 // Colors - Blue theme to match page
@@ -142,7 +142,7 @@ class FullLedgerPDFGenerator {
     const contentHeight = height - (MARGIN * 2);
     
     // Calculate available space for table
-    const headerSectionHeight = 120; // Reduced header height
+    const headerSectionHeight = 100;
     const footerSectionHeight = FOOTER_HEIGHT;
     const tableStartY = height - MARGIN - headerSectionHeight;
     const tableEndY = MARGIN + footerSectionHeight;
@@ -279,7 +279,7 @@ class FullLedgerPDFGenerator {
 
     // Accounts Summary
     const accountCount = data.accounts.length;
-    const accountInfo = `${accountCount} Account${accountCount !== 1 ? 's' : ''} | ${data.ledgerEntries.length} Total Transactions`;
+    const accountInfo = `${accountCount} Account${accountCount !== 1 ? 's' : ''}`;
     
     page.drawText(accountInfo, {
       x: MARGIN + 20,
@@ -342,28 +342,157 @@ class FullLedgerPDFGenerator {
       color: COLORS.blue100,
     });
 
-    // Draw vertical lines
+    // Calculate column positions for grouping
     let xPos = MARGIN + 20;
-    for (let col = 0; col <= colWidths.length; col++) {
+    
+    // First four columns: Date, Account, Type, Description
+    const firstFourColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
+    
+    // Gold group columns
+    const goldGroupStartX = xPos + firstFourColumnsWidth;
+    const goldGroupWidth = colWidths[4] + colWidths[5] + colWidths[6];
+    
+    // Amount group columns (only for non-project accounts)
+    const amountGroupStartX = this.isProjectAccount ? 0 : goldGroupStartX + goldGroupWidth;
+    const amountGroupWidth = this.isProjectAccount ? 0 : colWidths[7] + colWidths[8] + colWidths[9];
+
+    // Draw Gold group header (spans Gold Debit, Gold Credit, Gold Balance)
+    page.drawRectangle({
+      x: goldGroupStartX,
+      y: tableTop - 20,
+      width: goldGroupWidth,
+      height: 20,
+      color: COLORS.blue800,
+    });
+
+    // Draw Amount group header (only for non-project accounts)
+    if (!this.isProjectAccount) {
+      page.drawRectangle({
+        x: amountGroupStartX,
+        y: tableTop - 20,
+        width: amountGroupWidth,
+        height: 20,
+        color: COLORS.blue800,
+      });
+    }
+
+    // ========== DRAW VERTICAL LINES ==========
+
+    // Left table border (full height)
+    page.drawLine({
+      start: { x: MARGIN + 20, y: tableTop },
+      end: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Vertical lines for first four columns (full height)
+    xPos = MARGIN + 20;
+    for (let i = 0; i < 4; i++) {
+      xPos += colWidths[i];
       page.drawLine({
         start: { x: xPos, y: tableTop },
         end: { x: xPos, y: tableTop - HEADER_HEIGHT },
         color: COLORS.blue300,
         thickness: 0.5,
       });
-      if (col < colWidths.length) {
-        xPos += colWidths[col];
-      }
     }
 
-    // Draw horizontal lines
+    // Gold group borders
+    // Gold group left border (full height)
+    page.drawLine({
+      start: { x: goldGroupStartX, y: tableTop },
+      end: { x: goldGroupStartX, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Internal borders within Gold group (only in bottom row)
+    let goldXPos = goldGroupStartX;
+    page.drawLine({
+      start: { x: goldXPos + colWidths[4], y: tableTop - 20 },
+      end: { x: goldXPos + colWidths[4], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+    
+    page.drawLine({
+      start: { x: goldXPos + colWidths[4] + colWidths[5], y: tableTop - 20 },
+      end: { x: goldXPos + colWidths[4] + colWidths[5], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Gold group right border (full height)
+    page.drawLine({
+      start: { x: goldGroupStartX + goldGroupWidth, y: tableTop },
+      end: { x: goldGroupStartX + goldGroupWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Amount group borders (only for non-project accounts)
+    if (!this.isProjectAccount) {
+      // Amount group left border (full height)
+      page.drawLine({
+        start: { x: amountGroupStartX, y: tableTop },
+        end: { x: amountGroupStartX, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      // Internal borders within Amount group (only in bottom row)
+      let amountXPos = amountGroupStartX;
+      page.drawLine({
+        start: { x: amountXPos + colWidths[7], y: tableTop - 20 },
+        end: { x: amountXPos + colWidths[7], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+      
+      page.drawLine({
+        start: { x: amountXPos + colWidths[7] + colWidths[8], y: tableTop - 20 },
+        end: { x: amountXPos + colWidths[7] + colWidths[8], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      // Amount group right border (full height)
+      page.drawLine({
+        start: { x: amountGroupStartX + amountGroupWidth, y: tableTop },
+        end: { x: amountGroupStartX + amountGroupWidth, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+    }
+
+    // Right table border (full height)
+    page.drawLine({
+      start: { x: MARGIN + 20 + tableWidth, y: tableTop },
+      end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // ========== DRAW HORIZONTAL LINES ==========
+
+    // Top line
+    page.drawLine({
+      start: { x: MARGIN + 20, y: tableTop },
+      end: { x: MARGIN + 20 + tableWidth, y: tableTop },
+      color: COLORS.blue300,
+      thickness: 1,
+    });
+
+    // Middle line between grouped headers and column headers
     page.drawLine({
       start: { x: MARGIN + 20, y: tableTop - 20 },
       end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
       color: COLORS.blue300,
       thickness: 1,
     });
-    
+
+    // Bottom line
     page.drawLine({
       start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
       end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
@@ -371,76 +500,85 @@ class FullLedgerPDFGenerator {
       thickness: 1,
     });
 
-    // Column headers
-    const headers = this.isProjectAccount 
-      ? ["Date", "Account", "Type", "Description", "Gold Debit", "Gold Credit", "Gold Balance"]
-      : ["Date", "Account", "Type", "Description", "Gold Debit", "Gold Credit", "Gold Balance", "Amount Debit", "Amount Credit", "Amount Balance"];
-    
+    // ========== DRAW HEADER TEXT ==========
+
+    // First four column headers (centered in full header height)
     xPos = MARGIN + 20;
-    headers.forEach((header, index) => {
+    const firstFourHeaders = ["Date", "Account", "Type", "Description"];
+    
+    firstFourHeaders.forEach((header, index) => {
       const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 9)) / 2;
-      const isGoldColumn = this.isProjectAccount 
-        ? index >= 4 && index <= 6
-        : index >= 4 && index <= 9;
+      const textY = tableTop - 40; // Centered vertically in the full header height
       
-      const isAmountColumn = !this.isProjectAccount && index >= 7 && index <= 9;
-      
-      let columnHeader = header;
-      if (isGoldColumn && header.startsWith("Gold")) {
-        columnHeader = header.replace("Gold ", "");
-      } else if (isAmountColumn && header.startsWith("Amount")) {
-        columnHeader = header.replace("Amount ", "");
-      }
-      
-      page.drawText(columnHeader, {
+      page.drawText(header, {
         x: textX,
-        y: tableTop - 14,
+        y: textY,
         size: 9,
         font: boldFont,
         color: COLORS.blue800,
       });
       
-      // Draw group headers for Gold and Amount
-      if (index === 4 && !this.isProjectAccount) {
-        // Gold group header
-        const goldGroupWidth = colWidths[4] + colWidths[5] + colWidths[6];
-        page.drawRectangle({
-          x: xPos,
-          y: tableTop - 20,
-          width: goldGroupWidth,
-          height: 20,
-          color: COLORS.blue800,
-        });
-        
-        page.drawText("GOLD", {
-          x: xPos + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2,
-          y: tableTop - 12,
-          size: 10,
-          font: boldFont,
-          color: COLORS.white,
-        });
-      } else if (index === 7 && !this.isProjectAccount) {
-        // Amount group header
-        const amountGroupWidth = colWidths[7] + colWidths[8] + colWidths[9];
-        page.drawRectangle({
-          x: xPos,
-          y: tableTop - 20,
-          width: amountGroupWidth,
-          height: 20,
-          color: COLORS.blue800,
-        });
-        
-        page.drawText("AMOUNT (KWD)", {
-          x: xPos + (amountGroupWidth - boldFont.widthOfTextAtSize("AMOUNT (KWD)", 10)) / 2,
-          y: tableTop - 12,
-          size: 10,
-          font: boldFont,
-          color: COLORS.white,
-        });
-      }
-      
       xPos += colWidths[index];
     });
+
+    // Column header text for Gold section (bottom row only)
+    const goldHeaders = ["Debit (g)", "Credit (g)", "Balance"];
+    xPos = goldGroupStartX;
+    
+    goldHeaders.forEach((header, index) => {
+      const colIndex = 4 + index;
+      const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+      
+      page.drawText(header, {
+        x: textX,
+        y: tableTop - 36,
+        size: 8,
+        font: boldFont,
+        color: COLORS.white,
+      });
+      
+      xPos += colWidths[colIndex];
+    });
+
+    // Column header text for Amount section (bottom row only) - only for non-project accounts
+    if (!this.isProjectAccount) {
+      const amountHeaders = ["Debit (KWD)", "Credit (KWD)", "Balance"];
+      xPos = amountGroupStartX;
+      
+      amountHeaders.forEach((header, index) => {
+        const colIndex = 7 + index;
+        const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+        
+        page.drawText(header, {
+          x: textX,
+          y: tableTop - 36,
+          size: 8,
+          font: boldFont,
+          color: COLORS.white,
+        });
+        
+        xPos += colWidths[colIndex];
+      });
+    }
+
+    // Draw grouped header text
+    page.drawText("GOLD", {
+      x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2,
+      y: tableTop - 12,
+      size: 10,
+      font: boldFont,
+      color: COLORS.white,
+    });
+
+    if (!this.isProjectAccount) {
+      page.drawText("AMOUNT", {
+        x: amountGroupStartX + (amountGroupWidth - boldFont.widthOfTextAtSize("AMOUNT", 10)) / 2,
+        y: tableTop - 12,
+        size: 10,
+        font: boldFont,
+        color: COLORS.white,
+      });
+    }
 
     return { tableTop: tableTop - HEADER_HEIGHT, colWidths };
   }
@@ -497,7 +635,11 @@ class FullLedgerPDFGenerator {
 
       const accountDisplay = entry.isOpeningBalance || entry.isClosingBalance 
         ? `All ${this.accountType} Accounts`
-        : `${entry.accountName} (#${entry.accountNo})`;
+        : `${entry.accountName}`;
+
+      const accountNoDisplay = entry.isOpeningBalance || entry.isClosingBalance 
+        ? '' 
+        : `#${entry.accountNo}`;
 
       const typeDisplay = entry.isOpeningBalance || entry.isClosingBalance 
         ? 'BAL' 
@@ -521,8 +663,8 @@ class FullLedgerPDFGenerator {
       // Date
       rowData.push(displayDate);
       
-      // Account (truncate if needed)
-      const maxAccountLength = 25;
+      // Account Name (truncate if needed)
+      const maxAccountLength = 20;
       let accountText = accountDisplay;
       if (accountText.length > maxAccountLength) {
         accountText = accountText.substring(0, maxAccountLength - 3) + '...';
@@ -555,7 +697,9 @@ class FullLedgerPDFGenerator {
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
         const isDescriptionCol = colIndex === 3;
-        const isBalanceCol = colIndex === 6 || (!this.isProjectAccount && colIndex === 9);
+        const isAccountCol = colIndex === 1;
+        const isGoldBalanceCol = colIndex === 6;
+        const isAmountBalanceCol = !this.isProjectAccount && colIndex === 9;
         const isTypeCol = colIndex === 2;
         
         let textColor = COLORS.blue700;
@@ -566,11 +710,12 @@ class FullLedgerPDFGenerator {
         if (entry.isOpeningBalance || entry.isClosingBalance) {
           textFont = boldFont;
           textColor = COLORS.blue800;
-        } else if (isTypeCol && !isBalanceCol) {
+        } else if (isTypeCol) {
           textColor = this.getVoucherTypeColor(entry.type);
-        } else if (isBalanceCol) {
+        } else if (isGoldBalanceCol || isAmountBalanceCol) {
           textFont = boldFont;
-          textColor = entry.goldBalance >= 0 ? COLORS.blue700 : COLORS.red;
+          const balanceValue = isGoldBalanceCol ? entry.goldBalance : entry.kwdBalance;
+          textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red;
         }
 
         // Alignment
@@ -578,14 +723,11 @@ class FullLedgerPDFGenerator {
         if (isDescriptionCol) {
           // Left align for description
           textX = xPos + 3;
+        } else if (isAccountCol) {
+          // Account names can be centered or left aligned
+          textX = xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, textSize)) / 2;
         } else {
           // Center align for other columns
-          textX = xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, textSize)) / 2;
-        }
-
-        // Special handling for account column (can be left aligned or centered)
-        if (colIndex === 1) {
-          // Center align account name
           textX = xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, textSize)) / 2;
         }
 
@@ -596,6 +738,18 @@ class FullLedgerPDFGenerator {
           font: textFont,
           color: textColor,
         });
+
+        // Draw account number below account name
+        if (isAccountCol && accountNoDisplay && !entry.isOpeningBalance && !entry.isClosingBalance) {
+          const accountNoX = xPos + (colWidths[colIndex] - font.widthOfTextAtSize(accountNoDisplay, 7)) / 2;
+          page.drawText(accountNoDisplay, {
+            x: accountNoX,
+            y: currentY - 13,
+            size: 7,
+            font: font,
+            color: COLORS.blue600,
+          });
+        }
 
         xPos += colWidths[colIndex];
       });
@@ -692,7 +846,9 @@ class FullLedgerPDFGenerator {
         textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(data, 9)) / 2;
       }
 
-      const isBalanceCol = colIndex === 6 || (!this.isProjectAccount && colIndex === 9);
+      const isGoldBalanceCol = colIndex === 6;
+      const isAmountBalanceCol = !this.isProjectAccount && colIndex === 9;
+      const isBalanceCol = isGoldBalanceCol || isAmountBalanceCol;
       const textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
 
       page.drawText(data, {
@@ -717,74 +873,7 @@ class FullLedgerPDFGenerator {
       thickness: 1.5,
     });
 
-    return startY - ROW_HEIGHT - 10; // Extra space after totals
-  }
-
-  private drawSummarySection(
-    page: PDFPage, 
-    data: FullLedgerPdfRequestData, 
-    startY: number
-  ): void {
-    const { font, boldFont } = this.getFonts();
-    let currentY = startY;
-
-    // Summary box
-    page.drawRectangle({
-      x: MARGIN + 20,
-      y: currentY - 70,
-      width: this.pageConfig.contentWidth - 40,
-      height: 70,
-      borderColor: COLORS.blue400,
-      borderWidth: 1.5,
-      color: COLORS.blue50,
-    });
-
-    // Summary title
-    page.drawText("Period Summary", {
-      x: MARGIN + 30,
-      y: currentY - 25,
-      size: 12,
-      font: boldFont,
-      color: COLORS.blue800,
-    });
-
-    currentY -= 40;
-
-    // Summary details
-    const summaryItems = [
-      { label: "Opening Gold Balance:", value: formatBalance(data.openingBalance.gold, 'gold') },
-      { label: "Closing Gold Balance:", value: formatBalance(data.closingBalance.gold, 'gold') },
-      { label: "Net Gold Change:", value: formatBalance(data.closingBalance.gold - data.openingBalance.gold, 'gold') },
-    ];
-
-    if (!this.isProjectAccount) {
-      summaryItems.push(
-        { label: "Opening Amount Balance:", value: formatBalance(data.openingBalance.kwd, 'kwd') },
-        { label: "Closing Amount Balance:", value: formatBalance(data.closingBalance.kwd, 'kwd') },
-        { label: "Net Amount Change:", value: formatBalance(data.closingBalance.kwd - data.openingBalance.kwd, 'kwd') }
-      );
-    }
-
-    summaryItems.forEach((item, index) => {
-      const rowY = currentY - (index * 13);
-      
-      page.drawText(item.label, {
-        x: MARGIN + 30,
-        y: rowY,
-        size: 9,
-        font: font,
-        color: COLORS.blue700,
-      });
-
-      const valueX = this.pageConfig.width - MARGIN - 30 - boldFont.widthOfTextAtSize(item.value, 9);
-      page.drawText(item.value, {
-        x: valueX,
-        y: rowY,
-        size: 9,
-        font: boldFont,
-        color: COLORS.blue800,
-      });
-    });
+    return startY - ROW_HEIGHT;
   }
 
   private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
@@ -833,10 +922,9 @@ class FullLedgerPDFGenerator {
       // Draw table rows
       let currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths);
       
-      // Draw totals row and summary only on last page
+      // Draw totals row only on last page
       if (isLastPage) {
         currentY = this.drawTotalsRow(page, data, currentY, colWidths);
-        this.drawSummarySection(page, data, currentY);
       }
       
       // Draw footer
