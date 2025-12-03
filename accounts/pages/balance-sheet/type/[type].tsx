@@ -980,11 +980,6 @@ export default function AccountTypeBalanceSheet({
                   </tbody>
                   <tfoot className="bg-blue-100">
                     <tr>
-                      <td colSpan={isProjectAccount ? 7 : 10} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
-                        Filtered Period Totals:
-                      </td>
-                    </tr>
-                    <tr>
                       <td colSpan={4} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
                         Totals:
                       </td>
