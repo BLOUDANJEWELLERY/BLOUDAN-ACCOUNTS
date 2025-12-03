@@ -621,8 +621,9 @@ class FullLedgerPDFGenerator {
 
       // Get account information
       const accountDisplay = entry.isOpeningBalance || entry.isClosingBalance 
-        ? '' 
-        : `${entry.accountNo}`;
+  ? '' 
+  : `${entry.accountNo} - ${entry.accountName}`;
+
 
       // Format description with quantity
       let description = entry.description || '';
