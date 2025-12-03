@@ -859,74 +859,78 @@ class PDFGenerator {
     return currentY;
   }
 
-  private drawTotalsRow(page: PDFPage, data: PdfRequestData, startY: number, colWidths: number[], isProjectAccount: boolean): number {
-    const { font, boldFont } = this.getFonts();
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-    const rowTop = startY + ROW_HEIGHT / 2;
+// In the drawTotalsRow method, change line 904 and adjust the function:
+
+private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, colWidths: number[], isProjectAccount: boolean): number {
+  const { font, boldFont } = this.getFonts();
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+  const rowTop = startY + ROW_HEIGHT / 2;
+  
+  // Totals row background - matching page footer
+  let xPos = MARGIN + 20;
+  colWidths.forEach(width => {
+    page.drawRectangle({
+      x: xPos,
+      y: startY - ROW_HEIGHT / 2,
+      width: width,
+      height: ROW_HEIGHT,
+      color: COLORS.blue100,
+    });
+    xPos += width;
+  });
+
+  // Totals row data
+  const totalsRowData = isProjectAccount ? [
+    "Totals", "", "",
+    pdfData.totals.goldDebit.toFixed(3),
+    pdfData.totals.goldCredit.toFixed(3),
+    formatBalance(pdfData.closingBalance.gold)
+  ] : [
+    "Totals", "", "",
+    pdfData.totals.goldDebit.toFixed(3),
+    pdfData.totals.goldCredit.toFixed(3),
+    formatBalance(pdfData.closingBalance.gold),
+    pdfData.totals.kwdDebit.toFixed(3),
+    pdfData.totals.kwdCredit.toFixed(3),
+    formatBalance(pdfData.closingBalance.kwd)
+  ];
+
+  // Draw totals text
+  xPos = MARGIN + 20;
+  totalsRowData.forEach((cellValue, colIndex) => {
+    const isLeftAligned = colIndex === 2;
+    const isBalanceColumn = isProjectAccount ? colIndex === 5 : (colIndex === 5 || colIndex === 8);
     
-    // Totals row background - matching page footer
-    let xPos = MARGIN + 20;
-    colWidths.forEach(width => {
-      page.drawRectangle({
-        x: xPos,
-        y: startY - ROW_HEIGHT / 2,
-        width: width,
-        height: ROW_HEIGHT,
-        color: COLORS.blue100,
-      });
-      xPos += width;
+    let textColor = COLORS.blue800;
+    if (isBalanceColumn) {
+      const balance = isProjectAccount ? 
+        pdfData.closingBalance.gold : 
+        (colIndex === 5 ? pdfData.closingBalance.gold : pdfData.closingBalance.kwd);
+      textColor = balance >= 0 ? COLORS.blue800 : COLORS.red800;
+    }
+    
+    const textFont = colIndex >= 3 ? boldFont : font;
+    
+    const textX = isLeftAligned ? 
+      xPos + 5 : 
+      xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(cellValue, 8)) / 2;
+    
+    page.drawText(cellValue, {
+      x: textX,
+      y: startY - 3,
+      size: 8,
+      font: textFont,
+      color: textColor,
     });
+    
+    xPos += colWidths[colIndex];
+  });
 
-    // Totals row data
-    const totalsRowData = isProjectAccount ? [
-      "Totals", "", "",
-      data.totals.goldDebit.toFixed(3),
-      data.totals.goldCredit.toFixed(3),
-      formatBalance(data.closingBalance.gold)
-    ] : [
-      "Totals", "", "",
-      data.totals.goldDebit.toFixed(3),
-      data.totals.goldCredit.toFixed(3),
-      formatBalance(data.closingBalance.gold),
-      data.totals.kwdDebit.toFixed(3),
-      data.totals.kwdCredit.toFixed(3),
-      formatBalance(data.closingBalance.kwd)
-    ];
+  // Draw totals row grid
+  this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
 
-    // Draw totals text
-    xPos = MARGIN + 20;
-    totalsRowData.forEach((data, colIndex) => {
-      const isLeftAligned = colIndex === 2;
-      const isBalanceColumn = isProjectAccount ? colIndex === 5 : (colIndex === 5 || colIndex === 8);
-      
-      let textColor = COLORS.blue800;
-      if (isBalanceColumn) {
-        const balance = isProjectAccount ? data.closingBalance.gold : (colIndex === 5 ? data.closingBalance.gold : data.closingBalance.kwd);
-        textColor = balance >= 0 ? COLORS.blue800 : COLORS.red800;
-      }
-      
-      const textFont = colIndex >= 3 ? boldFont : font;
-      
-      const textX = isLeftAligned ? 
-        xPos + 5 : 
-        xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 8)) / 2;
-      
-      page.drawText(data, {
-        x: textX,
-        y: startY - 3,
-        size: 8,
-        font: textFont,
-        color: textColor,
-      });
-      
-      xPos += colWidths[colIndex];
-    });
-
-    // Draw totals row grid
-    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
-
-    return startY - ROW_HEIGHT;
-  }
+  return startY - ROW_HEIGHT;
+}
 
   private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
     const { font } = this.getFonts();
@@ -968,8 +972,9 @@ class PDFGenerator {
       
       // Draw totals row only on last page
       if (isLastPage) {
-        currentY = this.drawTotalsRow(page, data, currentY, colWidths, isProjectAccount);
-      }
+        // In the generatePDF method, change line that calls drawTotalsRow:
+currentY = this.drawTotalsRow(page, data, currentY, colWidths, isProjectAccount);
+}
       
       // Draw footer
       this.drawFooter(page, pageNum, totalPages);
