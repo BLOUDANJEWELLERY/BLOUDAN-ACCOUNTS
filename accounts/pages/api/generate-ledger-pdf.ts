@@ -15,16 +15,15 @@ interface LedgerEntry {
   kwdBalance: number;
   isOpeningBalance?: boolean;
   isClosingBalance?: boolean;
-  pdfUrl?: string;
 }
 
 interface Account {
   id: string;
   accountNo: string;
   name: string;
+  type: string;
   phone: string;
   crOrCivilIdNo: string;
-  type: string;
 }
 
 interface PdfRequestData {
@@ -32,7 +31,6 @@ interface PdfRequestData {
   dateRange: {
     start: string;
     end: string;
-    isCustom?: boolean;
   };
   ledgerEntries: LedgerEntry[];
   openingBalance: { gold: number; kwd: number };
@@ -43,37 +41,29 @@ interface PdfRequestData {
     kwdDebit: number;
     kwdCredit: number;
   };
-  isProjectAccount: boolean;
+  isProjectAccount?: boolean;
 }
 
-// Helper function to format balance
-const formatBalance = (balance: number, type: 'gold' | 'kwd' = 'gold'): string => {
+// Helper function to format balance - no units
+const formatBalance = (balance: number): string => {
   if (balance === undefined || balance === null) {
     return `0.000 Cr`;
   }
   const absoluteValue = Math.abs(balance);
   const suffix = balance >= 0 ? 'Cr' : 'Db';
-  const unit = type === 'gold' ? 'g' : 'KWD';
-  return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
-};
-
-// Helper function to get voucher type text
-const getVoucherTypeText = (vt: string): string => {
-  switch (vt) {
-    case 'REC': return 'Receipt';
-    case 'INV': return 'Invoice';
-    case 'GFV': return 'Gold Form Voucher';
-    case 'Alloy': return 'Alloy';
-    case 'BAL': return 'Balance';
-    default: return vt;
-  }
+  return `${absoluteValue.toFixed(3)} ${suffix}`;
 };
 
 // Helper function to clean description
 const cleanDescription = (description: string, isOpeningBalance?: boolean, isClosingBalance?: boolean): string => {
   if (isOpeningBalance) return "Opening Balance";
   if (isClosingBalance) return "Closing Balance";
-  return description;
+  
+  return description
+    .replace(/^Invoice - /, '')
+    .replace(/^Receipt - /, '')
+    .replace(/^Gold Form Voucher - /, '')
+    .replace(/^Alloy - /, '');
 };
 
 // Constants for layout
@@ -84,9 +74,9 @@ const ROW_HEIGHT = 18;
 const HEADER_HEIGHT = 40;
 const FOOTER_HEIGHT = 30;
 
-// BLUE Color Scheme matching the web page
+// Updated Colors to match page theme
 const COLORS = {
-  // Background colors
+  // Blue theme colors
   blue50: rgb(239 / 255, 246 / 255, 255 / 255),
   blue100: rgb(219 / 255, 234 / 255, 254 / 255),
   blue200: rgb(191 / 255, 219 / 255, 254 / 255),
@@ -98,30 +88,32 @@ const COLORS = {
   blue800: rgb(30 / 255, 64 / 255, 175 / 255),
   blue900: rgb(30 / 255, 58 / 255, 138 / 255),
   
-  // Complementary colors from page
+  // Supporting colors
   indigo100: rgb(224 / 255, 231 / 255, 255 / 255),
-  indigo300: rgb(165 / 255, 180 / 255, 252 / 255),
-  indigo500: rgb(99 / 255, 102 / 255, 241 / 255),
   indigo600: rgb(79 / 255, 70 / 255, 229 / 255),
+  indigo700: rgb(67 / 255, 56 / 255, 202 / 255),
   indigo800: rgb(55 / 255, 48 / 255, 163 / 255),
   
   // Status colors
-  red500: rgb(239 / 255, 68 / 255, 68 / 255),
+  red100: rgb(254 / 255, 226 / 255, 226 / 255),
+  red600: rgb(220 / 255, 38 / 255, 38 / 255),
   red700: rgb(185 / 255, 28 / 255, 28 / 255),
-  green500: rgb(34 / 255, 197 / 255, 94 / 255),
-  green700: rgb(21 / 255, 128 / 255, 61 / 255),
-  yellow100: rgb(254 / 255, 249 / 255, 195 / 255),
-  yellow300: rgb(253 / 255, 224 / 255, 71 / 255),
-  purple100: rgb(243 / 255, 232 / 255, 255 / 255),
-  purple300: rgb(216 / 255, 180 / 255, 254 / 255),
   
-  // Neutral colors
+  green100: rgb(220 / 255, 252 / 255, 231 / 255),
+  green600: rgb(22 / 255, 163 / 255, 74 / 255),
+  green700: rgb(21 / 255, 128 / 255, 61 / 255),
+  
+  yellow100: rgb(254 / 255, 249 / 255, 195 / 255),
+  yellow600: rgb(202 / 255, 138 / 255, 4 / 255),
+  
+  purple100: rgb(243 / 255, 232 / 255, 255 / 255),
+  purple600: rgb(147 / 255, 51 / 255, 234 / 255),
+  
   white: rgb(1, 1, 1),
-  gray: rgb(107 / 255, 114 / 255, 128 / 255),
-  gray100: rgb(243 / 255, 244 / 255, 246 / 255),
   gray200: rgb(229 / 255, 231 / 255, 235 / 255),
+  gray300: rgb(209 / 255, 213 / 255, 219 / 255),
+  gray600: rgb(75 / 255, 85 / 255, 99 / 255),
   gray700: rgb(55 / 255, 65 / 255, 81 / 255),
-  gray800: rgb(31 / 255, 41 / 255, 55 / 255),
 };
 
 interface PageConfig {
@@ -141,7 +133,7 @@ class PDFGenerator {
   private pageConfig: PageConfig;
   private isInitialized: boolean = false;
 
-  constructor(private isProjectAccount: boolean = false) {
+  constructor() {
     this.pageConfig = this.calculatePageConfig();
   }
 
@@ -151,7 +143,8 @@ class PDFGenerator {
     const contentWidth = width - (MARGIN * 2);
     const contentHeight = height - (MARGIN * 2);
     
-    const headerSectionHeight = 180;
+    // Calculate available space for table (after header and before footer)
+    const headerSectionHeight = 180; // Space for company header, account info, etc.
     const footerSectionHeight = FOOTER_HEIGHT;
     const tableStartY = height - MARGIN - headerSectionHeight;
     const tableEndY = MARGIN + footerSectionHeight;
@@ -173,7 +166,10 @@ class PDFGenerator {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
     
+    // Create PDF document first
     this.pdfDoc = await PDFDocument.create();
+    
+    // Then embed fonts
     this.font = await this.pdfDoc.embedFont(StandardFonts.Helvetica);
     this.boldFont = await this.pdfDoc.embedFont(StandardFonts.HelveticaBold);
     this.isInitialized = true;
@@ -199,7 +195,7 @@ class PDFGenerator {
     const pdfDoc = this.getPDFDoc();
     const page = pdfDoc.addPage([A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT]);
     
-    // Gradient-like background
+    // Blue gradient background effect
     page.drawRectangle({
       x: 0,
       y: 0,
@@ -208,7 +204,7 @@ class PDFGenerator {
       color: COLORS.blue50,
     });
 
-    // Main container with border
+    // Main container with border matching page
     page.drawRectangle({
       x: MARGIN,
       y: MARGIN,
@@ -219,24 +215,29 @@ class PDFGenerator {
       borderWidth: 2,
     });
 
-    // Decorative elements
-    page.drawCircle({
-      x: MARGIN + 50,
-      y: this.pageConfig.height - MARGIN - 50,
-      size: 60,
-      color: COLORS.blue200,
-      opacity: 0.2,
-    });
-
-    page.drawCircle({
-      x: this.pageConfig.width - MARGIN - 80,
-      y: MARGIN + 80,
-      size: 80,
-      color: COLORS.indigo300,
-      opacity: 0.2,
-    });
-
     return page;
+  }
+
+  private getVoucherTypeColor(vt: string): any {
+    switch (vt) {
+      case 'INV': return COLORS.green600;  // Invoice - Green
+      case 'REC': return COLORS.red600;    // Receipt - Red
+      case 'GFV': return COLORS.yellow600; // Gold Form Voucher - Yellow
+      case 'Alloy': return COLORS.purple600; // Alloy - Purple
+      case 'BAL': return COLORS.blue600;   // Balance - Blue
+      default: return COLORS.gray700;
+    }
+  }
+
+  private getVoucherTypeBackground(vt: string): any {
+    switch (vt) {
+      case 'INV': return COLORS.green100;
+      case 'REC': return COLORS.red100;
+      case 'GFV': return COLORS.yellow100;
+      case 'Alloy': return COLORS.purple100;
+      case 'BAL': return COLORS.blue100;
+      default: return COLORS.gray200;
+    }
   }
 
   private drawPageHeader(page: PDFPage, data: PdfRequestData, pageNumber: number, totalPages: number): number {
@@ -244,48 +245,38 @@ class PDFGenerator {
     let currentY = this.pageConfig.height - MARGIN - 30;
 
     // Header with gradient effect
-    const headerBgWidth = this.pageConfig.contentWidth - 40;
-    page.drawRectangle({
-      x: MARGIN + 20,
-      y: currentY - 5,
-      width: headerBgWidth,
-      height: 40,
-      color: COLORS.blue600,
-      opacity: 0.1,
-    });
-
     page.drawText("BLOUDAN JEWELLERY", {
       x: MARGIN + 20,
       y: currentY,
-      size: 20,
+      size: 24,
       font: boldFont,
       color: COLORS.blue800,
     });
 
     page.drawText("Account Ledger Statement", {
       x: MARGIN + 20,
-      y: currentY - 25,
-      size: 16,
+      y: currentY - 30,
+      size: 18,
       font: boldFont,
-      color: COLORS.blue700,
+      color: COLORS.blue600,
     });
 
-    currentY -= 50;
+    currentY -= 70;
 
-    // Account Information Card
-    const accountBoxHeight = 50;
+    // Account Information Card (matching page design)
+    const accountBoxHeight = 45;
     page.drawRectangle({
       x: MARGIN + 20,
       y: currentY - accountBoxHeight,
       width: this.pageConfig.contentWidth - 40,
       height: accountBoxHeight,
-      color: COLORS.blue50,
+      color: COLORS.blue100,
       borderColor: COLORS.blue300,
-      borderWidth: 2,
-      borderDashArray: [0],
+      borderWidth: 1.5,
+      borderDashArray: [3, 2],
     });
 
-    // Account details in grid layout
+    // Account details in a grid layout
     const accountLines = [
       `Account No: ${data.account.accountNo}`,
       `Name: ${data.account.name}`,
@@ -294,17 +285,21 @@ class PDFGenerator {
       `CR/ID: ${data.account.crOrCivilIdNo || 'N/A'}`
     ];
 
-    const columnWidth = (this.pageConfig.contentWidth - 60) / 5;
-    let xPos = MARGIN + 35;
-    
-    accountLines.forEach((line, index) => {
-      page.drawText(line, {
-        x: xPos + (index * columnWidth),
-        y: currentY - 30,
-        size: 9,
-        font: font,
-        color: COLORS.blue800,
-      });
+    // Distribute account info across multiple lines if needed
+    page.drawText(accountLines[0], {
+      x: MARGIN + 35,
+      y: currentY - 25,
+      size: 10,
+      font: boldFont,
+      color: COLORS.blue800,
+    });
+
+    page.drawText(accountLines.slice(1).join(' | '), {
+      x: MARGIN + 35,
+      y: currentY - 40,
+      size: 9,
+      font: font,
+      color: COLORS.blue700,
     });
 
     currentY -= 70;
@@ -317,102 +312,45 @@ class PDFGenerator {
     page.drawText(periodInfo, {
       x: MARGIN + 20,
       y: currentY,
-      size: 11,
+      size: 12,
       font: boldFont,
       color: COLORS.blue800,
     });
+
+    // Current balances on right side
+    const goldBalanceText = `Current Gold: ${formatBalance(data.closingBalance.gold)}`;
+    page.drawText(goldBalanceText, {
+      x: this.pageConfig.width - MARGIN - 20 - font.widthOfTextAtSize(goldBalanceText, 10),
+      y: currentY,
+      size: 10,
+      font: font,
+      color: data.closingBalance.gold >= 0 ? COLORS.blue700 : COLORS.red700,
+    });
+
+    if (!data.isProjectAccount) {
+      const kwdBalanceText = `Current Amount: ${formatBalance(data.closingBalance.kwd)} KWD`;
+      page.drawText(kwdBalanceText, {
+        x: this.pageConfig.width - MARGIN - 20 - font.widthOfTextAtSize(kwdBalanceText, 10),
+        y: currentY - 15,
+        size: 10,
+        font: font,
+        color: data.closingBalance.kwd >= 0 ? COLORS.blue700 : COLORS.red700,
+      });
+    }
 
     // Page number
     const pageInfo = `Page ${pageNumber} of ${totalPages}`;
     page.drawText(pageInfo, {
       x: this.pageConfig.width - MARGIN - 20 - boldFont.widthOfTextAtSize(pageInfo, 10),
-      y: currentY,
-      size: 10,
-      font: boldFont,
-      color: COLORS.blue800,
-    });
-
-    currentY -= 25;
-
-    // Balance Summary Section
-    page.drawText("Current Balance Summary", {
-      x: MARGIN + 20,
-      y: currentY,
-      size: 14,
-      font: boldFont,
-      color: COLORS.blue800,
-    });
-
-    currentY -= 40;
-
-    // Balance boxes
-    const balanceBoxWidth = (this.pageConfig.contentWidth - 60) / (this.isProjectAccount ? 1 : 2);
-    
-    // Gold Balance
-    const goldBalanceBoxX = MARGIN + 20;
-    const goldBalanceColor = data.closingBalance.gold >= 0 ? COLORS.blue600 : COLORS.red700;
-    
-    page.drawRectangle({
-      x: goldBalanceBoxX,
-      y: currentY - 40,
-      width: balanceBoxWidth,
-      height: 50,
-      color: goldBalanceColor,
-      borderColor: COLORS.blue400,
-      borderWidth: 2,
-    });
-
-    page.drawText("Gold Balance", {
-      x: goldBalanceBoxX + 10,
-      y: currentY - 15,
-      size: 10,
-      font: boldFont,
-      color: COLORS.white,
-    });
-
-    page.drawText(formatBalance(data.closingBalance.gold, 'gold'), {
-      x: goldBalanceBoxX + 10,
       y: currentY - 30,
-      size: 14,
+      size: 10,
       font: boldFont,
-      color: COLORS.white,
+      color: COLORS.blue800,
     });
 
-    // Amount Balance (only if not project account)
-    if (!this.isProjectAccount) {
-      const amountBalanceBoxX = goldBalanceBoxX + balanceBoxWidth + 20;
-      const amountBalanceColor = data.closingBalance.kwd >= 0 ? COLORS.blue600 : COLORS.red700;
-      
-      page.drawRectangle({
-        x: amountBalanceBoxX,
-        y: currentY - 40,
-        width: balanceBoxWidth,
-        height: 50,
-        color: amountBalanceColor,
-        borderColor: COLORS.blue400,
-        borderWidth: 2,
-      });
+    currentY -= 35;
 
-      page.drawText("Amount Balance", {
-        x: amountBalanceBoxX + 10,
-        y: currentY - 15,
-        size: 10,
-        font: boldFont,
-        color: COLORS.white,
-      });
-
-      page.drawText(formatBalance(data.closingBalance.kwd, 'kwd'), {
-        x: amountBalanceBoxX + 10,
-        y: currentY - 30,
-        size: 14,
-        font: boldFont,
-        color: COLORS.white,
-      });
-    }
-
-    currentY -= 80;
-
-    // Transaction History Title
+    // Ledger Table Header
     page.drawText("Transaction History", {
       x: MARGIN + 20,
       y: currentY,
@@ -424,29 +362,18 @@ class PDFGenerator {
     return currentY - 25;
   }
 
-  private drawTableHeader(page: PDFPage, tableTop: number): { tableTop: number; colWidths: number[] } {
+  private drawTableHeader(page: PDFPage, tableTop: number, isProjectAccount: boolean): { tableTop: number; colWidths: number[] } {
     const { boldFont } = this.getFonts();
     const tableWidth = this.pageConfig.contentWidth - 40;
     
-    // Column configuration based on account type
-    let colConfig = [
-      { name: "Date", width: 50 },
-      { name: "Type", width: 35 },
-      { name: "Description", width: 200 },
-      { name: "Gold Debit (g)", width: 60 },
-      { name: "Gold Credit (g)", width: 60 },
-      { name: "Gold Balance", width: 75 },
-    ];
-
-    if (!this.isProjectAccount) {
-      colConfig.push(
-        { name: "Amount Debit", width: 60 },
-        { name: "Amount Credit", width: 60 },
-        { name: "Amount Balance", width: 75 }
-      );
-    }
-
-    let colWidths = colConfig.map(col => col.width);
+    // Column widths - adjust based on project account
+    let colWidths = isProjectAccount ? 
+      // Project accounts don't show amount columns
+      [50, 40, 270, 70, 70, 90] : // Date, Type, Description, G Debit, G Credit, G Balance
+      // Regular accounts show all columns
+      [50, 40, 200, 60, 60, 75, 60, 60, 75]; // Total: 675
+    
+    // Calculate missing width and distribute proportionally
     const currentTotal = colWidths.reduce((a, b) => a + b, 0);
     const missing = tableWidth - currentTotal;
     
@@ -455,7 +382,7 @@ class PDFGenerator {
       colWidths = colWidths.map(w => w + extraPerColumn);
     }
 
-    // Draw table container with blue border
+    // Draw table container
     page.drawRectangle({
       x: MARGIN + 20,
       y: tableTop - HEADER_HEIGHT,
@@ -463,6 +390,7 @@ class PDFGenerator {
       height: HEADER_HEIGHT,
       borderColor: COLORS.blue300,
       borderWidth: 2,
+      borderDashArray: [1, 0],
     });
 
     // Table header background
@@ -474,118 +402,301 @@ class PDFGenerator {
       color: COLORS.blue100,
     });
 
-    // Calculate positions for grouped headers
+    // Calculate positions
     let xPos = MARGIN + 20;
     
-    // First three columns (Date, Type, Description) span full header height
-    const firstThreeColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2];
-    
-    // Gold group header
-    const goldGroupStartX = xPos + firstThreeColumnsWidth;
-    const goldGroupWidth = colWidths[3] + colWidths[4] + colWidths[5];
-    
-    // Amount group header (if applicable)
-    let amountGroupStartX = 0;
-    let amountGroupWidth = 0;
-    
-    if (!this.isProjectAccount) {
-      amountGroupStartX = goldGroupStartX + goldGroupWidth;
-      amountGroupWidth = colWidths[6] + colWidths[7] + colWidths[8];
-    }
+    if (isProjectAccount) {
+      // For project accounts: simpler structure
+      const firstThreeColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2];
+      const goldGroupStartX = xPos + firstThreeColumnsWidth;
+      const goldGroupWidth = colWidths[3] + colWidths[4] + colWidths[5];
+      
+      // Gold group header
+      page.drawRectangle({
+        x: goldGroupStartX,
+        y: tableTop - 20,
+        width: goldGroupWidth,
+        height: 20,
+        color: COLORS.blue800,
+      });
 
-    // Draw grouped header backgrounds
-    page.drawRectangle({
-      x: goldGroupStartX,
-      y: tableTop - 20,
-      width: goldGroupWidth,
-      height: 20,
-      color: COLORS.blue600,
-    });
+      // Vertical lines for project account table
+      xPos = MARGIN + 20;
+      for (let col = 0; col <= 3; col++) {
+        page.drawLine({
+          start: { x: xPos, y: tableTop },
+          end: { x: xPos, y: tableTop - HEADER_HEIGHT },
+          color: COLORS.blue300,
+          thickness: 0.5,
+        });
+        if (col < 3) {
+          xPos += colWidths[col];
+        }
+      }
 
-    if (!this.isProjectAccount) {
+      // Gold group vertical lines
+      let groupXPos = goldGroupStartX;
+      page.drawLine({
+        start: { x: groupXPos, y: tableTop },
+        end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      for (let i = 0; i <= 3; i++) {
+        if (i < 3) {
+          page.drawLine({
+            start: { x: groupXPos + colWidths[3 + i], y: tableTop - 20 },
+            end: { x: groupXPos + colWidths[3 + i], y: tableTop - HEADER_HEIGHT },
+            color: COLORS.blue300,
+            thickness: 0.5,
+          });
+        }
+        if (i < 3) groupXPos += colWidths[3 + i];
+      }
+
+      // Rightmost border
+      const tableRightEdge = MARGIN + 20 + tableWidth;
+      page.drawLine({
+        start: { x: tableRightEdge, y: tableTop },
+        end: { x: tableRightEdge, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      // Horizontal lines
+      page.drawLine({
+        start: { x: goldGroupStartX, y: tableTop - 20 },
+        end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+
+      page.drawLine({
+        start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
+        end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+
+      // Column headers for project accounts
+      xPos = MARGIN + 20;
+      const projectHeaders = ["Date", "Type", "Description", "Debit", "Credit", "Balance"];
+      
+      projectHeaders.forEach((header, index) => {
+        const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 9)) / 2;
+        const textY = index >= 3 ? tableTop - 34 : tableTop - 24;
+        const textSize = index >= 3 ? 8 : 9;
+        const textColor = index >= 3 ? COLORS.blue800 : COLORS.blue800;
+        
+        page.drawText(header, {
+          x: textX,
+          y: textY,
+          size: textSize,
+          font: boldFont,
+          color: textColor,
+        });
+        
+        xPos += colWidths[index];
+      });
+
+      // Gold group header text
+      page.drawText("GOLD (g)", {
+        x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD (g)", 10)) / 2,
+        y: tableTop - 12,
+        size: 10,
+        font: boldFont,
+        color: COLORS.white,
+      });
+
+    } else {
+      // Original structure for regular accounts
+      const firstThreeColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2];
+      const goldGroupStartX = xPos + firstThreeColumnsWidth;
+      const goldGroupWidth = colWidths[3] + colWidths[4] + colWidths[5];
+      const amountGroupStartX = goldGroupStartX + goldGroupWidth;
+      const amountGroupWidth = colWidths[6] + colWidths[7] + colWidths[8];
+
+      // Gold and Amount group headers
+      page.drawRectangle({
+        x: goldGroupStartX,
+        y: tableTop - 20,
+        width: goldGroupWidth,
+        height: 20,
+        color: COLORS.blue800,
+      });
+
       page.drawRectangle({
         x: amountGroupStartX,
         y: tableTop - 20,
         width: amountGroupWidth,
         height: 20,
-        color: COLORS.blue600,
+        color: COLORS.indigo800,
       });
-    }
 
-    // Draw vertical lines
-    xPos = MARGIN + 20;
-    for (let col = 0; col <= colWidths.length; col++) {
+      // Vertical lines (same as before but with blue colors)
+      xPos = MARGIN + 20;
+      for (let col = 0; col <= 3; col++) {
+        page.drawLine({
+          start: { x: xPos, y: tableTop },
+          end: { x: xPos, y: tableTop - HEADER_HEIGHT },
+          color: COLORS.blue300,
+          thickness: 0.5,
+        });
+        if (col < 3) {
+          xPos += colWidths[col];
+        }
+      }
+
+      // Gold group lines
+      let groupXPos = goldGroupStartX;
       page.drawLine({
-        start: { x: xPos, y: tableTop },
-        end: { x: xPos, y: tableTop - HEADER_HEIGHT },
+        start: { x: groupXPos, y: tableTop },
+        end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
         color: COLORS.blue300,
         thickness: 0.5,
       });
-      if (col < colWidths.length) {
-        xPos += colWidths[col];
-      }
-    }
 
-    // Draw horizontal lines
-    page.drawLine({
-      start: { x: goldGroupStartX, y: tableTop - 20 },
-      end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
-      color: COLORS.blue300,
-      thickness: 1,
-    });
-
-    page.drawLine({
-      start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
-      end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
-      color: COLORS.blue300,
-      thickness: 1,
-    });
-
-    // Draw column headers
-    xPos = MARGIN + 20;
-    colConfig.forEach((col, index) => {
-      let textY = tableTop - 24;
-      let textSize = 9;
-      let textColor = COLORS.blue800;
-      
-      if (index >= 3) { // Gold and Amount columns
-        textY = tableTop - 34;
-        textSize = 8;
-      }
-      
-      if (index >= 3 && index <= 5) { // Gold section
-        textColor = COLORS.white;
-      }
-      
-      if (!this.isProjectAccount && index >= 6) { // Amount section
-        textColor = COLORS.white;
-      }
-
-      const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(col.name, textSize)) / 2;
-      
-      page.drawText(col.name, {
-        x: textX,
-        y: textY,
-        size: textSize,
-        font: boldFont,
-        color: textColor,
+      page.drawLine({
+        start: { x: groupXPos + colWidths[3], y: tableTop - 20 },
+        end: { x: groupXPos + colWidths[3], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
       });
       
-      xPos += colWidths[index];
-    });
+      page.drawLine({
+        start: { x: groupXPos + colWidths[3] + colWidths[4], y: tableTop - 20 },
+        end: { x: groupXPos + colWidths[3] + colWidths[4], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
 
-    // Draw grouped header text
-    page.drawText("GOLD", {
-      x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2,
-      y: tableTop - 12,
-      size: 10,
-      font: boldFont,
-      color: COLORS.white,
-    });
+      page.drawLine({
+        start: { x: groupXPos + goldGroupWidth, y: tableTop },
+        end: { x: groupXPos + goldGroupWidth, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
 
-    if (!this.isProjectAccount) {
-      page.drawText("AMOUNT", {
-        x: amountGroupStartX + (amountGroupWidth - boldFont.widthOfTextAtSize("AMOUNT", 10)) / 2,
+      // Amount group lines
+      groupXPos = amountGroupStartX;
+      page.drawLine({
+        start: { x: groupXPos, y: tableTop },
+        end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      page.drawLine({
+        start: { x: groupXPos + colWidths[6], y: tableTop - 20 },
+        end: { x: groupXPos + colWidths[6], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+      
+      page.drawLine({
+        start: { x: groupXPos + colWidths[6] + colWidths[7], y: tableTop - 20 },
+        end: { x: groupXPos + colWidths[6] + colWidths[7], y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      page.drawLine({
+        start: { x: groupXPos + amountGroupWidth, y: tableTop },
+        end: { x: groupXPos + amountGroupWidth, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      // Rightmost border
+      const tableRightEdge = MARGIN + 20 + tableWidth;
+      page.drawLine({
+        start: { x: tableRightEdge, y: tableTop },
+        end: { x: tableRightEdge, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+
+      // Horizontal lines
+      page.drawLine({
+        start: { x: goldGroupStartX, y: tableTop - 20 },
+        end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+
+      page.drawLine({
+        start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
+        end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+
+      // Column headers
+      xPos = MARGIN + 20;
+      const firstThreeHeaders = ["Date", "Type", "Description"];
+      
+      firstThreeHeaders.forEach((header, index) => {
+        const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 9)) / 2;
+        
+        page.drawText(header, {
+          x: textX,
+          y: tableTop - 24,
+          size: 9,
+          font: boldFont,
+          color: COLORS.blue800,
+        });
+        
+        xPos += colWidths[index];
+      });
+
+      // Gold section headers
+      const goldHeaders = ["Debit", "Credit", "Balance"];
+      xPos = goldGroupStartX;
+      goldHeaders.forEach((header, index) => {
+        const colIndex = 3 + index;
+        const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+        
+        page.drawText(header, {
+          x: textX,
+          y: tableTop - 34,
+          size: 8,
+          font: boldFont,
+          color: COLORS.blue800,
+        });
+        
+        xPos += colWidths[colIndex];
+      });
+
+      // Amount section headers
+      const amountHeaders = ["Debit", "Credit", "Balance"];
+      xPos = amountGroupStartX;
+      amountHeaders.forEach((header, index) => {
+        const colIndex = 6 + index;
+        const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+        
+        page.drawText(header, {
+          x: textX,
+          y: tableTop - 34,
+          size: 8,
+          font: boldFont,
+          color: COLORS.blue800,
+        });
+        
+        xPos += colWidths[colIndex];
+      });
+
+      // Group header text
+      page.drawText("GOLD (g)", {
+        x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD (g)", 10)) / 2,
+        y: tableTop - 12,
+        size: 10,
+        font: boldFont,
+        color: COLORS.white,
+      });
+
+      page.drawText("AMOUNT (KWD)", {
+        x: amountGroupStartX + (amountGroupWidth - boldFont.widthOfTextAtSize("AMOUNT (KWD)", 10)) / 2,
         y: tableTop - 12,
         size: 10,
         font: boldFont,
@@ -596,27 +707,56 @@ class PDFGenerator {
     return { tableTop: tableTop - HEADER_HEIGHT, colWidths };
   }
 
-  private getVoucherTypeColor(vt: string): any {
-    switch (vt) {
-      case 'REC': return COLORS.red500;
-      case 'INV': return COLORS.green500;
-      case 'GFV': return COLORS.yellow300;
-      case 'Alloy': return COLORS.purple300;
-      case 'BAL': return COLORS.blue600;
-      default: return COLORS.blue600;
+  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[], isHeader: boolean = false): void {
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    let xPos = MARGIN + 20;
+
+    // Vertical lines
+    for (let col = 0; col <= colWidths.length; col++) {
+      const lineStartY = isHeader ? startY : startY - height;
+      const lineEndY = isHeader ? startY - height : startY;
+      
+      page.drawLine({
+        start: { x: xPos, y: lineStartY },
+        end: { x: xPos, y: lineEndY },
+        color: COLORS.blue300,
+        thickness: 0.5,
+      });
+      
+      if (col < colWidths.length) {
+        xPos += colWidths[col];
+      }
     }
+
+    // Horizontal lines
+    if (isHeader) {
+      page.drawLine({
+        start: { x: MARGIN + 20, y: startY - 20 },
+        end: { x: MARGIN + 20 + tableWidth, y: startY - 20 },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+    }
+    
+    page.drawLine({
+      start: { x: MARGIN + 20, y: startY - height },
+      end: { x: MARGIN + 20 + tableWidth, y: startY - height },
+      color: COLORS.blue300,
+      thickness: 1,
+    });
   }
 
-  private drawTableRows(page: PDFPage, entries: LedgerEntry[], startY: number, colWidths: number[]): number {
+  private drawTableRows(page: PDFPage, entries: LedgerEntry[], startY: number, colWidths: number[], isProjectAccount: boolean): number {
     const { font, boldFont } = this.getFonts();
     const ROW_OFFSET = 10;
     let currentY = startY - ROW_OFFSET;
 
+    // Draw rows
     entries.forEach((entry, index) => {
       const rowTop = currentY + ROW_HEIGHT / 2;
       const rowBottom = currentY - ROW_HEIGHT / 2;
 
-      // Row background
+      // Row background - matching page zebra striping
       let rowBgColor;
       if (entry.isOpeningBalance) {
         rowBgColor = COLORS.blue50;
@@ -626,7 +766,6 @@ class PDFGenerator {
         rowBgColor = index % 2 === 0 ? COLORS.white : COLORS.blue50;
       }
 
-      // Draw row background
       let xPos = MARGIN + 20;
       colWidths.forEach(width => {
         page.drawRectangle({
@@ -639,12 +778,10 @@ class PDFGenerator {
         xPos += width;
       });
 
-      // Prepare row data
+      // Row data
       const displayDate = entry.isOpeningBalance || entry.isClosingBalance 
-        ? (entry.date === "Beginning" || entry.date === "Present" 
-            ? entry.date 
-            : new Date(entry.date).toLocaleDateString())
-        : (entry.date || '');
+        ? new Date(entry.date).toLocaleDateString() 
+        : (entry.date || '').split('/').slice(0, 2).join('/');
 
       const cleanedDescription = cleanDescription(
         entry.description || '',
@@ -652,80 +789,69 @@ class PDFGenerator {
         entry.isClosingBalance
       );
 
-      const rowData = [
+      // Get voucher type color
+      const typeColor = this.getVoucherTypeColor(entry.type);
+      const typeText = entry.isOpeningBalance || entry.isClosingBalance 
+        ? 'BAL' 
+        : (entry.type === 'INV' ? 'Invoice' : 
+           entry.type === 'REC' ? 'Receipt' : 
+           entry.type === 'GFV' ? 'Gold Form' : 
+           entry.type === 'Alloy' ? 'Alloy' : entry.type);
+
+      // Prepare row data based on account type
+      const rowData = isProjectAccount ? [
         displayDate,
-        getVoucherTypeText(entry.type),
+        typeText,
+        cleanedDescription.substring(0, 50) + (cleanedDescription.length > 50 ? '...' : ''),
+        entry.goldDebit > 0 ? (entry.goldDebit || 0).toFixed(3) : '-',
+        entry.goldCredit > 0 ? (entry.goldCredit || 0).toFixed(3) : '-',
+        formatBalance(entry.goldBalance || 0)
+      ] : [
+        displayDate,
+        typeText,
         cleanedDescription.substring(0, 40) + (cleanedDescription.length > 40 ? '...' : ''),
         entry.goldDebit > 0 ? (entry.goldDebit || 0).toFixed(3) : '-',
         entry.goldCredit > 0 ? (entry.goldCredit || 0).toFixed(3) : '-',
-        formatBalance(entry.goldBalance || 0, 'gold'),
+        formatBalance(entry.goldBalance || 0),
+        entry.kwdDebit > 0 ? (entry.kwdDebit || 0).toFixed(3) : '-',
+        entry.kwdCredit > 0 ? (entry.kwdCredit || 0).toFixed(3) : '-',
+        formatBalance(entry.kwdBalance || 0)
       ];
 
-      if (!this.isProjectAccount) {
-        rowData.push(
-          entry.kwdDebit > 0 ? (entry.kwdDebit || 0).toFixed(3) : '-',
-          entry.kwdCredit > 0 ? (entry.kwdCredit || 0).toFixed(3) : '-',
-          formatBalance(entry.kwdBalance || 0, 'kwd')
-        );
-      }
-
-      // Draw cell content
+      // Draw cell text
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
-        const isLeftAligned = colIndex === 2;
-        const isBalance = colIndex === 5 || colIndex === 8;
+        const isLeftAligned = colIndex === 2; // Description is left-aligned
+        const isTypeColumn = colIndex === 1; // Type column
+        const isBalanceColumn = isProjectAccount ? colIndex === 5 : (colIndex === 5 || colIndex === 8);
         
         let textColor = COLORS.blue700;
+        if (isTypeColumn) {
+          textColor = typeColor;
+        } else if (isBalanceColumn) {
+          const balance = isProjectAccount ? entry.goldBalance : (colIndex === 5 ? entry.goldBalance : entry.kwdBalance);
+          textColor = balance >= 0 ? COLORS.blue700 : COLORS.red700;
+        }
+        
         const textFont = (entry.isOpeningBalance || entry.isClosingBalance) ? boldFont : font;
-        let textSize = 7;
-
-        if (isBalance) {
-          const balanceValue = colIndex === 5 ? entry.goldBalance : entry.kwdBalance;
-          textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red700;
-        }
-
-        if (colIndex === 1 && !entry.isOpeningBalance && !entry.isClosingBalance) {
-          // Voucher type badge
-          const typeColor = this.getVoucherTypeColor(entry.type);
-          const badgeWidth = boldFont.widthOfTextAtSize(data, 6) + 8;
-          
-          page.drawRectangle({
-            x: xPos + 2,
-            y: rowBottom + 2,
-            width: badgeWidth,
-            height: ROW_HEIGHT - 4,
-            color: typeColor,
-            opacity: 0.1,
-            borderColor: typeColor,
-            borderWidth: 1,
-          });
-          
-          page.drawText(data, {
-            x: xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(data, 6)) / 2,
-            y: currentY - 4,
-            size: 6,
-            font: boldFont,
-            color: typeColor,
-          });
-        } else {
-          const textX = isLeftAligned ? 
-            xPos + 5 : 
-            xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, textSize)) / 2;
-          
-          page.drawText(data, {
-            x: textX,
-            y: currentY - 3,
-            size: textSize,
-            font: textFont,
-            color: textColor,
-          });
-        }
+        
+        const textX = isLeftAligned ? 
+          xPos + 5 : 
+          xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 7)) / 2;
+        
+        page.drawText(data, {
+          x: textX,
+          y: currentY - 3,
+          size: 7,
+          font: textFont,
+          color: textColor,
+        });
         
         xPos += colWidths[colIndex];
       });
 
       // Draw row grid
-      this.drawRowGrid(page, rowTop, ROW_HEIGHT, colWidths, entry);
+      this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
 
       currentY -= ROW_HEIGHT;
     });
@@ -733,127 +859,78 @@ class PDFGenerator {
     return currentY;
   }
 
-  private drawRowGrid(page: PDFPage, rowTop: number, rowHeight: number, colWidths: number[], entry: LedgerEntry): void {
-    const rowBottom = rowTop - rowHeight;
+  private drawTotalsRow(page: PDFPage, data: PdfRequestData, startY: number, colWidths: number[], isProjectAccount: boolean): number {
+    const { font, boldFont } = this.getFonts();
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    const rowTop = startY + ROW_HEIGHT / 2;
+    
+    // Totals row background - matching page footer
     let xPos = MARGIN + 20;
+    colWidths.forEach(width => {
+      page.drawRectangle({
+        x: xPos,
+        y: startY - ROW_HEIGHT / 2,
+        width: width,
+        height: ROW_HEIGHT,
+        color: COLORS.blue100,
+      });
+      xPos += width;
+    });
 
-    // Draw vertical lines
-    for (let col = 0; col <= colWidths.length; col++) {
-      const lineColor = entry.isOpeningBalance || entry.isClosingBalance ? COLORS.blue300 : COLORS.gray200;
+    // Totals row data
+    const totalsRowData = isProjectAccount ? [
+      "Totals", "", "",
+      data.totals.goldDebit.toFixed(3),
+      data.totals.goldCredit.toFixed(3),
+      formatBalance(data.closingBalance.gold)
+    ] : [
+      "Totals", "", "",
+      data.totals.goldDebit.toFixed(3),
+      data.totals.goldCredit.toFixed(3),
+      formatBalance(data.closingBalance.gold),
+      data.totals.kwdDebit.toFixed(3),
+      data.totals.kwdCredit.toFixed(3),
+      formatBalance(data.closingBalance.kwd)
+    ];
+
+    // Draw totals text
+    xPos = MARGIN + 20;
+    totalsRowData.forEach((data, colIndex) => {
+      const isLeftAligned = colIndex === 2;
+      const isBalanceColumn = isProjectAccount ? colIndex === 5 : (colIndex === 5 || colIndex === 8);
       
-      page.drawLine({
-        start: { x: xPos, y: rowTop },
-        end: { x: xPos, y: rowBottom },
-        color: lineColor,
-        thickness: 0.5,
+      let textColor = COLORS.blue800;
+      if (isBalanceColumn) {
+        const balance = isProjectAccount ? data.closingBalance.gold : (colIndex === 5 ? data.closingBalance.gold : data.closingBalance.kwd);
+        textColor = balance >= 0 ? COLORS.blue800 : COLORS.red800;
+      }
+      
+      const textFont = colIndex >= 3 ? boldFont : font;
+      
+      const textX = isLeftAligned ? 
+        xPos + 5 : 
+        xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 8)) / 2;
+      
+      page.drawText(data, {
+        x: textX,
+        y: startY - 3,
+        size: 8,
+        font: textFont,
+        color: textColor,
       });
       
-      if (col < colWidths.length) {
-        xPos += colWidths[col];
-      }
-    }
+      xPos += colWidths[colIndex];
+    });
 
-    // Draw horizontal lines
-    const horizontalLineColor = entry.isOpeningBalance || entry.isClosingBalance ? COLORS.blue300 : COLORS.gray200;
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-    
-    page.drawLine({
-      start: { x: MARGIN + 20, y: rowTop },
-      end: { x: MARGIN + 20 + tableWidth, y: rowTop },
-      color: horizontalLineColor,
-      thickness: 0.5,
-    });
-    
-    page.drawLine({
-      start: { x: MARGIN + 20, y: rowBottom },
-      end: { x: MARGIN + 20 + tableWidth, y: rowBottom },
-      color: horizontalLineColor,
-      thickness: 0.5,
-    });
+    // Draw totals row grid
+    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
+
+    return startY - ROW_HEIGHT;
   }
-
-private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, colWidths: number[]): number {
-  const { font, boldFont } = this.getFonts();
-  const tableWidth = colWidths.reduce((a, b) => a + b, 0);
-  const rowTop = startY + ROW_HEIGHT / 2;
-  
-  // Totals row background
-  let xPos = MARGIN + 20;
-  colWidths.forEach(width => {
-    page.drawRectangle({
-      x: xPos,
-      y: startY - ROW_HEIGHT / 2,
-      width: width,
-      height: ROW_HEIGHT,
-      color: COLORS.blue100,
-    });
-    xPos += width;
-  });
-
-  // Totals row data
-  const totalsRowData = [
-    "Filtered Period Totals", "", "",
-    pdfData.totals.goldDebit.toFixed(3),
-    pdfData.totals.goldCredit.toFixed(3),
-    formatBalance(pdfData.closingBalance.gold, 'gold'),
-  ];
-
-  if (!this.isProjectAccount) {
-    totalsRowData.push(
-      pdfData.totals.kwdDebit.toFixed(3),
-      pdfData.totals.kwdCredit.toFixed(3),
-      formatBalance(pdfData.closingBalance.kwd, 'kwd')
-    );
-  }
-
-  // Draw totals text
-  xPos = MARGIN + 20;
-  totalsRowData.forEach((cellData, colIndex) => { // Changed from 'data' to 'cellData'
-    const isLeftAligned = colIndex === 2;
-    const isBalance = colIndex === 5 || colIndex === 8;
-    
-    let textColor = COLORS.blue800;
-    const textFont = colIndex >= 3 ? boldFont : font;
-    
-    if (isBalance) {
-      const balanceValue = colIndex === 5 ? pdfData.closingBalance.gold : pdfData.closingBalance.kwd;
-      textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red700;
-    }
-
-    const textX = isLeftAligned ? 
-      xPos + 5 : 
-      xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(cellData, 8)) / 2;
-    
-    page.drawText(cellData, {
-      x: textX,
-      y: startY - 3,
-      size: 8,
-      font: textFont,
-      color: textColor,
-    });
-    
-    xPos += colWidths[colIndex];
-  });
-
-  // Draw totals row grid
-  this.drawRowGrid(page, rowTop, ROW_HEIGHT, colWidths, {} as LedgerEntry);
-
-  return startY - ROW_HEIGHT;
-}
 
   private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
     const { font } = this.getFonts();
     const footerY = MARGIN + 10;
-    
-    // Footer background
-    page.drawRectangle({
-      x: MARGIN + 20,
-      y: MARGIN,
-      width: this.pageConfig.contentWidth - 40,
-      height: FOOTER_HEIGHT,
-      color: COLORS.blue800,
-    });
-
     const footerText = `© 2025 Bloudan Jewellery | All Rights Reserved | Page ${pageNumber} of ${totalPages}`;
     
     page.drawText(footerText, {
@@ -861,7 +938,7 @@ private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, co
       y: footerY,
       size: 9,
       font: font,
-      color: COLORS.white,
+      color: COLORS.gray700,
     });
   }
 
@@ -871,6 +948,7 @@ private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, co
     
     const allEntries = data.ledgerEntries;
     const totalPages = Math.ceil(allEntries.length / this.pageConfig.maxRowsPerPage);
+    const isProjectAccount = data.isProjectAccount || false;
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       const page = this.createNewPage();
@@ -883,16 +961,15 @@ private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, co
       const tableTop = this.drawPageHeader(page, data, pageNum, totalPages);
       
       // Draw table header
-      const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
+      const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop, isProjectAccount);
       
       // Draw table rows
-      let currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths);
+      let currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths, isProjectAccount);
       
       // Draw totals row only on last page
-     // In the generatePDF method, change:
-if (isLastPage) {
-  currentY = this.drawTotalsRow(page, data, currentY, colWidths);
-}
+      if (isLastPage) {
+        currentY = this.drawTotalsRow(page, data, currentY, colWidths, isProjectAccount);
+      }
       
       // Draw footer
       this.drawFooter(page, pageNum, totalPages);
@@ -908,7 +985,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    console.log("Starting PDF generation with blue theme...");
+    console.log("Starting PDF generation...");
     
     const data: PdfRequestData = req.body;
 
@@ -921,14 +998,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ success: false, error: "Ledger entries are required" });
     }
 
-    console.log(`Generating PDF for account: ${data.account.accountNo}, entries: ${data.ledgerEntries.length}, Project Account: ${data.isProjectAccount}`);
+    console.log(`Generating PDF for account: ${data.account.accountNo}, entries: ${data.ledgerEntries.length}`);
 
-    // Generate PDF with correct account type handling
-    const generator = new PDFGenerator(data.isProjectAccount);
+    // Generate PDF
+    const generator = new PDFGenerator();
     const pdfBytes = await generator.generatePDF(data);
     const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-    console.log("PDF generated successfully with blue theme");
+    console.log("PDF generated successfully with pagination");
 
     return res.json({ 
       success: true, 
