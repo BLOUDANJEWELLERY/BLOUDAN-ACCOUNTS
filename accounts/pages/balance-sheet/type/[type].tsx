@@ -179,7 +179,7 @@ export default function AccountTypeBalanceSheet({
         
         // Add quantity to description if it exists
         if (voucher.quantity) {
-          description = `${voucher.quantity} - ${description}`;
+          description = `${description}`;
         }
         
         if (!description && voucher.mvn) {
