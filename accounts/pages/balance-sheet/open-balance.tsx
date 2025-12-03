@@ -384,17 +384,17 @@ export default function OpenBalanceSheet({
     return voucher.vt;
   };
 
-  // Get voucher type styling
+  // Get voucher type styling - Updated to match first page
   const getVoucherTypeStyle = (voucher: OpenBalanceVoucher) => {
     if (voucher.vt === "REC" && voucher.goldRate) {
       return "bg-yellow-100 text-yellow-800 border border-yellow-300";
     } else if (voucher.vt === "GFV") {
-      return "bg-purple-100 text-purple-800 border border-purple-300";
+      return "bg-blue-100 text-blue-800 border border-blue-300";
     }
     return "bg-gray-100 text-gray-800 border border-gray-300";
   };
 
-  // Get account type styling
+  // Get account type styling - Updated to match first page
   const getAccountTypeStyle = (type: string) => {
     const colors = {
       Market: 'bg-blue-100 text-blue-800 border border-blue-300',
@@ -416,7 +416,7 @@ export default function OpenBalanceSheet({
     });
   };
 
-  // Helper function to format balance with Cr/Db
+  // Helper function to format balance with Cr/Db - Same as first page
   const formatBalance = (balance: number, type: 'gold' | 'kwd') => {
     const absoluteValue = Math.abs(balance);
     const suffix = balance >= 0 ? 'Cr' : 'Db';
@@ -425,7 +425,7 @@ export default function OpenBalanceSheet({
     return `${absoluteValue.toFixed(3)} ${unit} ${suffix}`;
   };
 
-  // Get current month date range
+  // Get current month date range - Same as first page
   const getCurrentMonthRange = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -437,7 +437,7 @@ export default function OpenBalanceSheet({
     };
   };
 
-  // Get last month date range
+  // Get last month date range - Same as first page
   const getLastMonthRange = () => {
     const now = new Date();
     const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -559,48 +559,48 @@ export default function OpenBalanceSheet({
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-red-600 rounded-3xl blur-lg opacity-30 transform scale-110 -z-10"></div>
-              <div className="w-20 h-20 bg-gradient-to-r from-orange-600 to-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-orange-300 transform hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl blur-lg opacity-30 transform scale-110 -z-10"></div>
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-blue-300 transform hover:scale-105 transition-transform duration-300">
                 <svg className="w-10 h-10 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-700 to-red-700 bg-clip-text text-transparent mb-4 tracking-tight">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4 tracking-tight">
               Open Balance Ledger
             </h1>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <span className="inline-flex px-6 py-3 rounded-full text-lg font-semibold bg-orange-100 text-orange-800 border border-orange-300">
+              <span className="inline-flex px-6 py-3 rounded-full text-lg font-semibold bg-blue-100 text-blue-800 border border-blue-300">
                 Gold Fixing Transactions
               </span>
-              <p className="text-xl text-orange-700 font-light">
+              <p className="text-xl text-blue-700 font-light">
                 Combined Ledger for Market REC (Gold Fixing) and GFV Vouchers
               </p>
             </div>
           </div>
 
-          {/* Summary Cards */}
+          {/* Summary Cards - Blue theme */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-orange-300">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
               <div className="flex items-center">
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-orange-700">Total Transactions</p>
-                  <p className="text-2xl font-bold text-orange-800">{allLedgerEntries.length}</p>
+                  <p className="text-sm font-medium text-blue-700">Total Transactions</p>
+                  <p className="text-2xl font-bold text-blue-800">{allLedgerEntries.length}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-orange-300">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
               <div className="flex items-center">
                 <div className="p-3 bg-green-100 rounded-lg">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,8 +608,8 @@ export default function OpenBalanceSheet({
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-orange-700">Opening Balance</p>
-                  <p className="text-lg font-bold text-orange-800">
+                  <p className="text-sm font-medium text-blue-700">Opening Balance</p>
+                  <p className="text-lg font-bold text-blue-800">
                     {formatBalance(openingGold, 'gold')}<br />
                     {formatBalance(openingKwd, 'kwd')}
                   </p>
@@ -617,7 +617,7 @@ export default function OpenBalanceSheet({
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-orange-300">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
               <div className="flex items-center">
                 <div className="p-3 bg-purple-100 rounded-lg">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,22 +625,22 @@ export default function OpenBalanceSheet({
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-orange-700">Filtered Transactions</p>
-                  <p className="text-2xl font-bold text-orange-800">{allLedgerEntries.length}</p>
+                  <p className="text-sm font-medium text-blue-700">Filtered Transactions</p>
+                  <p className="text-2xl font-bold text-blue-800">{allLedgerEntries.length}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-orange-300">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border-2 border-blue-300">
               <div className="flex items-center">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-orange-700">Net Change</p>
-                  <p className="text-lg font-bold text-orange-800">
+                  <p className="text-sm font-medium text-blue-700">Net Change</p>
+                  <p className="text-lg font-bold text-blue-800">
                     {formatBalance(periodGold, 'gold')}<br />
                     {formatBalance(periodKwd, 'kwd')}
                   </p>
@@ -649,19 +649,19 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Combined Balance Summary Card */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-8 border-2 border-orange-300 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-200 to-orange-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
-            <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-red-200 to-red-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
+          {/* Combined Balance Summary Card - Blue theme */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-8 border-2 border-blue-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-blue-200 to-blue-400 rounded-full -translate-x-16 -translate-y-16 opacity-20"></div>
+            <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-indigo-200 to-indigo-400 rounded-full translate-x-24 translate-y-24 opacity-20"></div>
             
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-orange-800">Current Balance Summary</h2>
+              <h2 className="text-2xl font-bold text-blue-800">Current Balance Summary</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
                 calculateClosingBalance.gold >= 0 
-                  ? "bg-gradient-to-r from-orange-600 to-orange-800 border-orange-400 text-white"
+                  ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Gold Balance</p>
@@ -672,7 +672,7 @@ export default function OpenBalanceSheet({
               </div>
               <div className={`rounded-2xl p-6 text-center shadow-lg border-2 ${
                 calculateClosingBalance.kwd >= 0 
-                  ? "bg-gradient-to-r from-orange-600 to-orange-800 border-orange-400 text-white"
+                  ? "bg-gradient-to-r from-blue-600 to-blue-800 border-blue-400 text-white"
                   : "bg-gradient-to-r from-red-500 to-red-700 border-red-400 text-white"
               } transform hover:-translate-y-1 transition-transform duration-300`}>
                 <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
@@ -684,59 +684,59 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Date Range Filters */}
-          <div className="relative mb-6 rounded-3xl border-2 border-orange-300 bg-white/80 p-6 shadow-2xl backdrop-blur-sm overflow-hidden">
-            <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-gradient-to-br from-orange-200 to-orange-400 opacity-20 translate-x-12 -translate-y-12"></div>
+          {/* Date Range Filters - Blue theme */}
+          <div className="relative mb-6 rounded-3xl border-2 border-blue-300 bg-white/80 p-6 shadow-2xl backdrop-blur-sm overflow-hidden">
+            <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-gradient-to-br from-blue-200 to-blue-400 opacity-20 translate-x-12 -translate-y-12"></div>
 
             <div className="relative z-10 flex flex-col gap-6">
               {/* Date Filters */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
                 {/* From Date */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-orange-700">From Date</label>
+                  <label className="block text-sm font-medium text-blue-700">From Date</label>
                   <input
                     type="date"
                     value={start}
                     onChange={(e) => setStart(e.target.value)}
-                    className="w-full min-w-0 box-border rounded-xl border-2 border-orange-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                    className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
 
                 {/* To Date */}
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-orange-700">To Date</label>
+                  <label className="block text-sm font-medium text-blue-700">To Date</label>
                   <input
                     type="date"
                     value={end}
                     onChange={(e) => setEnd(e.target.value)}
-                    className="w-full min-w-0 box-border rounded-xl border-2 border-orange-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                    className="w-full min-w-0 box-border rounded-xl border-2 border-blue-300 bg-white/80 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
 
                 {/* Quick Actions */}
                 <div className="flex flex-col gap-2">
-                  <label className="pointer-events-none block text-sm font-medium text-orange-700 opacity-0">
+                  <label className="pointer-events-none block text-sm font-medium text-blue-700 opacity-0">
                     Quick Actions
                   </label>
 
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={setCurrentMonth}
-                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-orange-600 to-orange-800 border-2 border-orange-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-orange-700 hover:to-orange-900 hover:shadow-xl"
+                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-800 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-900 hover:shadow-xl"
                     >
                       Current Month
                     </button>
 
                     <button
                       onClick={setLastMonth}
-                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 border-2 border-orange-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-red-600 hover:to-red-700 hover:shadow-xl"
+                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-indigo-600 hover:to-indigo-700 hover:shadow-xl"
                     >
                       Last Month
                     </button>
 
                     <button
                       onClick={clearFilters}
-                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-700 border-2 border-orange-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-orange-600 hover:to-orange-800 hover:shadow-xl"
+                      className="flex-1 min-w-[120px] rounded-xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 border-2 border-blue-400 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
                     >
                       Clear Filters
                     </button>
@@ -749,7 +749,7 @@ export default function OpenBalanceSheet({
                 <button
                   onClick={handleFilter}
                   disabled={isFiltering}
-                  className="flex-1 bg-gradient-to-r from-orange-600 to-orange-800 text-white px-6 py-3 rounded-xl font-semibold hover:from-orange-700 hover:to-orange-900 disabled:from-orange-400 disabled:to-orange-600 transition-all duration-300 border-2 border-orange-400 shadow-lg hover:shadow-xl"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-900 disabled:from-blue-400 disabled:to-blue-600 transition-all duration-300 border-2 border-blue-400 shadow-lg hover:shadow-xl"
                 >
                   {isFiltering ? (
                     <>
@@ -766,7 +766,7 @@ export default function OpenBalanceSheet({
                 
                 <button
                   onClick={handleReset}
-                  className="px-6 py-3 border-2 border-orange-300 text-orange-700 rounded-xl font-semibold hover:bg-orange-50 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="px-6 py-3 border-2 border-blue-300 text-blue-700 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   Reset
                 </button>
@@ -775,11 +775,11 @@ export default function OpenBalanceSheet({
               {/* Active Filters Summary */}
               <div className="flex flex-wrap gap-2">
                 {start ? (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800 border border-orange-300">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
                     From: {formatDate(start)}
                     <button
                       onClick={() => setStart("")}
-                      className="ml-2 hover:text-orange-900 text-lg"
+                      className="ml-2 hover:text-blue-900 text-lg"
                     >
                       ×
                     </button>
@@ -790,11 +790,11 @@ export default function OpenBalanceSheet({
                   </span>
                 )}
                 {end ? (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-300">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-300">
                     To: {formatDate(end)}
                     <button
                       onClick={() => setEnd("")}
-                      className="ml-2 hover:text-red-900 text-lg"
+                      className="ml-2 hover:text-indigo-900 text-lg"
                     >
                       ×
                     </button>
@@ -808,14 +808,14 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Results Summary */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-orange-300">
+          {/* Results Summary - Blue theme */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-blue-300">
             <div className="flex flex-col sm:flex-row justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-orange-800">
+                <h3 className="text-xl font-bold text-blue-800">
                   Showing {allLedgerEntries.length} transactions
                 </h3>
-                <p className="text-orange-700">
+                <p className="text-blue-700">
                   {start || end 
                     ? `Filtered by date range ${start ? `from ${formatDate(start)}` : ''} ${end ? `to ${formatDate(end)}` : ''}`
                     : "Showing all transactions"}
@@ -823,14 +823,14 @@ export default function OpenBalanceSheet({
               </div>
               <div className="flex gap-6 mt-4 sm:mt-0">
                 <div className="text-center">
-                  <p className="text-sm text-orange-700 font-medium">Period Gold Change</p>
-                  <p className={`text-xl font-bold ${periodGold >= 0 ? 'text-orange-700' : 'text-red-700'}`}>
+                  <p className="text-sm text-blue-700 font-medium">Period Gold Change</p>
+                  <p className={`text-xl font-bold ${periodGold >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                     {formatBalance(periodGold, 'gold')}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-orange-700 font-medium">Period Amount Change</p>
-                  <p className={`text-xl font-bold ${periodKwd >= 0 ? 'text-orange-700' : 'text-red-700'}`}>
+                  <p className="text-sm text-blue-700 font-medium">Period Amount Change</p>
+                  <p className={`text-xl font-bold ${periodKwd >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                     {formatBalance(periodKwd, 'kwd')}
                   </p>
                 </div>
@@ -838,12 +838,12 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Ledger Table with Opening/Closing Balances */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-orange-300">
-            <div className="px-6 py-4 border-b-2 border-orange-300 bg-orange-100">
+          {/* Ledger Table with Opening/Closing Balances - Blue theme */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300">
+            <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-orange-800">Open Balance Ledger</h2>
-                <span className="text-orange-700 font-medium">
+                <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger</h2>
+                <span className="text-blue-700 font-medium">
                   {allLedgerEntries.length} Gold Fixing transaction(s)
                 </span>
               </div>
@@ -851,11 +851,11 @@ export default function OpenBalanceSheet({
 
             {entriesWithBalances.length === 0 ? (
               <div className="text-center py-12">
-                <svg className="w-16 h-16 text-orange-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h3 className="text-lg font-medium text-orange-800 mb-2">No transactions found</h3>
-                <p className="text-orange-600">
+                <h3 className="text-lg font-medium text-blue-800 mb-2">No transactions found</h3>
+                <p className="text-blue-600">
                   {start || end 
                     ? "No transactions match the selected date range" 
                     : "No Gold Fixing transactions recorded"}
@@ -864,54 +864,54 @@ export default function OpenBalanceSheet({
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse">
-                  <thead className="bg-orange-100">
+                  <thead className="bg-blue-100">
                     <tr>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Account
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Details
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Rate
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Debit (g)
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Credit (g)
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Gold Balance
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Amount Debit (KWD)
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Amount Credit (KWD)
                       </th>
-                      <th className="border border-orange-300 px-4 py-3 text-center text-xs font-semibold text-orange-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Amount Balance
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-orange-300">
+                  <tbody className="divide-y divide-blue-300">
                     {entriesWithBalances.map((entry) => (
                       <tr 
                         key={entry.voucherId} 
                         className={`transition-colors duration-150 ${
-                          entry.isOpeningBalance ? 'bg-orange-50' : 
-                          entry.isClosingBalance ? 'bg-red-50' : 
-                          'bg-white hover:bg-orange-50/50'
+                          entry.isOpeningBalance ? 'bg-blue-50' : 
+                          entry.isClosingBalance ? 'bg-indigo-50' : 
+                          'bg-white hover:bg-blue-50/50'
                         }`}
                       >
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-orange-700 text-center">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-blue-700 text-center">
                           {entry.isOpeningBalance || entry.isClosingBalance 
                             ? (entry.date === "Beginning" || entry.date === "Present" 
                                 ? entry.date 
@@ -919,87 +919,87 @@ export default function OpenBalanceSheet({
                             : formatDate(entry.date)
                           }
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-center">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
                           <div className="flex flex-col">
-                            <span className="font-semibold text-orange-900">{entry.accountName}</span>
+                            <span className="font-semibold text-blue-900">{entry.accountName}</span>
                             {entry.accountNo > 0 && (
-                              <span className="text-xs text-orange-600">#{entry.accountNo}</span>
+                              <span className="text-xs text-blue-600">#{entry.accountNo}</span>
                             )}
                             <span className={`inline-flex px-2 py-1 mt-1 text-xs font-semibold rounded-full ${getAccountTypeStyle(entry.accountType)}`}>
                               {entry.accountType}
                             </span>
                           </div>
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 text-sm text-orange-700 max-w-xs truncate text-center">
+                        <td className="border border-blue-300 px-4 py-3 text-sm text-blue-700 max-w-xs truncate text-center">
                           {entry.mvn ? `MVN: ${entry.mvn} - ${entry.description}` : entry.description}
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-center">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
                           {!entry.isOpeningBalance && !entry.isClosingBalance ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle({vt: entry.type as "REC" | "GFV", goldRate: entry.goldRate})}`}>
                               {entry.type === "REC" ? "REC (Gold Fixing)" : "GFV"}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-200 text-orange-900 border border-orange-400">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-200 text-blue-900 border border-blue-400">
                               BAL
                             </span>
                           )}
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center text-orange-700 font-mono">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.goldRate ? formatCurrency(entry.goldRate) : "-"}
                         </td>
                         {/* Gold Columns */}
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center text-orange-700 font-mono">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.goldDebit > 0 ? entry.goldDebit.toFixed(3) : "-"}
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center text-orange-700 font-mono">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.goldCredit > 0 ? entry.goldCredit.toFixed(3) : "-"}
                         </td>
-                        <td className={`border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                          entry.goldBalance >= 0 ? "text-orange-700" : "text-red-700"
+                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                          entry.goldBalance >= 0 ? "text-blue-700" : "text-red-700"
                         }`}>
                           {formatBalance(entry.goldBalance, 'gold')}
                         </td>
                         {/* Amount Columns */}
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center text-orange-700 font-mono">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.kwdDebit > 0 ? entry.kwdDebit.toFixed(3) : "-"}
                         </td>
-                        <td className="border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center text-orange-700 font-mono">
+                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
                           {entry.kwdCredit > 0 ? entry.kwdCredit.toFixed(3) : "-"}
                         </td>
-                        <td className={`border border-orange-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                          entry.kwdBalance >= 0 ? "text-orange-700" : "text-red-700"
+                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                          entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
                         }`}>
                           {formatBalance(entry.kwdBalance, 'kwd')}
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-orange-100">
+                  <tfoot className="bg-blue-100">
                     <tr>
-                      <td colSpan={5} className="border border-orange-300 px-4 py-4 text-sm font-semibold text-orange-800 text-right">
+                      <td colSpan={5} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
                         Totals:
                       </td>
                       {/* Gold Totals */}
-                      <td className="border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center text-orange-800 font-mono font-bold">
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
                         {totalGoldDebit.toFixed(3)}
                       </td>
-                      <td className="border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center text-orange-800 font-mono font-bold">
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
                         {totalGoldCredit.toFixed(3)}
                       </td>
-                      <td className={`border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.gold >= 0 ? "text-orange-700" : "text-red-700"
+                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                        calculateClosingBalance.gold >= 0 ? "text-blue-700" : "text-red-700"
                       }`}>
                         {formatBalance(calculateClosingBalance.gold, 'gold')}
                       </td>
                       {/* Amount Totals */}
-                      <td className="border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center text-orange-800 font-mono font-bold">
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
                         {totalKwdDebit.toFixed(3)}
                       </td>
-                      <td className="border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center text-orange-800 font-mono font-bold">
+                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
                         {totalKwdCredit.toFixed(3)}
                       </td>
-                      <td className={`border border-orange-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.kwd >= 0 ? "text-orange-700" : "text-red-700"
+                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+                        calculateClosingBalance.kwd >= 0 ? "text-blue-700" : "text-red-700"
                       }`}>
                         {formatBalance(calculateClosingBalance.kwd, 'kwd')}
                       </td>
@@ -1010,9 +1010,9 @@ export default function OpenBalanceSheet({
             )}
           </div>
 
-          {/* Transaction Summary */}
+          {/* Transaction Summary - Blue theme */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-3xl p-8 text-white shadow-2xl border-2 border-orange-400">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-800 rounded-3xl p-8 text-white shadow-2xl border-2 border-blue-400">
               <h3 className="text-xl font-bold mb-4">Open Balance Summary</h3>
               <div className="grid grid-cols-2 gap-6">
                 <div>
@@ -1028,31 +1028,31 @@ export default function OpenBalanceSheet({
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-orange-300">
-              <h3 className="text-xl font-bold text-orange-800 mb-4">Transaction Breakdown</h3>
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-blue-300">
+              <h3 className="text-xl font-bold text-blue-800 mb-4">Transaction Breakdown</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-orange-700">Market REC (Gold Fixing):</span>
-                  <span className="font-semibold text-orange-800">
+                  <span className="text-blue-700">Market REC (Gold Fixing):</span>
+                  <span className="font-semibold text-blue-800">
                     {allLedgerEntries.filter(v => v.type === "REC").length} transactions
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-orange-700">GFV Vouchers:</span>
-                  <span className="font-semibold text-orange-800">
+                  <span className="text-blue-700">GFV Vouchers:</span>
+                  <span className="font-semibold text-blue-800">
                     {allLedgerEntries.filter(v => v.type === "GFV").length} transactions
                   </span>
                 </div>
-                <div className="pt-4 border-t border-orange-300">
+                <div className="pt-4 border-t border-blue-300">
                   <div className="flex justify-between mb-2">
-                    <span className="text-orange-700">Net Change Gold:</span>
-                    <span className={`font-bold ${periodGold >= 0 ? 'text-orange-700' : 'text-red-700'}`}>
+                    <span className="text-blue-700">Net Change Gold:</span>
+                    <span className={`font-bold ${periodGold >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                       {formatBalance(periodGold, 'gold')}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-orange-700">Net Change KWD:</span>
-                    <span className={`font-bold ${periodKwd >= 0 ? 'text-orange-700' : 'text-red-700'}`}>
+                    <span className="text-blue-700">Net Change KWD:</span>
+                    <span className={`font-bold ${periodKwd >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
                       {formatBalance(periodKwd, 'kwd')}
                     </span>
                   </div>
@@ -1061,18 +1061,18 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-orange-300">
-            <h3 className="text-xl font-bold text-orange-800 mb-4">Legend</h3>
+          {/* Legend - Blue theme */}
+          <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border-2 border-blue-300">
+            <h3 className="text-xl font-bold text-blue-800 mb-4">Legend</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
               <div>
                 <div className="flex items-center mb-3">
                   <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 mr-3">
                     REC (Gold Fixing)
                   </span>
-                  <span className="text-orange-700">Market REC with Gold Rate</span>
+                  <span className="text-blue-700">Market REC with Gold Rate</span>
                 </div>
-                <ul className="text-orange-600 text-sm space-y-1 ml-4">
+                <ul className="text-blue-600 text-sm space-y-1 ml-4">
                   <li>• Gold: Positive (+)</li>
                   <li>• Fixing Amount: Positive (+)</li>
                   <li>• Gold Rate: Required</li>
@@ -1080,12 +1080,12 @@ export default function OpenBalanceSheet({
               </div>
               <div>
                 <div className="flex items-center mb-3">
-                  <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300 mr-3">
+                  <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300 mr-3">
                     GFV (Gold Fixing)
                   </span>
-                  <span className="text-orange-700">Gold Fixing Vouchers</span>
+                  <span className="text-blue-700">Gold Fixing Vouchers</span>
                 </div>
-                <ul className="text-orange-600 text-sm space-y-1 ml-4">
+                <ul className="text-blue-600 text-sm space-y-1 ml-4">
                   <li>• Gold: Negative (-)</li>
                   <li>• KWD: Negative (-)</li>
                   <li>• Gold Rate: May be present</li>
@@ -1094,12 +1094,12 @@ export default function OpenBalanceSheet({
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Blue theme */}
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={downloadPdf}
               disabled={downloadingPdf || entriesWithBalances.length === 0}
-              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold text-lg rounded-2xl hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-orange-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {downloadingPdf ? (
                 <>
@@ -1121,7 +1121,7 @@ export default function OpenBalanceSheet({
 
             <Link
               href="/vouchers/list"
-              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold text-lg rounded-2xl hover:from-red-700 hover:to-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-red-400 transform hover:-translate-y-1"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white font-bold text-lg rounded-2xl hover:from-indigo-700 hover:to-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-indigo-400 transform hover:-translate-y-1"
             >
               <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1131,7 +1131,7 @@ export default function OpenBalanceSheet({
 
             <Link
               href="/"
-              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold text-lg rounded-2xl hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-300 border-2 border-orange-400 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg rounded-2xl hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 border-2 border-blue-400 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
             >
               <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -1141,7 +1141,7 @@ export default function OpenBalanceSheet({
           </div>
         </div>
       </div>
-      <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-orange-800 to-red-800 text-white text-xs sm:text-sm border-t border-orange-700 select-none mt-0">
+      <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-blue-800 to-blue-900 text-white text-xs sm:text-sm border-t border-blue-700 select-none mt-0">
         <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
       </footer>
     </>
