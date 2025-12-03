@@ -292,8 +292,8 @@ class OpenBalancePDFGenerator {
     const { boldFont } = this.getFonts();
     const tableWidth = this.pageConfig.contentWidth - 40;
     
-    // Open Balance columns (11 columns)
-    const colWidths = [50, 70, 30, 120, 40, 40, 40, 60, 40, 40, 60];
+    // Open Balance columns (11 columns) - using let instead of const
+    let colWidths = [50, 70, 30, 120, 40, 40, 40, 60, 40, 40, 60];
     
     // Calculate missing width and distribute proportionally
     const currentTotal = colWidths.reduce((a, b) => a + b, 0);
