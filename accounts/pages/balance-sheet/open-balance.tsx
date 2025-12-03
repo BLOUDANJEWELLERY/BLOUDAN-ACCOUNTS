@@ -820,168 +820,177 @@ export default function OpenBalanceSheet({
           </div>
 
           {/* Open Balance Ledger Table */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300 mb-8">
-            <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger Transactions</h2>
-                <span className="text-blue-700 font-medium">
-                  {filteredLedgerEntries.length} transaction(s)
-                </span>
-              </div>
-            </div>
+ {/* Open Balance Ledger Table */}
+<div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300 mb-8">
+  <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
+    <div className="flex items-center justify-between">
+      <h2 className="text-2xl font-bold text-blue-800">Open Balance Ledger Transactions</h2>
+      <span className="text-blue-700 font-medium">
+        {filteredLedgerEntries.length} transaction(s)
+      </span>
+    </div>
+  </div>
 
-            {entriesWithBalances.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className="text-lg font-medium text-blue-800 mb-2">No transactions found</h3>
-                <p className="text-blue-600">
-                  {dateRange.start || dateRange.end 
-                    ? "No transactions match the selected date range" 
-                    : "No Gold Fixing transactions recorded"}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse">
-                  <thead className="bg-blue-100">
-                    <tr>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Account
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Rate
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Debit (g)
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Credit (g)
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount Debit (KWD)
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount Credit (KWD)
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Gold Balance
-                      </th>
-                      <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                        Amount Balance
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-blue-300">
-                    {entriesWithBalances.map((entry) => (
-                      <tr 
-                        key={entry.voucherId} 
-                        className={`transition-colors duration-150 ${
-                          entry.isOpeningBalance ? 'bg-yellow-50' : 
-                          entry.isClosingBalance ? 'bg-green-50' : 
-                          'bg-white hover:bg-blue-50/50'
-                        }`}
-                      >
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-blue-700 text-center">
-                          {entry.isOpeningBalance || entry.isClosingBalance 
-                            ? (entry.date === "Beginning" || entry.date === "Present" 
-                                ? entry.date 
-                                : new Date(entry.date).toLocaleDateString())
-                            : entry.date
-                          }
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-blue-900">{entry.accountName}</span>
-                            {entry.accountNo > 0 && (
-                              <>
-                                <span className="text-xs text-blue-600">#{entry.accountNo}</span>
-                                <span className={`inline-flex px-2 py-0.5 text-xs rounded-full mt-1 ${getAccountTypeStyle(entry.accountType)}`}>
-                                  {entry.accountType}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle(entry.type, entry.goldRate)}`}>
-                            {getVoucherTypeLabel(entry.type, entry.goldRate)}
-                          </span>
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 text-sm text-blue-700 max-w-xs truncate text-center">
-                          {entry.description}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldRate ? entry.goldRate.toFixed(3) : '-'}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldDebit && entry.goldDebit > 0 ? formatCurrency(entry.goldDebit) : '-'}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.goldCredit && entry.goldCredit > 0 ? formatCurrency(entry.goldCredit) : '-'}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.kwdDebit && entry.kwdDebit > 0 ? formatCurrency(entry.kwdDebit) : '-'}
-                        </td>
-                        <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
-                          {entry.kwdCredit && entry.kwdCredit > 0 ? formatCurrency(entry.kwdCredit) : '-'}
-                        </td>
-                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                          entry.goldBalance >= 0 ? "text-blue-700" : "text-red-700"
-                        }`}>
-                          {formatBalance(entry.goldBalance, 'gold')}
-                        </td>
-                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
-                          entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
-                        }`}>
-                          {formatBalance(entry.kwdBalance, 'kwd')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-blue-100">
-                    <tr>
-                      <td colSpan={5} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
-                        Totals:
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalGoldDebit.toFixed(3)}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalGoldCredit.toFixed(3)}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalKwdDebit.toFixed(3)}
-                      </td>
-                      <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
-                        {totalKwdCredit.toFixed(3)}
-                      </td>
-                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.gold >= 0 ? "text-blue-700" : "text-red-700"
-                      }`}>
-                        {formatBalance(calculateClosingBalance.gold, 'gold')}
-                      </td>
-                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
-                        calculateClosingBalance.kwd >= 0 ? "text-blue-700" : "text-red-700"
-                      }`}>
-                        {formatBalance(calculateClosingBalance.kwd, 'kwd')}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
+  {entriesWithBalances.length === 0 ? (
+    <div className="text-center py-12">
+      <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <h3 className="text-lg font-medium text-blue-800 mb-2">No transactions found</h3>
+      <p className="text-blue-600">
+        {dateRange.start || dateRange.end 
+          ? "No transactions match the selected date range" 
+          : "No Gold Fixing transactions recorded"}
+      </p>
+    </div>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse">
+        <thead className="bg-blue-100">
+          <tr>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Date
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Account
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Type
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Description
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Gold Rate
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Gold Debit (g)
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Gold Credit (g)
+            </th>
+            {/* Gold Balance moved here */}
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Gold Balance
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Amount Debit (KWD)
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Amount Credit (KWD)
+            </th>
+            <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
+              Amount Balance
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-blue-300">
+          {entriesWithBalances.map((entry) => (
+            <tr 
+              key={entry.voucherId} 
+              className={`transition-colors duration-150 ${
+                entry.isOpeningBalance ? 'bg-yellow-50' : 
+                entry.isClosingBalance ? 'bg-green-50' : 
+                'bg-white hover:bg-blue-50/50'
+              }`}
+            >
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-blue-700 text-center">
+                {entry.isOpeningBalance || entry.isClosingBalance 
+                  ? (entry.date === "Beginning" || entry.date === "Present" 
+                      ? entry.date 
+                      : new Date(entry.date).toLocaleDateString())
+                  : entry.date
+                }
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
+                <div className="flex flex-col">
+                  <span className="font-semibold text-blue-900">{entry.accountName}</span>
+                  {entry.accountNo > 0 && (
+                    <>
+                      <span className="text-xs text-blue-600">#{entry.accountNo}</span>
+                      <span className={`inline-flex px-2 py-0.5 text-xs rounded-full mt-1 ${getAccountTypeStyle(entry.accountType)}`}>
+                        {entry.accountType}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-center">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getVoucherTypeStyle(entry.type, entry.goldRate)}`}>
+                  {getVoucherTypeLabel(entry.type, entry.goldRate)}
+                </span>
+              </td>
+              <td className="border border-blue-300 px-4 py-3 text-sm text-blue-700 max-w-xs truncate text-center">
+                {entry.description}
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                {entry.goldRate ? entry.goldRate.toFixed(3) : '-'}
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                {entry.goldDebit && entry.goldDebit > 0 ? formatCurrency(entry.goldDebit) : '-'}
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                {entry.goldCredit && entry.goldCredit > 0 ? formatCurrency(entry.goldCredit) : '-'}
+              </td>
+              {/* Gold Balance cell moved here */}
+              <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                entry.goldBalance >= 0 ? "text-blue-700" : "text-red-700"
+              }`}>
+                {formatBalance(entry.goldBalance, 'gold')}
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                {entry.kwdDebit && entry.kwdDebit > 0 ? formatCurrency(entry.kwdDebit) : '-'}
+              </td>
+              <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center text-blue-700 font-mono">
+                {entry.kwdCredit && entry.kwdCredit > 0 ? formatCurrency(entry.kwdCredit) : '-'}
+              </td>
+              <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-center font-mono font-semibold ${
+                entry.kwdBalance >= 0 ? "text-blue-700" : "text-red-700"
+              }`}>
+                {formatBalance(entry.kwdBalance, 'kwd')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="bg-blue-100">
+          <tr>
+            <td colSpan={5} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
+              Totals:
+            </td>
+            {/* Gold Debit total */}
+            <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+              {totalGoldDebit.toFixed(3)}
+            </td>
+            {/* Gold Credit total */}
+            <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+              {totalGoldCredit.toFixed(3)}
+            </td>
+            {/* Gold Balance total - now in correct position */}
+            <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+              calculateClosingBalance.gold >= 0 ? "text-blue-700" : "text-red-700"
+            }`}>
+              {formatBalance(calculateClosingBalance.gold, 'gold')}
+            </td>
+            {/* Amount Debit total */}
+            <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+              {totalKwdDebit.toFixed(3)}
+            </td>
+            {/* Amount Credit total */}
+            <td className="border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center text-blue-800 font-mono font-bold">
+              {totalKwdCredit.toFixed(3)}
+            </td>
+            {/* Amount Balance total */}
+            <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-center font-mono font-bold ${
+              calculateClosingBalance.kwd >= 0 ? "text-blue-700" : "text-red-700"
+            }`}>
+              {formatBalance(calculateClosingBalance.kwd, 'kwd')}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )}
+</div>
 
           {/* Action Buttons */}
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
