@@ -889,9 +889,10 @@ private drawTotalsRow(page: PDFPage, pdfData: PdfRequestData, startY: number, co
       let currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths);
       
       // Draw totals row only on last page
-      if (isLastPage) {
-        currentY = this.drawTotalsRow(page, data, currentY, colWidths);
-      }
+     // In the generatePDF method, change:
+if (isLastPage) {
+  currentY = this.drawTotalsRow(page, data, currentY, colWidths);
+}
       
       // Draw footer
       this.drawFooter(page, pageNum, totalPages);
