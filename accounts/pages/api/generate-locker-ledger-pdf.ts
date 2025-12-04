@@ -300,21 +300,33 @@ class LockerLedgerPDFGenerator {
     const tableWidth = this.pageConfig.contentWidth - 40;
     
     // Calculate column widths for locker ledger: Date, Account, Type, Description, Gold Debit, Gold Credit, Locker Balance
-    const colWidths = [50, 80, 35, 150, 60, 60, 75];
+    // Adjusted to fit within the page
+    const baseColWidths = [60, 90, 40, 180, 65, 65, 85];
     
-    // Calculate missing width and distribute proportionally
-    const currentTotal = colWidths.reduce((a, b) => a + b, 0);
-    const missing = tableWidth - currentTotal;
+    // Calculate current total
+    let currentTotal = baseColWidths.reduce((a, b) => a + b, 0);
+    let missing = tableWidth - currentTotal;
     
-    if (missing > 0) {
-      const extraPerColumn = missing / colWidths.length;
-      colWidths.forEach((w, i) => {
-        if (i === 3) { // Give more to description column
-          colWidths[i] = w + extraPerColumn * 1.5;
-        } else {
-          colWidths[i] = w + extraPerColumn * 0.8;
-        }
-      });
+    // Adjust column widths proportionally to fit
+    const colWidths = [...baseColWidths];
+    
+    if (missing !== 0) {
+      const scaleFactor = tableWidth / currentTotal;
+      for (let i = 0; i < colWidths.length; i++) {
+        colWidths[i] = Math.floor(colWidths[i] * scaleFactor);
+      }
+      
+      // Recalculate and adjust for any rounding errors
+      currentTotal = colWidths.reduce((a, b) => a + b, 0);
+      missing = tableWidth - currentTotal;
+      
+      if (missing > 0) {
+        // Add the remaining missing width to the description column (index 3)
+        colWidths[3] += missing;
+      } else if (missing < 0) {
+        // Remove excess width from the description column
+        colWidths[3] += missing; // missing is negative, so this subtracts
+      }
     }
 
     // Draw table container
@@ -342,7 +354,7 @@ class LockerLedgerPDFGenerator {
     // First four columns (Date, Account, Type, Description) span full header height
     const firstFourColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
     
-    // Gold group header (spans Gold Debit, Gold Credit, Gold Balance)
+    // Gold group header (spans Gold Debit, Gold Credit, Locker Balance)
     const goldGroupStartX = xPos + firstFourColumnsWidth;
     const goldGroupWidth = colWidths[4] + colWidths[5] + colWidths[6];
 
@@ -482,18 +494,15 @@ class LockerLedgerPDFGenerator {
     return { tableTop: tableTop - HEADER_HEIGHT, colWidths };
   }
 
-  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[], isHeader: boolean = false): void {
+  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[]): void {
     const tableWidth = colWidths.reduce((a, b) => a + b, 0);
     let xPos = MARGIN + 20;
 
-    // Vertical lines
+    // Draw all vertical lines
     for (let col = 0; col <= colWidths.length; col++) {
-      const lineStartY = isHeader ? startY : startY - height;
-      const lineEndY = isHeader ? startY - height : startY;
-      
       page.drawLine({
-        start: { x: xPos, y: lineStartY },
-        end: { x: xPos, y: lineEndY },
+        start: { x: xPos, y: startY },
+        end: { x: xPos, y: startY - height },
         color: COLORS.blue300,
         thickness: 0.5,
       });
@@ -503,21 +512,12 @@ class LockerLedgerPDFGenerator {
       }
     }
 
-    // Horizontal lines
-    if (isHeader) {
-      page.drawLine({
-        start: { x: MARGIN + 20, y: startY - 20 },
-        end: { x: MARGIN + 20 + tableWidth, y: startY - 20 },
-        color: COLORS.blue300,
-        thickness: 1,
-      });
-    }
-    
+    // Draw bottom horizontal line
     page.drawLine({
       start: { x: MARGIN + 20, y: startY - height },
       end: { x: MARGIN + 20 + tableWidth, y: startY - height },
       color: COLORS.blue300,
-      thickness: 1,
+      thickness: 0.5,
     });
   }
 
@@ -624,7 +624,7 @@ class LockerLedgerPDFGenerator {
       }
 
       // Truncate description if too long
-      const maxDescLength = 35;
+      const maxDescLength = Math.floor(colWidths[3] / 4); // Approx characters based on column width
       if (description.length > maxDescLength) {
         description = description.substring(0, maxDescLength - 3) + '...';
       }
@@ -648,8 +648,11 @@ class LockerLedgerPDFGenerator {
       // Date
       rowData.push(displayDate);
       
-      // Account
-      const accountShort = accountDisplay.substring(0, 15) + (accountDisplay.length > 15 ? '...' : '');
+      // Account (truncated)
+      const maxAccountLength = Math.floor(colWidths[1] / 4);
+      const accountShort = accountDisplay.length > maxAccountLength 
+        ? accountDisplay.substring(0, maxAccountLength - 3) + '...'
+        : accountDisplay;
       rowData.push(accountShort);
       
       // Type
@@ -672,7 +675,7 @@ class LockerLedgerPDFGenerator {
       // Draw cell text - All centered except description
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
-        const isLeftAligned = colIndex === 3; // Only description is left-aligned
+        const isLeftAligned = colIndex === 1 || colIndex === 3; // Account and description are left-aligned
         const isBalanceCol = colIndex === 6;
         const isTypeCol = colIndex === 2;
         const isDebitCol = colIndex === 4;
