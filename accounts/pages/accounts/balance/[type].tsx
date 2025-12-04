@@ -141,25 +141,25 @@ export default function AccountBalancesPage({
       Market: 'from-blue-600 to-blue-800',
       Casting: 'from-purple-600 to-purple-800',
       Faceting: 'from-amber-500 to-amber-700',
-      Project: 'from-green-600 to-green-800',
+      Project: 'from-emerald-600 to-emerald-800',
       'Gold Fixing': 'from-yellow-600 to-yellow-800',
     };
-    return colors[type] || 'from-emerald-600 to-emerald-800';
+    return colors[type] || 'from-blue-600 to-blue-800';
   };
 
   const getTypeLightColor = (type: string) => {
     const colors: Record<string, string> = {
-      Market: 'bg-blue-100 text-blue-800 border-blue-200',
-      Casting: 'bg-purple-100 text-purple-800 border-purple-200',
-      Faceting: 'bg-amber-100 text-amber-800 border-amber-200',
-      Project: 'bg-green-100 text-green-800 border-green-200',
-      'Gold Fixing': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      Market: 'bg-blue-100 text-blue-800 border-blue-300',
+      Casting: 'bg-purple-100 text-purple-800 border-purple-300',
+      Faceting: 'bg-amber-100 text-amber-800 border-amber-300',
+      Project: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      'Gold Fixing': 'bg-yellow-100 text-yellow-800 border-yellow-300',
     };
-    return colors[type] || 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    return colors[type] || 'bg-blue-100 text-blue-800 border-blue-300';
   };
 
   const getBalanceColor = (balance: number) => {
-    return balance >= 0 ? "text-emerald-700" : "text-amber-700";
+    return balance >= 0 ? "text-blue-700" : "text-red-700";
   };
 
   const getBalanceIcon = (balance: number) => {
@@ -242,7 +242,7 @@ export default function AccountBalancesPage({
       }
       const blob = new Blob([bytes], { type: "application/pdf" });
       
-      const fileName = `zamzam-${accountType.toLowerCase()}-balances-${new Date()
+      const fileName = `bloudan-${accountType.toLowerCase()}-balances-${new Date()
         .toISOString()
         .split('T')[0]}.pdf`;
       
@@ -296,22 +296,22 @@ export default function AccountBalancesPage({
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="relative">
             <div className={`absolute inset-0 bg-gradient-to-r ${getTypeColor(accountType)} rounded-3xl blur-lg opacity-30 transform scale-110 -z-10`}></div>
-            <div className={`w-20 h-20 bg-gradient-to-br ${getTypeColor(accountType)} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-amber-300 transform hover:scale-105 transition-transform duration-300`}>
+            <div className={`w-20 h-20 bg-gradient-to-br ${getTypeColor(accountType)} rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-blue-300 transform hover:scale-105 transition-transform duration-300`}>
               <svg className="w-10 h-10 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-700 to-emerald-900 bg-clip-text text-transparent mb-4 tracking-tight">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4 tracking-tight">
             {accountType} Account Balances
           </h1>
-          <p className="text-xl text-emerald-700 font-light">
+          <p className="text-xl text-blue-700 font-light">
             {isProject 
               ? "Project accounts with gold-only balance tracking" 
               : `Detailed overview of ${accountType.toLowerCase()} account balances`}
@@ -338,24 +338,24 @@ export default function AccountBalancesPage({
 
         {/* Summary Cards */}
         <div className={`grid grid-cols-1 ${isProject ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-6 mb-8`}>
-          <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300`}>
+          <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-blue-300 transform hover:-translate-y-1 transition-transform duration-300`}>
             <p className="text-lg font-semibold mb-2">Total {accountType} Accounts</p>
             <p className="text-4xl font-bold">{totalAccounts}</p>
           </div>
           
-          <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-blue-300 transform hover:-translate-y-1 transition-transform duration-300">
             <p className="text-lg font-semibold mb-2">Total Gold Balance</p>
             <p className="text-3xl font-bold">{formatCurrency(totalGold, 'gold')}</p>
           </div>
           
           {!isProject && (
-            <div className="bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-blue-300 transform hover:-translate-y-1 transition-transform duration-300">
               <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
               <p className="text-3xl font-bold">{formatCurrency(totalKwd, 'kwd')}</p>
             </div>
           )}
           
-          <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300`}>
+          <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-blue-300 transform hover:-translate-y-1 transition-transform duration-300`}>
             <p className="text-lg font-semibold mb-2">Total Transactions</p>
             <p className="text-4xl font-bold">{totalTransactions}</p>
             <p className="text-sm opacity-90 mt-2 font-medium">
@@ -366,38 +366,38 @@ export default function AccountBalancesPage({
 
         {/* Quick Stats */}
         <div className={`grid grid-cols-1 ${isProject ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4 mb-6`}>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
-            <div className="text-sm text-emerald-700 font-medium mb-1">Positive Gold Balances</div>
-            <div className="text-2xl font-bold text-emerald-700">{accountsWithPositiveGold}</div>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-300 text-center">
+            <div className="text-sm text-blue-700 font-medium mb-1">Positive Gold Balances</div>
+            <div className="text-2xl font-bold text-blue-700">{accountsWithPositiveGold}</div>
           </div>
           
           {!isProject && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
-              <div className="text-sm text-emerald-700 font-medium mb-1">Positive KWD Balances</div>
-              <div className="text-2xl font-bold text-emerald-700">{accountsWithPositiveKwd}</div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-300 text-center">
+              <div className="text-sm text-blue-700 font-medium mb-1">Positive KWD Balances</div>
+              <div className="text-2xl font-bold text-blue-700">{accountsWithPositiveKwd}</div>
             </div>
           )}
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
-            <div className="text-sm text-emerald-700 font-medium mb-1">Zero Balances</div>
-            <div className="text-2xl font-bold text-emerald-700">{accountsWithZeroBalance}</div>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-300 text-center">
+            <div className="text-sm text-blue-700 font-medium mb-1">Zero Balances</div>
+            <div className="text-2xl font-bold text-blue-700">{accountsWithZeroBalance}</div>
           </div>
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
-            <div className="text-sm text-emerald-700 font-medium mb-1">Active Accounts</div>
-            <div className="text-2xl font-bold text-emerald-700">{activeAccounts}</div>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-300 text-center">
+            <div className="text-sm text-blue-700 font-medium mb-1">Active Accounts</div>
+            <div className="text-2xl font-bold text-blue-700">{activeAccounts}</div>
           </div>
         </div>
 
         {/* Search and Controls */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-emerald-300 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full translate-x-12 -translate-y-12 opacity-20"></div>
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border-2 border-blue-300 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-200 to-blue-400 rounded-full translate-x-12 -translate-y-12 opacity-20"></div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center relative z-10">
             <div className="flex-1 w-full sm:max-w-md">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -406,12 +406,12 @@ export default function AccountBalancesPage({
                   placeholder={`Search ${accountType.toLowerCase()} accounts by name, account number, phone, or ID...`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border-2 border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white/80"
+                  className="block w-full pl-10 pr-3 py-3 border-2 border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80"
                 />
               </div>
             </div>
             <div className="flex gap-4">
-              <span className="inline-flex items-center px-4 py-2 rounded-xl text-emerald-700 font-semibold bg-emerald-100 border-2 border-emerald-300">
+              <span className="inline-flex items-center px-4 py-2 rounded-xl text-blue-700 font-semibold bg-blue-100 border-2 border-blue-300">
                 {filteredAccounts.length} accounts
               </span>
             </div>
@@ -439,14 +439,14 @@ export default function AccountBalancesPage({
         )}
 
         {/* Account Balances Table */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-emerald-300">
-          <div className="px-6 py-4 border-b-2 border-emerald-300 bg-emerald-100">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300">
+          <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-emerald-800">
+                <h2 className="text-2xl font-bold text-blue-800">
                   {isProject ? "Project Account Balances (Gold Only)" : `${accountType} Account Balances`}
                 </h2>
-                <p className="text-sm text-emerald-700 mt-1">
+                <p className="text-sm text-blue-700 mt-1">
                   {isProject 
                     ? "Project accounts tracked by gold balance only"
                     : `Real-time balance overview for all ${accountType.toLowerCase()} accounts`}
@@ -460,77 +460,77 @@ export default function AccountBalancesPage({
 
           {filteredAccounts.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <svg className="w-16 h-16 text-emerald-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <h3 className="text-lg font-medium text-emerald-800 mb-2">No accounts found</h3>
-              <p className="text-emerald-600">
+              <h3 className="text-lg font-medium text-blue-800 mb-2">No accounts found</h3>
+              <p className="text-blue-600">
                 {searchTerm ? "Try adjusting your search terms" : `No ${accountType.toLowerCase()} accounts in the system`}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
-                <thead className="bg-emerald-100">
+                <thead className="bg-blue-100">
                   <tr>
-                    <th className="border border-emerald-300 px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                    <th className="border border-blue-300 px-4 py-3 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider">
                       Account Details
                     </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-center text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                    <th className="border border-blue-300 px-4 py-3 text-center text-xs font-semibold text-blue-800 uppercase tracking-wider">
                       Transactions
                     </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                    <th className="border border-blue-300 px-4 py-3 text-right text-xs font-semibold text-blue-800 uppercase tracking-wider">
                       Gold Balance
                     </th>
                     
                     {/* Conditionally render Amount Balance column */}
                     {!isProject && (
-                      <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                      <th className="border border-blue-300 px-4 py-3 text-right text-xs font-semibold text-blue-800 uppercase tracking-wider">
                         Amount Balance
                       </th>
                     )}
                     
-                    <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                    <th className="border border-blue-300 px-4 py-3 text-right text-xs font-semibold text-blue-800 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-emerald-300">
+                <tbody className="divide-y divide-blue-300">
                   {filteredAccounts.map((account, index) => (
-                    <tr key={account.id} className="bg-white hover:bg-emerald-50/50 transition-colors duration-150">
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap">
+                    <tr key={account.id} className="bg-white hover:bg-blue-50/50 transition-colors duration-150">
+                      <td className="border border-blue-300 px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-lg ${
                             accountType === 'Market' ? 'bg-gradient-to-r from-blue-600 to-blue-800' :
                             accountType === 'Casting' ? 'bg-gradient-to-r from-purple-600 to-purple-800' :
                             accountType === 'Faceting' ? 'bg-gradient-to-r from-amber-500 to-amber-700' :
-                            accountType === 'Project' ? 'bg-gradient-to-r from-green-600 to-green-800' :
+                            accountType === 'Project' ? 'bg-gradient-to-r from-emerald-600 to-emerald-800' :
                             'bg-gradient-to-r from-yellow-600 to-yellow-800'
                           }`}>
                             {account.accountNo}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-semibold text-emerald-900">{account.name}</div>
-                            <div className="text-sm text-emerald-700">Acc: {account.accountNo}</div>
+                            <div className="text-sm font-semibold text-blue-900">{account.name}</div>
+                            <div className="text-sm text-blue-700">Acc: {account.accountNo}</div>
                             {account.phone && (
-                              <div className="text-xs text-emerald-600">Phone: {account.phone}</div>
+                              <div className="text-xs text-blue-600">Phone: {account.phone}</div>
                             )}
                             {account.crOrCivilIdNo && (
-                              <div className="text-xs text-emerald-600">ID: {account.crOrCivilIdNo}</div>
+                              <div className="text-xs text-blue-600">ID: {account.crOrCivilIdNo}</div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-emerald-700 text-center">
+                      <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-blue-700 text-center">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                           account.transactionCount > 0 
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300" 
-                            : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                            ? "bg-blue-100 text-blue-800 border border-blue-300" 
+                            : "bg-blue-50 text-blue-600 border border-blue-200"
                         }`}>
                           {account.transactionCount}
                         </span>
                       </td>
-                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.goldBalance)}`}>
+                      <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.goldBalance)}`}>
                         <div className="flex items-center justify-end space-x-1">
                           <span>{getBalanceIcon(account.goldBalance)}</span>
                           <span>{formatCurrency(account.goldBalance, 'gold')}</span>
@@ -539,7 +539,7 @@ export default function AccountBalancesPage({
                       
                       {/* Conditionally render Amount Balance cell */}
                       {!isProject && (
-                        <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.kwdBalance)}`}>
+                        <td className={`border border-blue-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.kwdBalance)}`}>
                           <div className="flex items-center justify-end space-x-1">
                             <span>{getBalanceIcon(account.kwdBalance)}</span>
                             <span>{formatCurrency(account.kwdBalance, 'kwd')}</span>
@@ -547,11 +547,11 @@ export default function AccountBalancesPage({
                         </td>
                       )}
                       
-                      <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="border border-blue-300 px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
                           <Link
                             href={`/balance-sheet/${account.id}?accountType=${accountType}`}
-                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs font-semibold rounded-xl hover:from-emerald-700 hover:to-emerald-900 transition-all duration-200 border-2 border-amber-400 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-800 text-white text-xs font-semibold rounded-xl hover:from-blue-700 hover:to-blue-900 transition-all duration-200 border-2 border-blue-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                           >
                             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -564,18 +564,18 @@ export default function AccountBalancesPage({
                   ))}
                 </tbody>
                 {filteredAccounts.length > 0 && (
-                  <tfoot className="bg-emerald-100">
+                  <tfoot className="bg-blue-100">
                     <tr>
-                      <td colSpan={isProject ? 2 : 2} className="border border-emerald-300 px-4 py-4 text-sm font-semibold text-emerald-800 text-right">
+                      <td colSpan={isProject ? 2 : 2} className="border border-blue-300 px-4 py-4 text-sm font-semibold text-blue-800 text-right">
                         Totals:
                       </td>
-                      <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalGold)}`}>
+                      <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalGold)}`}>
                         {formatCurrency(totalGold, 'gold')}
                       </td>
                       
                       {/* Conditionally render KWD total */}
                       {!isProject && (
-                        <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalKwd)}`}>
+                        <td className={`border border-blue-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalKwd)}`}>
                           {formatCurrency(totalKwd, 'kwd')}
                         </td>
                       )}
@@ -593,7 +593,7 @@ export default function AccountBalancesPage({
         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href={`/balance-sheet/type/${accountType}`}
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white font-bold text-lg rounded-2xl hover:from-emerald-700 hover:to-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-300 transform hover:-translate-y-1"
           >
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -602,7 +602,7 @@ export default function AccountBalancesPage({
           </Link>
           <Link
             href="/accounts"
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white font-bold text-lg rounded-2xl hover:from-emerald-700 hover:to-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 border-2 border-amber-400 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white font-bold text-lg rounded-2xl hover:from-indigo-700 hover:to-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-300 border-2 border-blue-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
           >
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -612,7 +612,7 @@ export default function AccountBalancesPage({
           <button
             onClick={() => generateAndHandlePDF('download')}
             disabled={pdfLoading || exportingPdf}
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pdfLoading ? (
               <>
@@ -631,7 +631,7 @@ export default function AccountBalancesPage({
           <button
             onClick={() => generateAndHandlePDF('share')}
             disabled={exportingPdf || pdfLoading}
-            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-blue-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportingPdf ? (
               <>
@@ -650,8 +650,8 @@ export default function AccountBalancesPage({
         </div>
       </div>
     </div>
-    <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white text-xs sm:text-sm border-t border-emerald-700 select-none mt-0">
-      <p>© 2025 ZamZam Accounts | All Rights Reserved</p>
+    <footer className="text-center py-4 sm:py-6 bg-gradient-to-r from-blue-800 to-blue-900 text-white text-xs sm:text-sm border-t border-blue-700 select-none mt-0">
+      <p>© 2025 Bloudan Jewellery | All Rights Reserved</p>
     </footer>
     </>
   );
