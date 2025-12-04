@@ -299,8 +299,8 @@ class LockerLedgerPDFGenerator {
     const { boldFont } = this.getFonts();
     const tableWidth = this.pageConfig.contentWidth - 40;
     
-    // Column widths for locker ledger: Date, Account, Type, Description, Gold Debit, Gold Credit, Locker Balance
-    const colWidths = [50, 90, 40, 180, 65, 65, 85];
+    // Calculate column widths for locker ledger: Date, Account, Type, Description, Gold Debit, Gold Credit, Locker Balance
+    const colWidths = [50, 80, 35, 150, 60, 60, 75];
     
     // Calculate missing width and distribute proportionally
     const currentTotal = colWidths.reduce((a, b) => a + b, 0);
@@ -312,7 +312,7 @@ class LockerLedgerPDFGenerator {
         if (i === 3) { // Give more to description column
           colWidths[i] = w + extraPerColumn * 1.5;
         } else {
-          colWidths[i] = w + extraPerColumn;
+          colWidths[i] = w + extraPerColumn * 0.8;
         }
       });
     }
@@ -336,21 +336,17 @@ class LockerLedgerPDFGenerator {
       color: COLORS.blue100,
     });
 
-    // Calculate positions
+    // Calculate positions for grouped headers
     let xPos = MARGIN + 20;
     
     // First four columns (Date, Account, Type, Description) span full header height
     const firstFourColumnsWidth = colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
     
-    // Gold group header (spans Gold Debit, Gold Credit)
+    // Gold group header (spans Gold Debit, Gold Credit, Gold Balance)
     const goldGroupStartX = xPos + firstFourColumnsWidth;
-    const goldGroupWidth = colWidths[4] + colWidths[5];
-    
-    // Balance column header
-    const balanceStartX = goldGroupStartX + goldGroupWidth;
-    const balanceWidth = colWidths[6];
+    const goldGroupWidth = colWidths[4] + colWidths[5] + colWidths[6];
 
-    // Draw Gold group header background
+    // Draw grouped header backgrounds (only for Gold section)
     page.drawRectangle({
       x: goldGroupStartX,
       y: tableTop - 20,
@@ -359,41 +355,68 @@ class LockerLedgerPDFGenerator {
       color: COLORS.blue800,
     });
 
-    // Draw Balance column header background
-    page.drawRectangle({
-      x: balanceStartX,
-      y: tableTop - HEADER_HEIGHT,
-      width: balanceWidth,
-      height: HEADER_HEIGHT,
-      color: COLORS.blue800,
-    });
-
     // ========== SEGMENTED VERTICAL LINES ==========
 
-    // Draw all vertical lines (full height)
+    // Segment A: FULL-HEIGHT vertical lines for first four columns
     xPos = MARGIN + 20;
-    for (let col = 0; col <= colWidths.length; col++) {
+    const columnsToDraw = 4; // Date, Account, Type, Description
+    
+    for (let col = 0; col <= columnsToDraw; col++) {
       page.drawLine({
         start: { x: xPos, y: tableTop },
         end: { x: xPos, y: tableTop - HEADER_HEIGHT },
         color: COLORS.blue300,
         thickness: 0.5,
       });
-      if (col < colWidths.length) {
+      if (col < columnsToDraw) {
         xPos += colWidths[col];
       }
     }
 
-    // Draw horizontal lines
-    // Top line
+    // Segment B: Vertical lines INSIDE Gold group
+    let groupXPos = goldGroupStartX;
+    
+    // Gold group left border
     page.drawLine({
-      start: { x: MARGIN + 20, y: tableTop },
-      end: { x: MARGIN + 20 + tableWidth, y: tableTop },
+      start: { x: groupXPos, y: tableTop },
+      end: { x: groupXPos, y: tableTop - HEADER_HEIGHT },
       color: COLORS.blue300,
-      thickness: 1,
+      thickness: 0.5,
     });
 
-    // Middle line (between group header and column headers)
+    // Gold group internal vertical borders (only in bottom header row)
+    page.drawLine({
+      start: { x: groupXPos + colWidths[4], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[4], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+    
+    page.drawLine({
+      start: { x: groupXPos + colWidths[4] + colWidths[5], y: tableTop - 20 },
+      end: { x: groupXPos + colWidths[4] + colWidths[5], y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Gold group right border
+    page.drawLine({
+      start: { x: groupXPos + goldGroupWidth, y: tableTop },
+      end: { x: groupXPos + goldGroupWidth, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // RIGHTMOST TABLE BORDER
+    const tableRightEdge = MARGIN + 20 + tableWidth;
+    page.drawLine({
+      start: { x: tableRightEdge, y: tableTop },
+      end: { x: tableRightEdge, y: tableTop - HEADER_HEIGHT },
+      color: COLORS.blue300,
+      thickness: 0.5,
+    });
+
+    // Draw horizontal line between grouped header and column headers
     page.drawLine({
       start: { x: goldGroupStartX, y: tableTop - 20 },
       end: { x: MARGIN + 20 + tableWidth, y: tableTop - 20 },
@@ -401,39 +424,13 @@ class LockerLedgerPDFGenerator {
       thickness: 1,
     });
 
-    // Bottom line
+    // Draw horizontal line at bottom of header
     page.drawLine({
       start: { x: MARGIN + 20, y: tableTop - HEADER_HEIGHT },
       end: { x: MARGIN + 20 + tableWidth, y: tableTop - HEADER_HEIGHT },
       color: COLORS.blue300,
       thickness: 1,
     });
-
-    // Draw the left border of the Gold group header
-    page.drawLine({
-      start: { x: goldGroupStartX, y: tableTop - 20 },
-      end: { x: goldGroupStartX, y: tableTop },
-      color: COLORS.blue300,
-      thickness: 1,
-    });
-
-    // Draw the left border of the Balance column header
-    page.drawLine({
-      start: { x: balanceStartX, y: tableTop - HEADER_HEIGHT },
-      end: { x: balanceStartX, y: tableTop },
-      color: COLORS.blue300,
-      thickness: 1,
-    });
-
-    // Draw Gold group internal vertical line (between Debit and Credit) - only in bottom section
-    page.drawLine({
-      start: { x: goldGroupStartX + colWidths[4], y: tableTop - 20 },
-      end: { x: goldGroupStartX + colWidths[4], y: tableTop - HEADER_HEIGHT },
-      color: COLORS.blue300,
-      thickness: 0.5,
-    });
-
-    // ========== HEADER TEXT ==========
 
     // First four column headers (Date, Account, Type, Description) - centered in full header height
     xPos = MARGIN + 20;
@@ -453,42 +450,31 @@ class LockerLedgerPDFGenerator {
       xPos += colWidths[index];
     });
 
-    // Gold group header text - Centered in the group header area
-    const goldHeaderX = goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2;
+    // Column header text for Gold sections (second row only) - All centered
+    const goldHeaders = ["Debit", "Credit", "Balance"];
+    
+    // Gold section headers - All centered horizontally
+    xPos = goldGroupStartX;
+    goldHeaders.forEach((header, index) => {
+      const colIndex = 4 + index;
+      const textX = xPos + (colWidths[colIndex] - boldFont.widthOfTextAtSize(header, 8)) / 2;
+      
+      page.drawText(header, {
+        x: textX,
+        y: tableTop - 34,
+        size: 8,
+        font: boldFont,
+        color: COLORS.blue800,
+      });
+      
+      xPos += colWidths[colIndex];
+    });
+
+    // Draw grouped header text - Centered both horizontally and vertically
     page.drawText("GOLD", {
-      x: goldHeaderX,
+      x: goldGroupStartX + (goldGroupWidth - boldFont.widthOfTextAtSize("GOLD", 10)) / 2,
       y: tableTop - 12,
       size: 10,
-      font: boldFont,
-      color: COLORS.white,
-    });
-
-    // Gold debit and credit column headers (in the bottom row)
-    const goldDebitX = goldGroupStartX + (colWidths[4] - boldFont.widthOfTextAtSize("Debit", 8)) / 2;
-    const goldCreditX = goldGroupStartX + colWidths[4] + (colWidths[5] - boldFont.widthOfTextAtSize("Credit", 8)) / 2;
-    
-    page.drawText("Debit", {
-      x: goldDebitX,
-      y: tableTop - 34,
-      size: 8,
-      font: boldFont,
-      color: COLORS.white,
-    });
-    
-    page.drawText("Credit", {
-      x: goldCreditX,
-      y: tableTop - 34,
-      size: 8,
-      font: boldFont,
-      color: COLORS.white,
-    });
-
-    // Balance column header - centered in the full height
-    const balanceHeaderX = balanceStartX + (balanceWidth - boldFont.widthOfTextAtSize("Balance", 9)) / 2;
-    page.drawText("Balance", {
-      x: balanceHeaderX,
-      y: tableTop - 24,
-      size: 9,
       font: boldFont,
       color: COLORS.white,
     });
@@ -496,15 +482,18 @@ class LockerLedgerPDFGenerator {
     return { tableTop: tableTop - HEADER_HEIGHT, colWidths };
   }
 
-  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[]): void {
+  private drawTableGrid(page: PDFPage, startY: number, height: number, colWidths: number[], isHeader: boolean = false): void {
     const tableWidth = colWidths.reduce((a, b) => a + b, 0);
     let xPos = MARGIN + 20;
 
-    // Draw vertical lines
+    // Vertical lines
     for (let col = 0; col <= colWidths.length; col++) {
+      const lineStartY = isHeader ? startY : startY - height;
+      const lineEndY = isHeader ? startY - height : startY;
+      
       page.drawLine({
-        start: { x: xPos, y: startY },
-        end: { x: xPos, y: startY - height },
+        start: { x: xPos, y: lineStartY },
+        end: { x: xPos, y: lineEndY },
         color: COLORS.blue300,
         thickness: 0.5,
       });
@@ -514,12 +503,21 @@ class LockerLedgerPDFGenerator {
       }
     }
 
-    // Draw bottom horizontal line
+    // Horizontal lines
+    if (isHeader) {
+      page.drawLine({
+        start: { x: MARGIN + 20, y: startY - 20 },
+        end: { x: MARGIN + 20 + tableWidth, y: startY - 20 },
+        color: COLORS.blue300,
+        thickness: 1,
+      });
+    }
+    
     page.drawLine({
       start: { x: MARGIN + 20, y: startY - height },
       end: { x: MARGIN + 20 + tableWidth, y: startY - height },
       color: COLORS.blue300,
-      thickness: 0.5,
+      thickness: 1,
     });
   }
 
@@ -600,7 +598,7 @@ class LockerLedgerPDFGenerator {
       // Row background
       const rowBgColor = !affectsLocker(entry) 
         ? rgb(0.95, 0.95, 0.95) // Light gray for non-affecting rows
-        : (index % 2 === 0 ? COLORS.white : COLORS.blue50);
+        : (index % 2 === 0 ? COLORS.white : rgb(254 / 255, 243 / 255, 199 / 255));
 
       let xPos = MARGIN + 20;
       colWidths.forEach(width => {
@@ -626,7 +624,7 @@ class LockerLedgerPDFGenerator {
       }
 
       // Truncate description if too long
-      const maxDescLength = 40;
+      const maxDescLength = 35;
       if (description.length > maxDescLength) {
         description = description.substring(0, maxDescLength - 3) + '...';
       }
@@ -650,8 +648,8 @@ class LockerLedgerPDFGenerator {
       // Date
       rowData.push(displayDate);
       
-      // Account (truncated)
-      const accountShort = accountDisplay.substring(0, 20) + (accountDisplay.length > 20 ? '...' : '');
+      // Account
+      const accountShort = accountDisplay.substring(0, 15) + (accountDisplay.length > 15 ? '...' : '');
       rowData.push(accountShort);
       
       // Type
@@ -671,10 +669,10 @@ class LockerLedgerPDFGenerator {
       // Locker Balance
       rowData.push(formatBalanceNoUnit(entry.lockerGoldBalance));
 
-      // Draw cell text
+      // Draw cell text - All centered except description
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
-        const isLeftAligned = colIndex === 1 || colIndex === 3; // Account and description are left-aligned
+        const isLeftAligned = colIndex === 3; // Only description is left-aligned
         const isBalanceCol = colIndex === 6;
         const isTypeCol = colIndex === 2;
         const isDebitCol = colIndex === 4;
@@ -735,6 +733,8 @@ class LockerLedgerPDFGenerator {
     dateRange: { start: string; end: string }
   ): number {
     const { font, boldFont } = this.getFonts();
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    const rowTop = startY + ROW_HEIGHT / 2;
     
     // Closing Balance Row
     const closingRowTop = startY + ROW_HEIGHT / 2;
@@ -868,9 +868,7 @@ class LockerLedgerPDFGenerator {
     const pdfDoc = this.getPDFDoc();
     
     const allEntries = data.voucherData.filteredVouchers;
-    // +1 for opening balance row on first page, +1 for closing balance row on last page
-    const entriesWithBalanceRows = allEntries.length + 2;
-    const totalPages = Math.ceil(entriesWithBalanceRows / this.pageConfig.maxRowsPerPage);
+    const totalPages = Math.ceil((allEntries.length + 2) / this.pageConfig.maxRowsPerPage); // +2 for opening/closing balance rows
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       const page = this.createNewPage();
@@ -887,20 +885,18 @@ class LockerLedgerPDFGenerator {
       // Draw table header
       const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
       
-      // Draw table rows with opening balance on first page only
-      const currentY = this.drawTableRows(
-        page, 
-        pageEntries, 
-        rowsStartY, 
-        colWidths, 
-        data.voucherData.openingBalance, 
-        isFirstPage,
-        data.dateRange
-      );
+      let currentY = rowsStartY;
+      
+      // Draw opening balance only on first page
+      if (isFirstPage) {
+        currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths, data.voucherData.openingBalance, isFirstPage, data.dateRange);
+      } else {
+        currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths, 0, isFirstPage, data.dateRange);
+      }
       
       // Draw closing balance and totals only on last page
       if (isLastPage) {
-        this.drawClosingBalanceAndTotals(
+        currentY = this.drawClosingBalanceAndTotals(
           page, 
           data.voucherData.closingBalance, 
           data.voucherData.totals, 
