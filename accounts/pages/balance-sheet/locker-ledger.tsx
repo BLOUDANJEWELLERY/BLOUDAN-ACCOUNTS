@@ -161,6 +161,20 @@ export default function LockerLedger({
     return lastVoucher.lockerGoldBalance;
   }, [filteredVouchers, calculateOpeningBalance]);
 
+  // Helper function to get current month date range
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
+    };
+  };
+
+const [dateRange, setDateRange] = useState(getCurrentMonthRange());
+
   // Handle date range change
   const handleDateRangeChange = (newStart: string, newEnd: string) => {
     setDateRange({ start: newStart, end: newEnd });
@@ -177,21 +191,6 @@ export default function LockerLedger({
   const currentLockerBalance = allVouchers.length > 0 
     ? allVouchers[allVouchers.length - 1].lockerGoldBalance 
     : 0;
-
-  // Helper function to get current month date range
-  const getCurrentMonthRange = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
-    };
-  };
-
-const [dateRange, setDateRange] = useState(getCurrentMonthRange());
-
 
   // Helper function to get last month date range
   const getLastMonthRange = () => {
