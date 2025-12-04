@@ -439,141 +439,141 @@ class TypeSummaryPDFGenerator {
     return currentY;
   }
 
-  private drawOpenBalanceRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
-    const { font, boldFont } = this.getFonts();
-    const rowTop = startY + ROW_HEIGHT / 2;
+private drawOpenBalanceRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
+  const { font, boldFont } = this.getFonts();
+  const rowTop = startY + ROW_HEIGHT / 2;
+  
+  const columnConfig = this.getColumnConfig();
+
+  // Open Balance row background
+  let xPos = MARGIN + 20;
+  colWidths.forEach(width => {
+    page.drawRectangle({
+      x: xPos,
+      y: startY - ROW_HEIGHT / 2,
+      width: width,
+      height: ROW_HEIGHT,
+      color: rgb(255 / 255, 247 / 255, 237 / 255), // Light orange background
+    });
+    xPos += width;
+  });
+
+  // Draw Open Balance row
+  const rowData = [
+    "Open Balance",
+    "-",
+    formatBalance(data.openBalance.goldBalance),
+    formatBalance(data.openBalance.kwdBalance)
+  ];
+
+  xPos = MARGIN + 20;
+  rowData.forEach((cellData, colIndex) => {  // Changed variable name to 'cellData'
+    const alignment = columnConfig.alignments[colIndex];
+    const isBalanceCol = colIndex === 2 || colIndex === 3;
+    const isTypeCol = colIndex === 0;
     
-    const columnConfig = this.getColumnConfig();
-
-    // Open Balance row background
-    let xPos = MARGIN + 20;
-    colWidths.forEach(width => {
-      page.drawRectangle({
-        x: xPos,
-        y: startY - ROW_HEIGHT / 2,
-        width: width,
-        height: ROW_HEIGHT,
-        color: rgb(255 / 255, 247 / 255, 237 / 255), // Light orange background
-      });
-      xPos += width;
-    });
-
-    // Draw Open Balance row
-    const rowData = [
-      "Open Balance",
-      "-",
-      formatBalance(data.openBalance.goldBalance),
-      formatBalance(data.openBalance.kwdBalance)
-    ];
-
-    xPos = MARGIN + 20;
-    rowData.forEach((data, colIndex) => {
-      const alignment = columnConfig.alignments[colIndex];
-      const isBalanceCol = colIndex === 2 || colIndex === 3;
-      const isTypeCol = colIndex === 0;
-      
-      let textColor = isTypeCol ? COLORS.orange : COLORS.blue800;
-      let textFont = isTypeCol || isBalanceCol ? boldFont : font;
-      
-      if (isBalanceCol) {
-        let balanceValue = 0;
-        if (colIndex === 2) balanceValue = data.openBalance.goldBalance;
-        if (colIndex === 3) balanceValue = data.openBalance.kwdBalance;
-        textColor = balanceValue >= 0 ? COLORS.blue800 : COLORS.red;
-      }
-
-      const fontSize = 9;
-      const textWidth = textFont.widthOfTextAtSize(data, fontSize);
-      
-      let textX;
-      if (alignment === 'left') {
-        textX = xPos + 5;
-      } else if (alignment === 'right') {
-        textX = xPos + colWidths[colIndex] - textWidth - 5;
-      } else {
-        textX = xPos + (colWidths[colIndex] - textWidth) / 2;
-      }
-      
-      page.drawText(data, {
-        x: textX,
-        y: startY - 4,
-        size: fontSize,
-        font: textFont,
-        color: textColor,
-      });
-      
-      xPos += colWidths[colIndex];
-    });
-
-    // Draw row grid
-    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
-
-    return startY - ROW_HEIGHT;
-  }
-
-  private drawGrandTotalRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
-    const { font, boldFont } = this.getFonts();
-    const rowTop = startY + ROW_HEIGHT / 2;
+    let textColor = isTypeCol ? COLORS.orange : COLORS.blue800;
+    let textFont = isTypeCol || isBalanceCol ? boldFont : font;
     
-    const columnConfig = this.getColumnConfig();
+    if (isBalanceCol) {
+      let balanceValue = 0;
+      if (colIndex === 2) balanceValue = data.openBalance.goldBalance;  // Now correctly references the 'data' parameter
+      if (colIndex === 3) balanceValue = data.openBalance.kwdBalance;  // Now correctly references the 'data' parameter
+      textColor = balanceValue >= 0 ? COLORS.blue800 : COLORS.red;
+    }
 
-    // Grand Total row background
-    let xPos = MARGIN + 20;
-    colWidths.forEach(width => {
-      page.drawRectangle({
-        x: xPos,
-        y: startY - ROW_HEIGHT / 2,
-        width: width,
-        height: ROW_HEIGHT,
-        color: COLORS.blue100,
-      });
-      xPos += width;
+    const fontSize = 9;
+    const textWidth = textFont.widthOfTextAtSize(cellData, fontSize);
+    
+    let textX;
+    if (alignment === 'left') {
+      textX = xPos + 5;
+    } else if (alignment === 'right') {
+      textX = xPos + colWidths[colIndex] - textWidth - 5;
+    } else {
+      textX = xPos + (colWidths[colIndex] - textWidth) / 2;
+    }
+    
+    page.drawText(cellData, {
+      x: textX,
+      y: startY - 4,
+      size: fontSize,
+      font: textFont,
+      color: textColor,
     });
+    
+    xPos += colWidths[colIndex];
+  });
 
-    // Draw Grand Total row
-    const rowData = [
-      "GRAND TOTAL",
-      "-",
-      formatBalance(data.grandTotalGold),
-      formatBalance(data.grandTotalKwd)
-    ];
+  // Draw row grid
+  this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
 
-    xPos = MARGIN + 20;
-    rowData.forEach((data, colIndex) => {
-      const alignment = columnConfig.alignments[colIndex];
-      const isBalanceCol = colIndex === 2 || colIndex === 3;
-      
-      const textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
-      const textFont = boldFont;
+  return startY - ROW_HEIGHT;
+}
 
-      const fontSize = 10;
-      const textWidth = textFont.widthOfTextAtSize(data, fontSize);
-      
-      let textX;
-      if (alignment === 'left') {
-        textX = xPos + 5;
-      } else if (alignment === 'right') {
-        textX = xPos + colWidths[colIndex] - textWidth - 5;
-      } else {
-        textX = xPos + (colWidths[colIndex] - textWidth) / 2;
-      }
-      
-      page.drawText(data, {
-        x: textX,
-        y: startY - 4,
-        size: fontSize,
-        font: textFont,
-        color: textColor,
-      });
-      
-      xPos += colWidths[colIndex];
+private drawGrandTotalRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
+  const { font, boldFont } = this.getFonts();
+  const rowTop = startY + ROW_HEIGHT / 2;
+  
+  const columnConfig = this.getColumnConfig();
+
+  // Grand Total row background
+  let xPos = MARGIN + 20;
+  colWidths.forEach(width => {
+    page.drawRectangle({
+      x: xPos,
+      y: startY - ROW_HEIGHT / 2,
+      width: width,
+      height: ROW_HEIGHT,
+      color: COLORS.blue100,
     });
+    xPos += width;
+  });
 
-    // Draw row grid
-    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
+  // Draw Grand Total row
+  const rowData = [
+    "GRAND TOTAL",
+    "-",
+    formatBalance(data.grandTotalGold),
+    formatBalance(data.grandTotalKwd)
+  ];
 
-    return startY - ROW_HEIGHT;
-  }
+  xPos = MARGIN + 20;
+  rowData.forEach((cellData, colIndex) => {  // Changed variable name to 'cellData'
+    const alignment = columnConfig.alignments[colIndex];
+    const isBalanceCol = colIndex === 2 || colIndex === 3;
+    
+    let textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
+    const textFont = boldFont;
+
+    const fontSize = 10;
+    const textWidth = textFont.widthOfTextAtSize(cellData, fontSize);
+    
+    let textX;
+    if (alignment === 'left') {
+      textX = xPos + 5;
+    } else if (alignment === 'right') {
+      textX = xPos + colWidths[colIndex] - textWidth - 5;
+    } else {
+      textX = xPos + (colWidths[colIndex] - textWidth) / 2;
+    }
+    
+    page.drawText(cellData, {
+      x: textX,
+      y: startY - 4,
+      size: fontSize,
+      font: textFont,
+      color: textColor,
+    });
+    
+    xPos += colWidths[colIndex];
+  });
+
+  // Draw row grid
+  this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
+
+  return startY - ROW_HEIGHT;
+}
 
   private drawLockerGoldCard(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number): number {
     const { font, boldFont } = this.getFonts();
