@@ -27,13 +27,11 @@ type Props = {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const type = context.params?.type as string;
 
-  // Validate account type
   const validTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
   if (!validTypes.includes(type)) {
     return { notFound: true };
   }
 
-  // Fetch all accounts of this type
   const accounts = await prisma.account.findMany({
     where: { 
       type,
@@ -65,7 +63,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   const accountIds = accounts.map(account => account.id);
 
-  // Fetch all vouchers for these accounts
   const vouchers = await prisma.voucher.findMany({
     where: {
       accountId: { in: accountIds }
@@ -73,7 +70,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     orderBy: { date: "asc" },
   });
 
-  // Calculate balances for each account with voucher type handling
   const accountsWithBalances: AccountBalance[] = accounts.map(account => {
     const accountVouchers = vouchers.filter(v => v.accountId === account.id);
     let goldBalance = 0;
@@ -100,7 +96,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   });
 
-  // Calculate totals
   const totalGold = accountsWithBalances.reduce((sum, acc) => sum + acc.goldBalance, 0);
   const totalKwd = accountsWithBalances.reduce((sum, acc) => sum + acc.kwdBalance, 0);
   const totalTransactions = accountsWithBalances.reduce((sum, acc) => sum + acc.transactionCount, 0);
@@ -128,6 +123,7 @@ export default function AccountBalancesPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const formatCurrency = (value: number, type: 'gold' | 'kwd') => {
     const absoluteValue = Math.abs(value);
@@ -163,10 +159,6 @@ export default function AccountBalancesPage({
     return balance >= 0 ? "text-emerald-700" : "text-amber-700";
   };
 
-  const getBalanceBgColor = (balance: number) => {
-    return balance >= 0 ? "bg-emerald-100" : "bg-amber-100";
-  };
-
   const getBalanceIcon = (balance: number) => {
     if (balance > 0) return '↗';
     if (balance < 0) return '↘';
@@ -190,11 +182,17 @@ export default function AccountBalancesPage({
 
   const generateAndHandlePDF = async (mode: 'download' | 'share') => {
     try {
+      setPdfError(null);
       mode === 'download' ? setPdfLoading(true) : setExportingPdf(true);
+      
+      console.log("Starting PDF generation...");
       
       const response = await fetch("/api/generate-balance-pdf", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
           accountType,
           accountBalances: filteredAccounts,
@@ -218,14 +216,22 @@ export default function AccountBalancesPage({
         }),
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      console.log("API Response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API Error response:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const result = await response.json();
+      console.log("API Success response:", result);
       
       if (!result.success || !result.pdfData) {
         throw new Error(result.error || "PDF generation failed");
       }
 
+      // Convert base64 to blob
       const binary = atob(result.pdfData);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
@@ -239,27 +245,47 @@ export default function AccountBalancesPage({
       
       const file = new File([blob], fileName, { type: "application/pdf" });
 
+      // Platform detection
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-      if (mode === 'share' && navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: `${accountType} Account Balances PDF`,
-          files: [file],
-        });
+      // Try share if it's a share request and supported
+      if (mode === 'share' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: `${accountType} Account Balances PDF`,
+            files: [file],
+          });
+          console.log("Share successful");
+        } catch (shareError) {
+          console.log("Share failed, falling back to download:", shareError);
+          // Fallback to download if share fails
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       } else {
+        // Always download for non-share or unsupported share
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
-        a.remove();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        console.log("Download triggered");
       }
     } catch (error) {
       console.error("Error generating PDF:", error);
-      // You might want to add a toast notification here
+      setPdfError(error instanceof Error ? error.message : "Failed to generate PDF");
+      // Show error to user
+      alert(`PDF Generation Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       mode === 'download' ? setPdfLoading(false) : setExportingPdf(false);
     }
@@ -284,6 +310,24 @@ export default function AccountBalancesPage({
           </h1>
           <p className="text-xl text-emerald-700 font-light">Detailed overview of {accountType.toLowerCase()} account balances</p>
         </div>
+
+        {/* PDF Error Alert */}
+        {pdfError && (
+          <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-3xl p-4">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="text-sm font-medium text-red-800">PDF Error: {pdfError}</span>
+            </div>
+            <button
+              onClick={() => setPdfError(null)}
+              className="mt-2 text-sm text-red-600 hover:text-red-800"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -359,6 +403,24 @@ export default function AccountBalancesPage({
             </div>
           </div>
         </div>
+
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-4 mb-6">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-amber-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-amber-800">Debug Info</span>
+            </div>
+            <div className="mt-2 text-sm text-amber-700">
+              <p>Accounts: {accounts.length}</p>
+              <p>Filtered: {filteredAccounts.length}</p>
+              <p>Total gold balance: {totalGold}</p>
+              <p>Total KWD balance: {totalKwd}</p>
+            </div>
+          </div>
+        )}
 
         {/* Account Balances Table */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-emerald-300">
@@ -514,7 +576,7 @@ export default function AccountBalancesPage({
           </Link>
           <button
             onClick={() => generateAndHandlePDF('download')}
-            disabled={pdfLoading}
+            disabled={pdfLoading || exportingPdf}
             className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pdfLoading ? (
@@ -533,7 +595,7 @@ export default function AccountBalancesPage({
           </button>
           <button
             onClick={() => generateAndHandlePDF('share')}
-            disabled={exportingPdf}
+            disabled={exportingPdf || pdfLoading}
             className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-2xl hover:shadow-3xl border-2 border-amber-400 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportingPdf ? (
