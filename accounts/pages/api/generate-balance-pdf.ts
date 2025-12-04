@@ -56,18 +56,23 @@ const ROW_HEIGHT = 18;
 const HEADER_HEIGHT = 25;
 const FOOTER_HEIGHT = 30;
 
-// Colors
+// Colors - Blue theme to match other PDFs
 const COLORS = {
-  emerald50: rgb(236 / 255, 253 / 255, 245 / 255),
-  emerald100: rgb(209 / 255, 250 / 255, 229 / 255),
-  emerald300: rgb(110 / 255, 231 / 255, 183 / 255),
-  emerald700: rgb(4 / 255, 120 / 255, 87 / 255),
-  emerald800: rgb(6 / 255, 95 / 255, 70 / 255),
-  emerald900: rgb(6 / 255, 78 / 255, 59 / 255),
+  blue50: rgb(239 / 255, 246 / 255, 255 / 255),
+  blue100: rgb(219 / 255, 234 / 255, 254 / 255),
+  blue200: rgb(191 / 255, 219 / 255, 254 / 255),
+  blue300: rgb(147 / 255, 197 / 255, 253 / 255),
+  blue400: rgb(96 / 255, 165 / 255, 250 / 255),
+  blue500: rgb(59 / 255, 130 / 255, 246 / 255),
+  blue600: rgb(37 / 255, 99 / 255, 235 / 255),
+  blue700: rgb(29 / 255, 78 / 255, 216 / 255),
+  blue800: rgb(30 / 255, 64 / 255, 175 / 255),
+  blue900: rgb(30 / 255, 58 / 255, 138 / 255),
   white: rgb(1, 1, 1),
   gray: rgb(107 / 255, 114 / 255, 128 / 255),
   amber600: rgb(217 / 255, 119 / 255, 6 / 255),
-  red600: rgb(220 / 255, 38 / 255, 38 / 255)
+  red600: rgb(220 / 255, 38 / 255, 38 / 255),
+  green600: rgb(22 / 255, 163 / 255, 74 / 255)
 };
 
 // Type-specific colors
@@ -193,7 +198,7 @@ class AccountTypeBalancesPDFGenerator {
       y: 0,
       width: this.pageConfig.width,
       height: this.pageConfig.height,
-      color: COLORS.emerald50,
+      color: COLORS.blue50,
     });
 
     // Main container
@@ -203,7 +208,7 @@ class AccountTypeBalancesPDFGenerator {
       width: this.pageConfig.contentWidth,
       height: this.pageConfig.contentHeight,
       color: COLORS.white,
-      borderColor: COLORS.emerald300,
+      borderColor: COLORS.blue300,
       borderWidth: 2,
     });
 
@@ -215,12 +220,12 @@ class AccountTypeBalancesPDFGenerator {
     let currentY = this.pageConfig.height - MARGIN - 30;
 
     // Header with account type
-    page.drawText("ZAMZAM JEWELLERY", {
+    page.drawText("Bloudan Jewellery", {
       x: MARGIN + 20,
       y: currentY,
       size: 20,
       font: boldFont,
-      color: COLORS.emerald800,
+      color: COLORS.blue800,
     });
 
     page.drawText(`${data.accountType} Account Balances`, {
@@ -228,20 +233,20 @@ class AccountTypeBalancesPDFGenerator {
       y: currentY - 25,
       size: 16,
       font: boldFont,
-      color: COLORS.emerald700,
+      color: COLORS.blue700,
     });
 
     currentY -= 50;
 
     // Account Type Badge with special note for Project
-    const typeColor = TYPE_COLORS[data.accountType] || [6 / 255, 95 / 255, 70 / 255];
+    const typeColor = TYPE_COLORS[data.accountType] || [30 / 255, 64 / 255, 175 / 255];
     page.drawRectangle({
       x: MARGIN + 20,
       y: currentY + 5,
       width: 120,
       height: 20,
       color: rgb(...typeColor),
-      borderColor: rgb(217 / 255, 119 / 255, 6 / 255),
+      borderColor: COLORS.blue300,
       borderWidth: 1,
     });
 
@@ -269,7 +274,7 @@ class AccountTypeBalancesPDFGenerator {
       y: currentY,
       size: 10,
       font: font,
-      color: COLORS.emerald700,
+      color: COLORS.blue700,
     });
 
     currentY -= 20;
@@ -287,7 +292,7 @@ class AccountTypeBalancesPDFGenerator {
       y: currentY,
       size: 9,
       font: font,
-      color: COLORS.emerald700,
+      color: COLORS.blue700,
     });
 
     currentY -= 20;
@@ -299,7 +304,7 @@ class AccountTypeBalancesPDFGenerator {
       y: currentY,
       size: 9,
       font: font,
-      color: COLORS.emerald800,
+      color: COLORS.blue800,
     });
 
     currentY -= 30;
@@ -314,7 +319,7 @@ class AccountTypeBalancesPDFGenerator {
       y: currentY,
       size: 14,
       font: boldFont,
-      color: COLORS.emerald800,
+      color: COLORS.blue800,
     });
 
     return currentY - 25;
@@ -346,7 +351,7 @@ class AccountTypeBalancesPDFGenerator {
       y: tableTop - HEADER_HEIGHT,
       width: tableWidth,
       height: HEADER_HEIGHT,
-      borderColor: COLORS.emerald300,
+      borderColor: COLORS.blue300,
       borderWidth: 2,
     });
 
@@ -356,7 +361,7 @@ class AccountTypeBalancesPDFGenerator {
       y: tableTop - HEADER_HEIGHT,
       width: tableWidth,
       height: HEADER_HEIGHT,
-      color: COLORS.emerald100,
+      color: COLORS.blue100,
     });
 
     // Draw vertical lines
@@ -374,7 +379,7 @@ class AccountTypeBalancesPDFGenerator {
         y: tableTop - 16,
         size: 9,
         font: boldFont,
-        color: COLORS.emerald800,
+        color: COLORS.blue800,
       });
       
       xPos += colWidths[index];
@@ -395,7 +400,7 @@ class AccountTypeBalancesPDFGenerator {
       page.drawLine({
         start: { x: xPos, y: lineStartY },
         end: { x: xPos, y: lineEndY },
-        color: COLORS.emerald300,
+        color: COLORS.blue300,
         thickness: 0.5,
       });
       
@@ -408,7 +413,7 @@ class AccountTypeBalancesPDFGenerator {
     page.drawLine({
       start: { x: MARGIN + 20, y: startY - height },
       end: { x: MARGIN + 20 + tableWidth, y: startY - height },
-      color: COLORS.emerald300,
+      color: COLORS.blue300,
       thickness: 1,
     });
   }
@@ -427,7 +432,7 @@ class AccountTypeBalancesPDFGenerator {
       const rowTop = currentY + ROW_HEIGHT / 2;
       const rowBottom = currentY - ROW_HEIGHT / 2;
 
-      // Row background - alternate colors
+      // Row background - alternate colors (white and light amber to match full ledger PDF)
       const rowBgColor = index % 2 === 0 ? COLORS.white : rgb(254 / 255, 243 / 255, 199 / 255);
 
       let xPos = MARGIN + 20;
@@ -458,13 +463,13 @@ class AccountTypeBalancesPDFGenerator {
           // For other accounts, we need to determine which balance
           if (this.columnConfig!.showAmountBalance && colIndex === 4) {
             // KWD balance column (index 4 when amount balance is shown)
-            textColor = balance.kwdBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
+            textColor = balance.kwdBalance >= 0 ? COLORS.blue700 : COLORS.red600;
           } else {
             // Gold balance column
-            textColor = balance.goldBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
+            textColor = balance.goldBalance >= 0 ? COLORS.blue700 : COLORS.red600;
           }
         } else {
-          textColor = COLORS.emerald700;
+          textColor = COLORS.blue700;
         }
         
         const textFont = font;
@@ -544,7 +549,7 @@ class AccountTypeBalancesPDFGenerator {
         y: startY - ROW_HEIGHT / 2,
         width: width,
         height: ROW_HEIGHT,
-        color: COLORS.emerald100,
+        color: COLORS.blue100,
       });
       xPos += width;
     });
@@ -558,7 +563,7 @@ class AccountTypeBalancesPDFGenerator {
       const alignment = this.columnConfig!.alignments[colIndex];
       const isBalanceColumn = this.columnConfig!.balanceColumnIndices.includes(colIndex);
       
-      const textColor = COLORS.emerald900;
+      const textColor = COLORS.blue900;
       const textFont = isBalanceColumn ? boldFont : font;
       const fontSize = isBalanceColumn ? 8 : 7;
       const textWidth = textFont.widthOfTextAtSize(cellData, fontSize);
@@ -620,8 +625,8 @@ class AccountTypeBalancesPDFGenerator {
     const { font } = this.getFonts();
     const footerY = MARGIN + 10;
     const footerText = this.accountType === 'Project' 
-      ? `Project Account Balances (Gold Only) - Generated by ZamZam Jewellery - Page ${pageNumber} of ${totalPages}`
-      : `${this.accountType} Account Balances - Generated by ZamZam Jewellery - Page ${pageNumber} of ${totalPages}`;
+      ? `Project Account Balances (Gold Only) - Generated by Bloudan Jewellery - Page ${pageNumber} of ${totalPages}`
+      : `${this.accountType} Account Balances - Generated by Bloudan Jewellery - Page ${pageNumber} of ${totalPages}`;
     
     page.drawText(footerText, {
       x: (this.pageConfig.width - font.widthOfTextAtSize(footerText, 9)) / 2,
