@@ -273,11 +273,11 @@ export default function TypeSummaryPage({
         gradient: 'from-amber-500 to-amber-600',
       },
       Project: {
-        bg: 'bg-green-500',
-        lightBg: 'bg-green-50',
-        text: 'text-green-800',
-        border: 'border-green-200',
-        gradient: 'from-green-500 to-green-600',
+        bg: 'bg-emerald-500',
+        lightBg: 'bg-emerald-50',
+        text: 'text-emerald-800',
+        border: 'border-emerald-200',
+        gradient: 'from-emerald-500 to-emerald-600',
       },
       'Gold Fixing': {
         bg: 'bg-yellow-500',
@@ -294,11 +294,11 @@ export default function TypeSummaryPage({
         gradient: 'from-orange-500 to-orange-600',
       },
       'Locker': {
-        bg: 'bg-red-500',
-        lightBg: 'bg-red-50',
-        text: 'text-red-800',
-        border: 'border-red-200',
-        gradient: 'from-red-500 to-red-600',
+        bg: 'bg-blue-500',
+        lightBg: 'bg-blue-50',
+        text: 'text-blue-800',
+        border: 'border-blue-200',
+        gradient: 'from-blue-500 to-blue-600',
       },
     };
     return colors[type as keyof typeof colors] || {
@@ -311,29 +311,29 @@ export default function TypeSummaryPage({
   };
 
   const getBalanceColor = (balance: number) => {
-    if (balance > 0) return 'text-green-600';
+    if (balance > 0) return 'text-blue-700';
     if (balance < 0) return 'text-red-600';
     return 'text-gray-600';
   };
 
   if (error) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border-2 border-blue-300">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Data</h1>
-            <p className="text-gray-600 mb-6">{error}</p>
+            <h1 className="text-2xl font-bold text-blue-800 mb-4">Error Loading Data</h1>
+            <p className="text-blue-600 mb-6">{error}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
                 href="/accounts" 
-                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:from-blue-700 hover:to-blue-900 transition-colors shadow-lg"
               >
                 Manage Accounts
               </Link>
               <Link 
                 href="/vouchers/create" 
-                className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-blue-700 rounded-2xl bg-white hover:bg-blue-50 transition-colors shadow-lg"
               >
                 Create Vouchers
               </Link>
@@ -345,20 +345,20 @@ export default function TypeSummaryPage({
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4">
             Account Type Summary
           </h1>
-          <p className="text-xl text-gray-600 mb-6">
+          <p className="text-xl text-blue-700 mb-6">
             Complete financial overview across all active accounts
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link 
               href="/accounts" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-lg font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-lg"
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -367,7 +367,7 @@ export default function TypeSummaryPage({
             </Link>
             <Link 
               href="/vouchers/list" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-lg font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-lg"
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -379,7 +379,7 @@ export default function TypeSummaryPage({
 
         {/* Overall Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,21 +387,21 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">{totalActiveAccounts}</p>
+                <p className="text-sm font-medium text-blue-700">Active Accounts</p>
+                <p className="text-2xl font-bold text-blue-800">{totalActiveAccounts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Account Types Gold</p>
+                <p className="text-sm font-medium text-blue-700">Account Types Gold</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(overallGold)}`}>
                   {formatCurrency(overallGold)}
                 </p>
@@ -409,7 +409,7 @@ export default function TypeSummaryPage({
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
               <div className="p-3 bg-purple-100 rounded-lg">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -417,7 +417,7 @@ export default function TypeSummaryPage({
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Account Types KWD</p>
+                <p className="text-sm font-medium text-blue-700">Account Types KWD</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(overallKwd)}`}>
                   {formatCurrency(overallKwd)}
                 </p>
@@ -425,34 +425,34 @@ export default function TypeSummaryPage({
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">{totalTransactions}</p>
+                <p className="text-sm font-medium text-blue-700">Active Transactions</p>
+                <p className="text-2xl font-bold text-blue-800">{totalTransactions}</p>
               </div>
             </div>
           </div>
 
           {/* Locker Gold Card */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-red-200">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Locker Gold</p>
+                <p className="text-sm font-medium text-blue-700">Locker Gold</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(lockerTotalGold)}`}>
                   {formatCurrency(lockerTotalGold)}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Includes all accounts</p>
+                <p className="text-xs text-blue-500 mt-1">Includes all accounts</p>
               </div>
             </div>
           </div>
@@ -460,20 +460,20 @@ export default function TypeSummaryPage({
 
         {/* Check if we have data */}
         {typeSummaries.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Data Available</h2>
-            <p className="text-gray-600 mb-6">No account type summary data found. You may need to create accounts and vouchers first.</p>
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center border-2 border-blue-300">
+            <div className="text-6xl mb-4 text-blue-400">📊</div>
+            <h2 className="text-2xl font-bold text-blue-800 mb-2">No Data Available</h2>
+            <p className="text-blue-600 mb-6">No account type summary data found. You may need to create accounts and vouchers first.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
                 href="/accounts" 
-                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:from-blue-700 hover:to-blue-900 transition-colors shadow-lg"
               >
                 Create Accounts
               </Link>
               <Link 
                 href="/vouchers/create" 
-                className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-blue-700 rounded-2xl bg-white hover:bg-blue-50 transition-colors shadow-lg"
               >
                 Create Vouchers
               </Link>
@@ -486,7 +486,7 @@ export default function TypeSummaryPage({
               {typeSummaries.map((summary) => {
                 const typeColor = getTypeColor(summary.type);
                 return (
-                  <div key={summary.type} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div key={summary.type} className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300">
                     {/* Header */}
                     <div className={`bg-gradient-to-r ${typeColor.gradient} px-6 py-4 text-white`}>
                       <div className="flex items-center justify-between">
@@ -504,17 +504,17 @@ export default function TypeSummaryPage({
                           <div className={`text-xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
                             {formatCurrency(summary.goldBalance)}
                           </div>
-                          <div className="text-xs text-gray-600">Gold Balance</div>
+                          <div className="text-xs text-blue-600">Gold Balance</div>
                         </div>
                         <div className="text-center">
                           <div className={`text-xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
                             {formatCurrency(summary.kwdBalance)}
                           </div>
-                          <div className="text-xs text-gray-600">KWD Balance</div>
+                          <div className="text-xs text-blue-600">KWD Balance</div>
                         </div>
                       </div>
 
-                      <div className="flex justify-between text-sm text-gray-600 mb-4">
+                      <div className="flex justify-between text-sm text-blue-600 mb-4">
                         <span>{summary.totalTransactions} active transactions</span>
                         <span>Active Balance</span>
                       </div>
@@ -523,13 +523,13 @@ export default function TypeSummaryPage({
                       <div className="flex gap-2">
                         <Link
                           href={`/accounts/balance/${summary.type}`}
-                          className="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition-colors text-sm"
+                          className="flex-1 text-center bg-blue-100 hover:bg-blue-200 text-blue-700 py-2 rounded-xl font-medium transition-colors text-sm border border-blue-300"
                         >
                           View Balances
                         </Link>
                         <Link
                           href={`/balance-sheet/type/${summary.type}`}
-                          className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                          className="flex-1 text-center bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white py-2 rounded-xl font-medium transition-colors text-sm"
                         >
                           View Ledger
                         </Link>
@@ -540,9 +540,9 @@ export default function TypeSummaryPage({
               })}
 
               {/* Open Balance Card */}
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-orange-200">
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-orange-300">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-orange-500 to-red-600 px-6 py-4 text-white">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 text-white">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold">Open Balance</h2>
                     <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-medium">
@@ -558,17 +558,17 @@ export default function TypeSummaryPage({
                       <div className={`text-2xl font-bold ${getBalanceColor(openBalance.goldBalance)}`}>
                         {formatCurrency(openBalance.goldBalance)}
                       </div>
-                      <div className="text-sm text-gray-600">Gold Balance</div>
+                      <div className="text-sm text-blue-600">Gold Balance</div>
                     </div>
                     <div className="text-center">
                       <div className={`text-2xl font-bold ${getBalanceColor(openBalance.kwdBalance)}`}>
                         {formatCurrency(openBalance.kwdBalance)}
                       </div>
-                      <div className="text-sm text-gray-600">KWD Balance</div>
+                      <div className="text-sm text-blue-600">KWD Balance</div>
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-600 mb-4">
+                  <div className="text-sm text-blue-600 mb-4">
                     <div className="flex justify-between mb-1">
                       <span>Market REC (Gold Fixing):</span>
                       <span className="font-medium">{openBalance.marketRecCount}</span>
@@ -583,7 +583,7 @@ export default function TypeSummaryPage({
                   <div className="flex gap-2">
                     <Link
                       href="/open-balance"
-                      className="flex-1 text-center bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors text-sm"
+                      className="flex-1 text-center bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white py-2 rounded-xl font-medium transition-colors text-sm"
                     >
                       View Open Balance
                     </Link>
@@ -593,12 +593,12 @@ export default function TypeSummaryPage({
             </div>
 
             {/* Detailed Summary Table */}
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden mb-8 border-2 border-blue-300">
+              <div className="px-6 py-4 border-b-2 border-blue-300 bg-blue-100">
+                <h2 className="text-xl font-semibold text-blue-800">
                   Detailed Account Type Summary
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-blue-700 mt-1">
                   Breakdown of active accounts and their financial positions
                 </p>
               </div>
@@ -606,43 +606,43 @@ export default function TypeSummaryPage({
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <tr className="bg-blue-100">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Account Type
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Active Accounts
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Active Transactions
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Gold Balance
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-blue-800 uppercase tracking-wider">
                         KWD Balance
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-blue-300">
                     {typeSummaries.map((summary) => {
                       const typeColor = getTypeColor(summary.type);
                       return (
-                        <tr key={summary.type} className="hover:bg-gray-50 transition-colors">
+                        <tr key={summary.type} className="hover:bg-blue-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center">
                               <div className={`w-3 h-3 rounded-full ${typeColor.bg} mr-3`}></div>
-                              <div className="text-sm font-semibold text-gray-900">{summary.type}</div>
+                              <div className="text-sm font-semibold text-blue-900">{summary.type}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="text-sm text-gray-900 font-medium">{summary.totalAccounts}</div>
+                            <div className="text-sm text-blue-900 font-medium">{summary.totalAccounts}</div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="text-sm text-gray-900 font-medium">{summary.totalTransactions}</div>
+                            <div className="text-sm text-blue-900 font-medium">{summary.totalTransactions}</div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)}`}>
@@ -658,13 +658,13 @@ export default function TypeSummaryPage({
                             <div className="flex justify-end space-x-2">
                               <Link
                                 href={`/accounts/balance/${summary.type}`}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
+                                className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded-lg text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
                               >
                                 Balances
                               </Link>
                               <Link
                                 href={`/balance-sheet/type/${summary.type}`}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 transition-colors"
                               >
                                 Ledger
                               </Link>
@@ -675,22 +675,22 @@ export default function TypeSummaryPage({
                     })}
                     
                     {/* Account Types Total Row */}
-                    <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                    <tr className="bg-blue-100 font-bold border-t-2 border-blue-300">
+                      <td className="px-6 py-4 text-sm text-blue-900">
                         Active Accounts Total
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                      <td className="px-6 py-4 text-center text-sm text-blue-900">
                         {totalActiveAccounts}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                      <td className="px-6 py-4 text-center text-sm text-blue-900">
                         {totalTransactions}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                      <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(overallGold)}>
                           {formatCurrency(overallGold)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                      <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(overallKwd)}>
                           {formatCurrency(overallKwd)}
                         </span>
@@ -699,18 +699,18 @@ export default function TypeSummaryPage({
                     </tr>
 
                     {/* Open Balance Row */}
-                    <tr className="hover:bg-orange-50 transition-colors">
+                    <tr className="hover:bg-orange-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-3 h-3 rounded-full bg-orange-500 mr-3"></div>
-                          <div className="text-sm font-semibold text-gray-900">Open Balance</div>
+                          <div className="text-sm font-semibold text-blue-900">Open Balance</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="text-sm text-gray-500 font-medium">-</div>
+                        <div className="text-sm text-blue-500 font-medium">-</div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="text-sm text-gray-900 font-medium">{openBalance.totalTransactions}</div>
+                        <div className="text-sm text-blue-900 font-medium">{openBalance.totalTransactions}</div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className={`text-sm font-semibold ${getBalanceColor(openBalance.goldBalance)}`}>
@@ -726,7 +726,7 @@ export default function TypeSummaryPage({
                         <div className="flex justify-end space-x-2">
                           <Link
                             href="/open-balance"
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-lg text-white bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 transition-colors"
                           >
                             View Open Balance
                           </Link>
@@ -735,22 +735,22 @@ export default function TypeSummaryPage({
                     </tr>
 
                     {/* Grand Total Row */}
-                    <tr className="bg-green-50 font-bold border-t-2 border-green-200">
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                    <tr className="bg-blue-100 font-bold border-t-2 border-blue-300">
+                      <td className="px-6 py-4 text-sm text-blue-900">
                         GRAND TOTAL
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                      <td className="px-6 py-4 text-center text-sm text-blue-900">
                         -
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
+                      <td className="px-6 py-4 text-center text-sm text-blue-900">
                         {totalTransactions + openBalance.totalTransactions}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                      <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(grandTotalGold)}>
                           {formatCurrency(grandTotalGold)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-gray-900">
+                      <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(grandTotalKwd)}>
                           {formatCurrency(grandTotalKwd)}
                         </span>
@@ -764,7 +764,7 @@ export default function TypeSummaryPage({
 
             {/* Grand Total Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
                 <div className="flex items-center">
                   <div className="p-3 bg-white bg-opacity-20 rounded-lg">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -783,7 +783,7 @@ export default function TypeSummaryPage({
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
                 <div className="flex items-center">
                   <div className="p-3 bg-white bg-opacity-20 rounded-lg">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -802,7 +802,7 @@ export default function TypeSummaryPage({
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-blue-700 to-blue-800 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
                 <div className="flex items-center">
                   <div className="p-3 bg-white bg-opacity-20 rounded-lg">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
