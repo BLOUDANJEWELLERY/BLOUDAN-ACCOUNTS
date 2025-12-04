@@ -1,6 +1,7 @@
 import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { useState } from "react";
 
 type AccountTypeSummary = {
   type: string;
@@ -245,6 +246,8 @@ export default function TypeSummaryPage({
   lockerTotalGold,
   error,
 }: Props) {
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  
   const formatCurrency = (value: number) => {
     return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
@@ -316,6 +319,97 @@ export default function TypeSummaryPage({
     return 'text-gray-600';
   };
 
+  const downloadPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+
+      const pdfData = {
+        typeSummaries,
+        openBalance,
+        overallGold,
+        overallKwd,
+        totalActiveAccounts,
+        totalTransactions,
+        grandTotalGold,
+        grandTotalKwd,
+        lockerTotalGold,
+        generatedAt: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      };
+
+      const response = await fetch("/api/generate-type-summary-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pdfData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("Server error:", result);
+        throw new Error(
+          result.details ||
+            result.error ||
+            `Failed to generate PDF: ${response.status} ${response.statusText}`
+        );
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate PDF");
+      }
+
+      // Convert base64 → Blob
+      const binaryString = atob(result.pdfData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: "application/pdf" });
+
+      const fileName = `account-type-summary-${new Date()
+        .toISOString()
+        .split('T')[0]}.pdf`;
+
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      // iOS detection
+      const ua = navigator.userAgent || navigator.vendor;
+      const isIOS =
+        /iPad|iPhone|iPod/.test(ua) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      // iOS → Share Sheet, Desktop → Download
+      if (isIOS && navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: "Account Type Summary PDF",
+          files: [file],
+        });
+      } else {
+        // Desktop / Android / fallback
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   if (error) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -374,11 +468,30 @@ export default function TypeSummaryPage({
               </svg>
               View All Vouchers
             </Link>
+            <button
+              onClick={downloadPdf}
+              disabled={downloadingPdf || typeSummaries.length === 0}
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloadingPdf ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700 mr-2"></div>
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download PDF
+                </>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Overall Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
@@ -404,22 +517,6 @@ export default function TypeSummaryPage({
                 <p className="text-sm font-medium text-blue-700">Account Types Gold</p>
                 <p className={`text-2xl font-bold ${getBalanceColor(overallGold)}`}>
                   {formatCurrency(overallGold)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-blue-700">Account Types KWD</p>
-                <p className={`text-2xl font-bold ${getBalanceColor(overallKwd)}`}>
-                  {formatCurrency(overallKwd)}
                 </p>
               </div>
             </div>
@@ -485,6 +582,8 @@ export default function TypeSummaryPage({
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-8">
               {typeSummaries.map((summary) => {
                 const typeColor = getTypeColor(summary.type);
+                const isProject = summary.type === 'Project';
+                
                 return (
                   <div key={summary.type} className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300">
                     {/* Header */}
@@ -499,20 +598,33 @@ export default function TypeSummaryPage({
 
                     {/* Summary Stats */}
                     <div className="p-6">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className={`text-xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
-                            {formatCurrency(summary.goldBalance)}
+                      {isProject ? (
+                        // Project card - Only show Gold Balance
+                        <div className="mb-4">
+                          <div className="text-center">
+                            <div className={`text-2xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
+                              {formatCurrency(summary.goldBalance)}
+                            </div>
+                            <div className="text-sm text-blue-600 mt-1">Gold Balance (Project)</div>
                           </div>
-                          <div className="text-xs text-blue-600">Gold Balance</div>
                         </div>
-                        <div className="text-center">
-                          <div className={`text-xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
-                            {formatCurrency(summary.kwdBalance)}
+                      ) : (
+                        // Non-Project cards - Show both Gold and KWD
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className={`text-xl font-bold ${getBalanceColor(summary.goldBalance)}`}>
+                              {formatCurrency(summary.goldBalance)}
+                            </div>
+                            <div className="text-xs text-blue-600">Gold Balance</div>
                           </div>
-                          <div className="text-xs text-blue-600">KWD Balance</div>
+                          <div className="text-center">
+                            <div className={`text-xl font-bold ${getBalanceColor(summary.kwdBalance)}`}>
+                              {formatCurrency(summary.kwdBalance)}
+                            </div>
+                            <div className="text-xs text-blue-600">KWD Balance</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div className="flex justify-between text-sm text-blue-600 mb-4">
                         <span>{summary.totalTransactions} active transactions</span>
@@ -630,6 +742,8 @@ export default function TypeSummaryPage({
                   <tbody className="divide-y divide-blue-300">
                     {typeSummaries.map((summary) => {
                       const typeColor = getTypeColor(summary.type);
+                      const isProject = summary.type === 'Project';
+                      
                       return (
                         <tr key={summary.type} className="hover:bg-blue-50/50 transition-colors">
                           <td className="px-6 py-4">
@@ -650,8 +764,8 @@ export default function TypeSummaryPage({
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <div className={`text-sm font-semibold ${getBalanceColor(summary.kwdBalance)}`}>
-                              {formatCurrency(summary.kwdBalance)}
+                            <div className={`text-sm font-semibold ${isProject ? 'text-gray-500' : getBalanceColor(summary.kwdBalance)}`}>
+                              {isProject ? 'N/A' : formatCurrency(summary.kwdBalance)}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -762,8 +876,8 @@ export default function TypeSummaryPage({
               </div>
             </div>
 
-            {/* Grand Total Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Grand Total Summary - Now only 2 cards: Gold and Locker */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
                 <div className="flex items-center">
                   <div className="p-3 bg-white bg-opacity-20 rounded-lg">
@@ -778,25 +892,6 @@ export default function TypeSummaryPage({
                     </p>
                     <p className="text-xs opacity-80 mt-1">
                       Active Accounts: {formatCurrency(overallGold)} + Open Balance: {formatCurrency(openBalance.goldBalance)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
-                <div className="flex items-center">
-                  <div className="p-3 bg-white bg-opacity-20 rounded-lg">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium opacity-90">Grand Total KWD</p>
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(grandTotalKwd)}
-                    </p>
-                    <p className="text-xs opacity-80 mt-1">
-                      Active Accounts: {formatCurrency(overallKwd)} + Open Balance: {formatCurrency(openBalance.kwdBalance)}
                     </p>
                   </div>
                 </div>
