@@ -112,6 +112,19 @@ export default function LockerLedger({
   const router = useRouter();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   
+  // Helper function to get current month date range
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
+    };
+  };
+
+const [dateRange, setDateRange] = useState(getCurrentMonthRange());
   // Date range state - initialize with empty strings to show all transactions
 
   // Filter vouchers by date range (client-side)
@@ -160,20 +173,6 @@ export default function LockerLedger({
     const lastVoucher = filteredVouchers[filteredVouchers.length - 1];
     return lastVoucher.lockerGoldBalance;
   }, [filteredVouchers, calculateOpeningBalance]);
-
-  // Helper function to get current month date range
-  const getCurrentMonthRange = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
-    };
-  };
-
-const [dateRange, setDateRange] = useState(getCurrentMonthRange());
 
   // Handle date range change
   const handleDateRangeChange = (newStart: string, newEnd: string) => {
