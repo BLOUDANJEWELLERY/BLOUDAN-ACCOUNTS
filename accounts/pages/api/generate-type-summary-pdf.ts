@@ -39,11 +39,11 @@ const formatBalance = (balance: number): string => {
   return `${absoluteValue.toFixed(3)} ${suffix}`;
 };
 
-// Constants for layout
-const A4_LANDSCAPE_WIDTH = 841.89;
-const A4_LANDSCAPE_HEIGHT = 595.28;
-const MARGIN = 30;
-const ROW_HEIGHT = 18;
+// Constants for layout - PORTRAIT
+const A4_PORTRAIT_WIDTH = 595.28;
+const A4_PORTRAIT_HEIGHT = 841.89;
+const MARGIN = 40;
+const ROW_HEIGHT = 20;
 const HEADER_HEIGHT = 25;
 const FOOTER_HEIGHT = 30;
 
@@ -62,8 +62,8 @@ const COLORS = {
   white: rgb(1, 1, 1),
   gray: rgb(107 / 255, 114 / 255, 128 / 255),
   red: rgb(220 / 255, 38 / 255, 38 / 255),
-  green: rgb(22 / 255, 163 / 255, 74 / 255),
   orange: rgb(249 / 255, 115 / 255, 22 / 255),
+  orange600: rgb(234 / 255, 88 / 255, 12 / 255),
   purple: rgb(168 / 255, 85 / 255, 247 / 255),
   amber: rgb(245 / 255, 158 / 255, 11 / 255),
   emerald: rgb(16 / 255, 185 / 255, 129 / 255),
@@ -107,12 +107,12 @@ class TypeSummaryPDFGenerator {
   }
 
   private calculatePageConfig(): PageConfig {
-    const width = A4_LANDSCAPE_WIDTH;
-    const height = A4_LANDSCAPE_HEIGHT;
+    const width = A4_PORTRAIT_WIDTH;
+    const height = A4_PORTRAIT_HEIGHT;
     const contentWidth = width - (MARGIN * 2);
     const contentHeight = height - (MARGIN * 2);
     
-    const headerSectionHeight = 120;
+    const headerSectionHeight = 140; // Increased for portrait
     const footerSectionHeight = FOOTER_HEIGHT;
     const tableStartY = height - MARGIN - headerSectionHeight;
     const tableEndY = MARGIN + footerSectionHeight;
@@ -133,9 +133,9 @@ class TypeSummaryPDFGenerator {
 
   private getColumnConfig(): ColumnConfig {
     return {
-      widths: [120, 80, 80, 90, 90, 90, 80],
-      headers: ["Account Type", "Accounts", "Transactions", "Gold Balance", "KWD Balance", "Locker Gold", "Status"],
-      alignments: ['left', 'center', 'center', 'right', 'right', 'right', 'center'],
+      widths: [120, 70, 90, 90], // Account Type, Accounts, Gold Balance, KWD Balance
+      headers: ["Account Type", "Accounts", "Gold Balance", "KWD Balance"],
+      alignments: ['left', 'center', 'right', 'right'],
     };
   }
 
@@ -166,7 +166,7 @@ class TypeSummaryPDFGenerator {
 
   private createNewPage(): PDFPage {
     const pdfDoc = this.getPDFDoc();
-    const page = pdfDoc.addPage([A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT]);
+    const page = pdfDoc.addPage([A4_PORTRAIT_WIDTH, A4_PORTRAIT_HEIGHT]);
     
     // Background
     page.drawRectangle({
@@ -185,7 +185,7 @@ class TypeSummaryPDFGenerator {
       height: this.pageConfig.contentHeight,
       color: COLORS.white,
       borderColor: COLORS.blue300,
-      borderWidth: 2,
+      borderWidth: 1,
     });
 
     return page;
@@ -193,29 +193,29 @@ class TypeSummaryPDFGenerator {
 
   private drawPageHeader(page: PDFPage, data: TypeSummaryPdfRequestData, pageNumber: number, totalPages: number): number {
     const { font, boldFont } = this.getFonts();
-    let currentY = this.pageConfig.height - MARGIN - 30;
+    let currentY = this.pageConfig.height - MARGIN - 40;
 
     // Header
     page.drawText("Bloudan Jewellery", {
       x: MARGIN + 20,
       y: currentY,
-      size: 20,
+      size: 22,
       font: boldFont,
       color: COLORS.blue800,
     });
 
     page.drawText("Account Type Summary Report", {
       x: MARGIN + 20,
-      y: currentY - 25,
-      size: 16,
+      y: currentY - 30,
+      size: 18,
       font: boldFont,
       color: COLORS.blue700,
     });
 
-    currentY -= 50;
+    currentY -= 60;
 
     // Summary Information
-    const summaryText = `Active Accounts: ${data.totalActiveAccounts} | Total Transactions: ${data.totalTransactions}`;
+    const summaryText = `Total Active Accounts: ${data.totalActiveAccounts}`;
     page.drawText(summaryText, {
       x: MARGIN + 20,
       y: currentY,
@@ -238,16 +238,7 @@ class TypeSummaryPDFGenerator {
 
     currentY -= 30;
 
-    // Table Title
-    page.drawText("Account Type Financial Summary", {
-      x: MARGIN + 20,
-      y: currentY,
-      size: 14,
-      font: boldFont,
-      color: COLORS.blue800,
-    });
-
-    return currentY - 25;
+    return currentY;
   }
 
   private drawTableHeader(page: PDFPage, tableTop: number): { tableTop: number; colWidths: number[] } {
@@ -274,7 +265,7 @@ class TypeSummaryPDFGenerator {
       width: tableWidth,
       height: HEADER_HEIGHT,
       borderColor: COLORS.blue300,
-      borderWidth: 2,
+      borderWidth: 1,
     });
 
     // Table header background
@@ -294,12 +285,12 @@ class TypeSummaryPDFGenerator {
     let xPos = MARGIN + 20;
     
     headers.forEach((header, index) => {
-      const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 9)) / 2;
+      const textX = xPos + (colWidths[index] - boldFont.widthOfTextAtSize(header, 10)) / 2;
       
       page.drawText(header, {
         x: textX,
-        y: tableTop - 16,
-        size: 9,
+        y: tableTop - 17,
+        size: 10,
         font: boldFont,
         color: COLORS.blue800,
       });
@@ -344,11 +335,8 @@ class TypeSummaryPDFGenerator {
     return [
       summary.type,
       summary.totalAccounts.toString(),
-      summary.totalTransactions.toString(),
       formatBalance(summary.goldBalance),
-      isProject ? "N/A" : formatBalance(summary.kwdBalance),
-      formatBalance(summary.lockerGold),
-      summary.totalAccounts > 0 ? "Active" : "No Accounts"
+      isProject ? "N/A" : formatBalance(summary.kwdBalance)
     ];
   }
 
@@ -391,7 +379,7 @@ class TypeSummaryPDFGenerator {
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
         const alignment = columnConfig.alignments[colIndex];
-        const isBalanceCol = colIndex === 3 || colIndex === 4 || colIndex === 5;
+        const isBalanceCol = colIndex === 2 || colIndex === 3;
         const isTypeCol = colIndex === 0;
         
         let textColor = COLORS.blue700;
@@ -404,22 +392,21 @@ class TypeSummaryPDFGenerator {
         }
         
         // Special formatting for balance columns
-        if (isBalanceCol && !(isProject && colIndex === 4)) {
+        if (isBalanceCol && !(isProject && colIndex === 3)) {
           let balanceValue = 0;
-          if (colIndex === 3) balanceValue = summary.goldBalance;
-          if (colIndex === 4) balanceValue = summary.kwdBalance;
-          if (colIndex === 5) balanceValue = summary.lockerGold;
+          if (colIndex === 2) balanceValue = summary.goldBalance;
+          if (colIndex === 3) balanceValue = summary.kwdBalance;
           
           textFont = boldFont;
           textColor = balanceValue >= 0 ? COLORS.blue700 : COLORS.red;
         }
         
         // Gray color for N/A in Project KWD column
-        if (isProject && colIndex === 4) {
+        if (isProject && colIndex === 3) {
           textColor = COLORS.gray;
         }
 
-        const fontSize = 7;
+        const fontSize = 9;
         const textWidth = textFont.widthOfTextAtSize(data, fontSize);
         
         let textX;
@@ -434,7 +421,7 @@ class TypeSummaryPDFGenerator {
         
         page.drawText(data, {
           x: textX,
-          y: currentY - 3,
+          y: currentY - 4,
           size: fontSize,
           font: textFont,
           color: textColor,
@@ -452,13 +439,85 @@ class TypeSummaryPDFGenerator {
     return currentY;
   }
 
-  private drawTotalsRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
+  private drawOpenBalanceRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
     const { font, boldFont } = this.getFonts();
     const rowTop = startY + ROW_HEIGHT / 2;
     
     const columnConfig = this.getColumnConfig();
 
-    // Totals row background
+    // Open Balance row background
+    let xPos = MARGIN + 20;
+    colWidths.forEach(width => {
+      page.drawRectangle({
+        x: xPos,
+        y: startY - ROW_HEIGHT / 2,
+        width: width,
+        height: ROW_HEIGHT,
+        color: rgb(255 / 255, 247 / 255, 237 / 255), // Light orange background
+      });
+      xPos += width;
+    });
+
+    // Draw Open Balance row
+    const rowData = [
+      "Open Balance",
+      "-",
+      formatBalance(data.openBalance.goldBalance),
+      formatBalance(data.openBalance.kwdBalance)
+    ];
+
+    xPos = MARGIN + 20;
+    rowData.forEach((data, colIndex) => {
+      const alignment = columnConfig.alignments[colIndex];
+      const isBalanceCol = colIndex === 2 || colIndex === 3;
+      const isTypeCol = colIndex === 0;
+      
+      let textColor = isTypeCol ? COLORS.orange : COLORS.blue800;
+      let textFont = isTypeCol || isBalanceCol ? boldFont : font;
+      
+      if (isBalanceCol) {
+        let balanceValue = 0;
+        if (colIndex === 2) balanceValue = data.openBalance.goldBalance;
+        if (colIndex === 3) balanceValue = data.openBalance.kwdBalance;
+        textColor = balanceValue >= 0 ? COLORS.blue800 : COLORS.red;
+      }
+
+      const fontSize = 9;
+      const textWidth = textFont.widthOfTextAtSize(data, fontSize);
+      
+      let textX;
+      if (alignment === 'left') {
+        textX = xPos + 5;
+      } else if (alignment === 'right') {
+        textX = xPos + colWidths[colIndex] - textWidth - 5;
+      } else {
+        textX = xPos + (colWidths[colIndex] - textWidth) / 2;
+      }
+      
+      page.drawText(data, {
+        x: textX,
+        y: startY - 4,
+        size: fontSize,
+        font: textFont,
+        color: textColor,
+      });
+      
+      xPos += colWidths[colIndex];
+    });
+
+    // Draw row grid
+    this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
+
+    return startY - ROW_HEIGHT;
+  }
+
+  private drawGrandTotalRow(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number, colWidths: number[]): number {
+    const { font, boldFont } = this.getFonts();
+    const rowTop = startY + ROW_HEIGHT / 2;
+    
+    const columnConfig = this.getColumnConfig();
+
+    // Grand Total row background
     let xPos = MARGIN + 20;
     colWidths.forEach(width => {
       page.drawRectangle({
@@ -471,92 +530,99 @@ class TypeSummaryPDFGenerator {
       xPos += width;
     });
 
-    // Active Accounts Total Row
-    let textX = MARGIN + 20;
-    page.drawText("Active Accounts Total", {
-      x: textX + 5,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: COLORS.blue900,
+    // Draw Grand Total row
+    const rowData = [
+      "GRAND TOTAL",
+      "-",
+      formatBalance(data.grandTotalGold),
+      formatBalance(data.grandTotalKwd)
+    ];
+
+    xPos = MARGIN + 20;
+    rowData.forEach((data, colIndex) => {
+      const alignment = columnConfig.alignments[colIndex];
+      const isBalanceCol = colIndex === 2 || colIndex === 3;
+      
+      const textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
+      const textFont = boldFont;
+
+      const fontSize = 10;
+      const textWidth = textFont.widthOfTextAtSize(data, fontSize);
+      
+      let textX;
+      if (alignment === 'left') {
+        textX = xPos + 5;
+      } else if (alignment === 'right') {
+        textX = xPos + colWidths[colIndex] - textWidth - 5;
+      } else {
+        textX = xPos + (colWidths[colIndex] - textWidth) / 2;
+      }
+      
+      page.drawText(data, {
+        x: textX,
+        y: startY - 4,
+        size: fontSize,
+        font: textFont,
+        color: textColor,
+      });
+      
+      xPos += colWidths[colIndex];
     });
 
-    // Accounts column
-    textX += colWidths[0];
-    const accountsText = data.totalActiveAccounts.toString();
-    const accountsX = textX + (colWidths[1] - boldFont.widthOfTextAtSize(accountsText, 8)) / 2;
-    page.drawText(accountsText, {
-      x: accountsX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: COLORS.blue900,
-    });
-
-    // Transactions column
-    textX += colWidths[1];
-    const transactionsText = data.totalTransactions.toString();
-    const transactionsX = textX + (colWidths[2] - boldFont.widthOfTextAtSize(transactionsText, 8)) / 2;
-    page.drawText(transactionsText, {
-      x: transactionsX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: COLORS.blue900,
-    });
-
-    // Gold Balance column
-    textX += colWidths[2];
-    const goldText = formatBalance(data.overallGold);
-    const goldX = textX + colWidths[3] - boldFont.widthOfTextAtSize(goldText, 8) - 5;
-    page.drawText(goldText, {
-      x: goldX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: data.overallGold >= 0 ? COLORS.blue900 : COLORS.red,
-    });
-
-    // KWD Balance column
-    textX += colWidths[3];
-    const kwdText = formatBalance(data.overallKwd);
-    const kwdX = textX + colWidths[4] - boldFont.widthOfTextAtSize(kwdText, 8) - 5;
-    page.drawText(kwdText, {
-      x: kwdX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: data.overallKwd >= 0 ? COLORS.blue900 : COLORS.red,
-    });
-
-    // Locker Gold column
-    textX += colWidths[4];
-    const lockerText = formatBalance(data.lockerTotalGold);
-    const lockerX = textX + colWidths[5] - boldFont.widthOfTextAtSize(lockerText, 8) - 5;
-    page.drawText(lockerText, {
-      x: lockerX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: data.lockerTotalGold >= 0 ? COLORS.blue900 : COLORS.red,
-    });
-
-    // Status column
-    textX += colWidths[5];
-    const statusText = "Active";
-    const statusX = textX + (colWidths[6] - boldFont.widthOfTextAtSize(statusText, 8)) / 2;
-    page.drawText(statusText, {
-      x: statusX,
-      y: startY - 3,
-      size: 8,
-      font: boldFont,
-      color: COLORS.blue900,
-    });
-
-    // Draw totals row grid
+    // Draw row grid
     this.drawTableGrid(page, rowTop, ROW_HEIGHT, colWidths);
 
     return startY - ROW_HEIGHT;
+  }
+
+  private drawLockerGoldCard(page: PDFPage, data: TypeSummaryPdfRequestData, startY: number): number {
+    const { font, boldFont } = this.getFonts();
+    
+    // Card background
+    const cardWidth = this.pageConfig.contentWidth - 40;
+    const cardHeight = 50;
+    
+    page.drawRectangle({
+      x: MARGIN + 20,
+      y: startY - cardHeight,
+      width: cardWidth,
+      height: cardHeight,
+      color: COLORS.blue100,
+      borderColor: COLORS.blue300,
+      borderWidth: 1,
+    });
+
+    // Card title
+    page.drawText("Locker Gold Balance", {
+      x: MARGIN + 30,
+      y: startY - 25,
+      size: 14,
+      font: boldFont,
+      color: COLORS.blue800,
+    });
+
+    // Locker gold value
+    const lockerText = formatBalance(data.lockerTotalGold);
+    const lockerX = MARGIN + 20 + cardWidth - 30 - boldFont.widthOfTextAtSize(lockerText, 16);
+    
+    page.drawText(lockerText, {
+      x: lockerX,
+      y: startY - 28,
+      size: 16,
+      font: boldFont,
+      color: data.lockerTotalGold >= 0 ? COLORS.blue700 : COLORS.red,
+    });
+
+    // Subtitle
+    page.drawText("Total physical gold in locker (includes all accounts)", {
+      x: MARGIN + 30,
+      y: startY - 45,
+      size: 9,
+      font: font,
+      color: COLORS.blue600,
+    });
+
+    return startY - cardHeight - 20;
   }
 
   private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
@@ -578,32 +644,33 @@ class TypeSummaryPDFGenerator {
     const pdfDoc = this.getPDFDoc();
     
     const allSummaries = data.typeSummaries;
-    const totalPages = Math.ceil(allSummaries.length / this.pageConfig.maxRowsPerPage);
-
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      const page = this.createNewPage();
-      const startIdx = (pageNum - 1) * this.pageConfig.maxRowsPerPage;
-      const endIdx = Math.min(startIdx + this.pageConfig.maxRowsPerPage, allSummaries.length);
-      const pageSummaries = allSummaries.slice(startIdx, endIdx);
-      const isLastPage = pageNum === totalPages;
-
-      // Draw page header
-      const tableTop = this.drawPageHeader(page, data, pageNum, totalPages);
-      
-      // Draw table header
-      const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
-      
-      // Draw table rows
-      let currentY = this.drawTableRows(page, pageSummaries, rowsStartY, colWidths);
-      
-      // Draw totals row only on last page
-      if (isLastPage) {
-        currentY = this.drawTotalsRow(page, data, currentY, colWidths);
-      }
-      
-      // Draw footer
-      this.drawFooter(page, pageNum, totalPages);
-    }
+    
+    // Create a single page for portrait mode
+    const page = this.createNewPage();
+    
+    // Draw page header
+    const tableTop = this.drawPageHeader(page, data, 1, 1);
+    
+    // Draw table header
+    const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
+    
+    // Draw table rows
+    let currentY = this.drawTableRows(page, allSummaries, rowsStartY, colWidths);
+    
+    // Draw Open Balance row
+    currentY = this.drawOpenBalanceRow(page, data, currentY, colWidths);
+    
+    // Draw Grand Total row
+    currentY = this.drawGrandTotalRow(page, data, currentY, colWidths);
+    
+    // Add some space before locker card
+    currentY -= 30;
+    
+    // Draw Locker Gold card
+    currentY = this.drawLockerGoldCard(page, data, currentY);
+    
+    // Draw footer
+    this.drawFooter(page, 1, 1);
 
     return await pdfDoc.save();
   }
