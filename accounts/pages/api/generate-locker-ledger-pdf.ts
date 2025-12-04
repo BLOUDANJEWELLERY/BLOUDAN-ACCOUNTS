@@ -490,64 +490,74 @@ class LockerLedgerPDFGenerator {
     });
   }
 
-  private drawTableRows(page: PDFPage, entries: LockerVoucher[], startY: number, colWidths: number[], openingBalance: number): number {
+  private drawTableRows(
+    page: PDFPage, 
+    entries: LockerVoucher[], 
+    startY: number, 
+    colWidths: number[], 
+    openingBalance: number, 
+    showOpeningBalance: boolean,
+    dateRange: { start: string; end: string }
+  ): number {
     const { font, boldFont } = this.getFonts();
     const ROW_OFFSET = 10;
     let currentY = startY - ROW_OFFSET;
 
-    // Draw Opening Balance Row
-    const openingRowTop = currentY + ROW_HEIGHT / 2;
-    
-    // Opening balance row background
-    let xPos = MARGIN + 20;
-    colWidths.forEach(width => {
-      page.drawRectangle({
-        x: xPos,
-        y: currentY - ROW_HEIGHT / 2,
-        width: width,
-        height: ROW_HEIGHT,
-        color: COLORS.yellow,
+    // Draw Opening Balance Row only if showOpeningBalance is true
+    if (showOpeningBalance) {
+      const openingRowTop = currentY + ROW_HEIGHT / 2;
+      
+      // Opening balance row background
+      let xPos = MARGIN + 20;
+      colWidths.forEach(width => {
+        page.drawRectangle({
+          x: xPos,
+          y: currentY - ROW_HEIGHT / 2,
+          width: width,
+          height: ROW_HEIGHT,
+          color: rgb(254 / 255, 243 / 255, 199 / 255), // Light yellow
+        });
+        xPos += width;
       });
-      xPos += width;
-    });
 
-    // Opening balance row data
-    const openingRowData = [
-      data.dateRange.start ? formatDate(data.dateRange.start) : "Beginning",
-      "",
-      "BAL",
-      "Opening Locker Balance",
-      "-",
-      "-",
-      formatBalanceNoUnit(openingBalance)
-    ];
+      // Opening balance row data
+      const openingRowData = [
+        dateRange.start ? formatDate(dateRange.start) : "Beginning",
+        "",
+        "BAL",
+        "Opening Locker Balance",
+        "-",
+        "-",
+        formatBalanceNoUnit(openingBalance)
+      ];
 
-    // Draw opening balance text
-    xPos = MARGIN + 20;
-    openingRowData.forEach((data, colIndex) => {
-      const isLeftAligned = colIndex === 3; // Description is left-aligned
-      const isBalanceCol = colIndex === 6;
-      const textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
-      const textFont = isBalanceCol ? boldFont : font;
-      
-      const textX = isLeftAligned ? 
-        xPos + 5 : 
-        xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 7)) / 2;
-      
-      page.drawText(data, {
-        x: textX,
-        y: currentY - 3,
-        size: 7,
-        font: textFont,
-        color: textColor,
+      // Draw opening balance text
+      xPos = MARGIN + 20;
+      openingRowData.forEach((data, colIndex) => {
+        const isLeftAligned = colIndex === 3; // Description is left-aligned
+        const isBalanceCol = colIndex === 6;
+        const textColor = isBalanceCol ? COLORS.blue900 : COLORS.blue800;
+        const textFont = isBalanceCol ? boldFont : font;
+        
+        const textX = isLeftAligned ? 
+          xPos + 5 : 
+          xPos + (colWidths[colIndex] - textFont.widthOfTextAtSize(data, 7)) / 2;
+        
+        page.drawText(data, {
+          x: textX,
+          y: currentY - 3,
+          size: 7,
+          font: textFont,
+          color: textColor,
+        });
+        
+        xPos += colWidths[colIndex];
       });
-      
-      xPos += colWidths[colIndex];
-    });
 
-    // Draw opening balance row grid
-    this.drawTableGrid(page, openingRowTop, ROW_HEIGHT, colWidths);
-    currentY -= ROW_HEIGHT;
+      // Draw opening balance row grid
+      this.drawTableGrid(page, openingRowTop, ROW_HEIGHT, colWidths);
+      currentY -= ROW_HEIGHT;
+    }
 
     // Draw transaction rows
     entries.forEach((entry, index) => {
@@ -559,7 +569,7 @@ class LockerLedgerPDFGenerator {
         ? rgb(0.95, 0.95, 0.95) // Light gray for non-affecting rows
         : (index % 2 === 0 ? COLORS.white : COLORS.blue50);
 
-      xPos = MARGIN + 20;
+      let xPos = MARGIN + 20;
       colWidths.forEach(width => {
         page.drawRectangle({
           x: xPos,
@@ -688,7 +698,8 @@ class LockerLedgerPDFGenerator {
     closingBalance: number, 
     totals: { goldDebit: number; goldCredit: number; netChange: number },
     startY: number, 
-    colWidths: number[]
+    colWidths: number[],
+    dateRange: { start: string; end: string }
   ): number {
     const { font, boldFont } = this.getFonts();
     const tableWidth = colWidths.reduce((a, b) => a + b, 0);
@@ -705,14 +716,14 @@ class LockerLedgerPDFGenerator {
         y: startY - ROW_HEIGHT / 2,
         width: width,
         height: ROW_HEIGHT,
-        color: COLORS.emerald,
+        color: rgb(209 / 255, 250 / 255, 229 / 255), // Light emerald
       });
       xPos += width;
     });
 
     // Closing balance row data
     const closingRowData = [
-      "Closing",
+      dateRange.end ? formatDate(dateRange.end) : "Present",
       "",
       "BAL",
       "Closing Locker Balance",
@@ -826,12 +837,15 @@ class LockerLedgerPDFGenerator {
     const pdfDoc = this.getPDFDoc();
     
     const allEntries = data.voucherData.filteredVouchers;
-    const totalPages = Math.ceil((allEntries.length + 2) / this.pageConfig.maxRowsPerPage); // +2 for opening/closing balance rows
+    // +1 for opening balance row on first page, +1 for closing balance row on last page
+    const entriesWithBalanceRows = allEntries.length + 2;
+    const totalPages = Math.ceil(entriesWithBalanceRows / this.pageConfig.maxRowsPerPage);
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       const page = this.createNewPage();
-      const startIdx = (pageNum - 1) * (this.pageConfig.maxRowsPerPage - 1); // -1 to account for opening balance
-      const endIdx = Math.min(startIdx + (this.pageConfig.maxRowsPerPage - 1), allEntries.length);
+      const entriesPerPage = this.pageConfig.maxRowsPerPage - (pageNum === 1 ? 1 : 0) - (pageNum === totalPages ? 1 : 0);
+      const startIdx = (pageNum - 1) * entriesPerPage;
+      const endIdx = Math.min(startIdx + entriesPerPage, allEntries.length);
       const pageEntries = allEntries.slice(startIdx, endIdx);
       const isFirstPage = pageNum === 1;
       const isLastPage = pageNum === totalPages;
@@ -842,23 +856,26 @@ class LockerLedgerPDFGenerator {
       // Draw table header
       const { tableTop: rowsStartY, colWidths } = this.drawTableHeader(page, tableTop);
       
-      let currentY = rowsStartY;
-      
-      // Draw opening balance only on first page
-      if (isFirstPage) {
-        currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths, data.voucherData.openingBalance);
-      } else {
-        currentY = this.drawTableRows(page, pageEntries, rowsStartY, colWidths, 0);
-      }
+      // Draw table rows with opening balance on first page only
+      const currentY = this.drawTableRows(
+        page, 
+        pageEntries, 
+        rowsStartY, 
+        colWidths, 
+        data.voucherData.openingBalance, 
+        isFirstPage,
+        data.dateRange
+      );
       
       // Draw closing balance and totals only on last page
       if (isLastPage) {
-        currentY = this.drawClosingBalanceAndTotals(
+        this.drawClosingBalanceAndTotals(
           page, 
           data.voucherData.closingBalance, 
           data.voucherData.totals, 
           currentY, 
-          colWidths
+          colWidths,
+          data.dateRange
         );
       }
       
