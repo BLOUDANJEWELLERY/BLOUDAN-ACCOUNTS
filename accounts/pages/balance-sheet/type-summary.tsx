@@ -725,9 +725,6 @@ export default function TypeSummaryPage({
                       <th className="px-6 py-3 text-center text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Active Accounts
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-blue-800 uppercase tracking-wider">
-                        Active Transactions
-                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-blue-800 uppercase tracking-wider">
                         Gold Balance
                       </th>
@@ -754,9 +751,6 @@ export default function TypeSummaryPage({
                           </td>
                           <td className="px-6 py-4 text-center">
                             <div className="text-sm text-blue-900 font-medium">{summary.totalAccounts}</div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="text-sm text-blue-900 font-medium">{summary.totalTransactions}</div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className={`text-sm font-semibold ${getBalanceColor(summary.goldBalance)}`}>
@@ -796,9 +790,6 @@ export default function TypeSummaryPage({
                       <td className="px-6 py-4 text-center text-sm text-blue-900">
                         {totalActiveAccounts}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-blue-900">
-                        {totalTransactions}
-                      </td>
                       <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(overallGold)}>
                           {formatCurrency(overallGold)}
@@ -813,7 +804,7 @@ export default function TypeSummaryPage({
                     </tr>
 
                     {/* Open Balance Row */}
-                    <tr className="hover:bg-orange-50/50 transition-colors">
+                    <tr className="bg-orange-50/80 hover:bg-orange-100/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-3 h-3 rounded-full bg-orange-500 mr-3"></div>
@@ -822,9 +813,6 @@ export default function TypeSummaryPage({
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="text-sm text-blue-500 font-medium">-</div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="text-sm text-blue-900 font-medium">{openBalance.totalTransactions}</div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className={`text-sm font-semibold ${getBalanceColor(openBalance.goldBalance)}`}>
@@ -855,9 +843,6 @@ export default function TypeSummaryPage({
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-blue-900">
                         -
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm text-blue-900">
-                        {totalTransactions + openBalance.totalTransactions}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-blue-900">
                         <span className={getBalanceColor(grandTotalGold)}>
