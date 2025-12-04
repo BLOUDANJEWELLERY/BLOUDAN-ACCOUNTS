@@ -17,18 +17,18 @@ export default function Header() {
   const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
   return (
-    <header className="bg-white shadow-lg border-b border-gray-200">
+    <header className="bg-gradient-to-r from-blue-800 to-blue-600 shadow-xl border-b border-blue-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">$</span>
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-300">
+                <span className="text-white font-bold text-xl">$</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Bloudan Accounts</h1>
-                <p className="text-xs text-gray-500">Business Management System</p>
+                <h1 className="text-xl font-bold text-white">Bloudan Accounts</h1>
+                <p className="text-xs text-blue-200">Business Management System</p>
               </div>
             </Link>
           </div>
@@ -39,10 +39,10 @@ export default function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   item.current
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-blue-100 hover:bg-blue-700 hover:text-white hover:shadow-md'
                 }`}
               >
                 {item.name}
@@ -51,18 +51,18 @@ export default function Header() {
 
             {/* Account Type Balances Dropdown */}
             <div className="relative group">
-              <button className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors flex items-center">
+              <button className="px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:bg-blue-700 hover:text-white hover:shadow-md transition-all duration-200 flex items-center">
                 Balances
                 <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-blue-100">
                 {accountTypes.map((type) => (
                   <Link
                     key={type}
                     href={`/accounts/balance/${type}`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                   >
                     {type} Balances
                   </Link>
@@ -72,18 +72,34 @@ export default function Header() {
 
             {/* Balance Sheets Dropdown */}
             <div className="relative group">
-              <button className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors flex items-center">
+              <button className="px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:bg-blue-700 hover:text-white hover:shadow-md transition-all duration-200 flex items-center">
                 Ledgers
                 <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-blue-100">
+                {/* Added Open Balance Link */}
+                <Link
+                  href="/balance-sheet/open-balance"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100"
+                >
+                  Open Balance
+                </Link>
+                
+                {/* Added Locker Ledger Link */}
+                <Link
+                  href="/balance-sheet/locker-ledger"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100"
+                >
+                  Locker Ledger
+                </Link>
+                
                 {accountTypes.map((type) => (
                   <Link
                     key={type}
                     href={`/balance-sheet/type/${type}`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                   >
                     {type} Ledger
                   </Link>
@@ -96,7 +112,7 @@ export default function Header() {
           <div className="md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-md text-blue-100 hover:bg-blue-700 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isMobileMenuOpen ? (
@@ -111,16 +127,16 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200">
+          <div className="md:hidden py-4 border-t border-blue-700">
             <div className="space-y-1">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 ${
                     item.current
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-blue-100 hover:bg-blue-700 hover:text-white'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -130,13 +146,13 @@ export default function Header() {
 
               {/* Mobile Account Type Balances */}
               <div className="px-3 py-2">
-                <div className="text-sm font-medium text-gray-500 mb-2">Account Balances</div>
+                <div className="text-sm font-medium text-blue-200 mb-2">Account Balances</div>
                 <div className="space-y-1">
                   {accountTypes.map((type) => (
                     <Link
                       key={type}
                       href={`/accounts/balance/${type}`}
-                      className="block px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                      className="block px-3 py-1 text-sm text-blue-100 hover:bg-blue-700 hover:text-white rounded transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       {type} Balances
@@ -147,13 +163,31 @@ export default function Header() {
 
               {/* Mobile Balance Sheets */}
               <div className="px-3 py-2">
-                <div className="text-sm font-medium text-gray-500 mb-2">Ledgers</div>
+                <div className="text-sm font-medium text-blue-200 mb-2">Ledgers</div>
                 <div className="space-y-1">
+                  {/* Added Open Balance Link */}
+                  <Link
+                    href="/balance-sheet/open-balance"
+                    className="block px-3 py-1 text-sm text-blue-100 hover:bg-blue-700 hover:text-white rounded transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Open Balance
+                  </Link>
+                  
+                  {/* Added Locker Ledger Link */}
+                  <Link
+                    href="/balance-sheet/locker-ledger"
+                    className="block px-3 py-1 text-sm text-blue-100 hover:bg-blue-700 hover:text-white rounded transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Locker Ledger
+                  </Link>
+                  
                   {accountTypes.map((type) => (
                     <Link
                       key={type}
                       href={`/balance-sheet/type/${type}`}
-                      className="block px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                      className="block px-3 py-1 text-sm text-blue-100 hover:bg-blue-700 hover:text-white rounded transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       {type} Ledger
