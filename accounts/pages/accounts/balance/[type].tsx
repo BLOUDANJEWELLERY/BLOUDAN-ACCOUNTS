@@ -124,6 +124,9 @@ export default function AccountBalancesPage({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  
+  // Check if account type is Project
+  const isProject = accountType === "Project";
 
   const formatCurrency = (value: number, type: 'gold' | 'kwd') => {
     const absoluteValue = Math.abs(value);
@@ -308,7 +311,11 @@ export default function AccountBalancesPage({
           <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-700 to-emerald-900 bg-clip-text text-transparent mb-4 tracking-tight">
             {accountType} Account Balances
           </h1>
-          <p className="text-xl text-emerald-700 font-light">Detailed overview of {accountType.toLowerCase()} account balances</p>
+          <p className="text-xl text-emerald-700 font-light">
+            {isProject 
+              ? "Project accounts with gold-only balance tracking" 
+              : `Detailed overview of ${accountType.toLowerCase()} account balances`}
+          </p>
         </div>
 
         {/* PDF Error Alert */}
@@ -330,7 +337,7 @@ export default function AccountBalancesPage({
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className={`grid grid-cols-1 ${isProject ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-6 mb-8`}>
           <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300`}>
             <p className="text-lg font-semibold mb-2">Total {accountType} Accounts</p>
             <p className="text-4xl font-bold">{totalAccounts}</p>
@@ -341,10 +348,12 @@ export default function AccountBalancesPage({
             <p className="text-3xl font-bold">{formatCurrency(totalGold, 'gold')}</p>
           </div>
           
-          <div className="bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300">
-            <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
-            <p className="text-3xl font-bold">{formatCurrency(totalKwd, 'kwd')}</p>
-          </div>
+          {!isProject && (
+            <div className="bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300">
+              <p className="text-lg font-semibold mb-2">Total Amount Balance</p>
+              <p className="text-3xl font-bold">{formatCurrency(totalKwd, 'kwd')}</p>
+            </div>
+          )}
           
           <div className={`bg-gradient-to-r ${getTypeColor(accountType)} text-white rounded-3xl p-8 text-center shadow-2xl border-2 border-amber-400 transform hover:-translate-y-1 transition-transform duration-300`}>
             <p className="text-lg font-semibold mb-2">Total Transactions</p>
@@ -356,19 +365,24 @@ export default function AccountBalancesPage({
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className={`grid grid-cols-1 ${isProject ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4 mb-6`}>
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
             <div className="text-sm text-emerald-700 font-medium mb-1">Positive Gold Balances</div>
             <div className="text-2xl font-bold text-emerald-700">{accountsWithPositiveGold}</div>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
-            <div className="text-sm text-emerald-700 font-medium mb-1">Positive KWD Balances</div>
-            <div className="text-2xl font-bold text-emerald-700">{accountsWithPositiveKwd}</div>
-          </div>
+          
+          {!isProject && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
+              <div className="text-sm text-emerald-700 font-medium mb-1">Positive KWD Balances</div>
+              <div className="text-2xl font-bold text-emerald-700">{accountsWithPositiveKwd}</div>
+            </div>
+          )}
+          
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
             <div className="text-sm text-emerald-700 font-medium mb-1">Zero Balances</div>
             <div className="text-2xl font-bold text-emerald-700">{accountsWithZeroBalance}</div>
           </div>
+          
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-emerald-300 text-center">
             <div className="text-sm text-emerald-700 font-medium mb-1">Active Accounts</div>
             <div className="text-2xl font-bold text-emerald-700">{activeAccounts}</div>
@@ -418,6 +432,8 @@ export default function AccountBalancesPage({
               <p>Filtered: {filteredAccounts.length}</p>
               <p>Total gold balance: {totalGold}</p>
               <p>Total KWD balance: {totalKwd}</p>
+              <p>Account Type: {accountType}</p>
+              <p>Is Project: {isProject ? 'Yes' : 'No'}</p>
             </div>
           </div>
         )}
@@ -427,13 +443,17 @@ export default function AccountBalancesPage({
           <div className="px-6 py-4 border-b-2 border-emerald-300 bg-emerald-100">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-emerald-800">{accountType} Account Balances</h2>
+                <h2 className="text-2xl font-bold text-emerald-800">
+                  {isProject ? "Project Account Balances (Gold Only)" : `${accountType} Account Balances`}
+                </h2>
                 <p className="text-sm text-emerald-700 mt-1">
-                  Real-time balance overview for all {accountType.toLowerCase()} accounts
+                  {isProject 
+                    ? "Project accounts tracked by gold balance only"
+                    : `Real-time balance overview for all ${accountType.toLowerCase()} accounts`}
                 </p>
               </div>
               <span className={`inline-flex px-4 py-2 rounded-xl text-sm font-semibold ${getTypeLightColor(accountType)}`}>
-                {accountType}
+                {isProject ? "Project (Gold Only)" : accountType}
               </span>
             </div>
           </div>
@@ -462,9 +482,14 @@ export default function AccountBalancesPage({
                     <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
                       Gold Balance
                     </th>
-                    <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                      Amount Balance
-                    </th>
+                    
+                    {/* Conditionally render Amount Balance column */}
+                    {!isProject && (
+                      <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+                        Amount Balance
+                      </th>
+                    )}
+                    
                     <th className="border border-emerald-300 px-4 py-3 text-right text-xs font-semibold text-emerald-800 uppercase tracking-wider">
                       Actions
                     </th>
@@ -511,12 +536,17 @@ export default function AccountBalancesPage({
                           <span>{formatCurrency(account.goldBalance, 'gold')}</span>
                         </div>
                       </td>
-                      <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.kwdBalance)}`}>
-                        <div className="flex items-center justify-end space-x-1">
-                          <span>{getBalanceIcon(account.kwdBalance)}</span>
-                          <span>{formatCurrency(account.kwdBalance, 'kwd')}</span>
-                        </div>
-                      </td>
+                      
+                      {/* Conditionally render Amount Balance cell */}
+                      {!isProject && (
+                        <td className={`border border-emerald-300 px-4 py-3 whitespace-nowrap text-sm text-right font-mono font-semibold ${getBalanceColor(account.kwdBalance)}`}>
+                          <div className="flex items-center justify-end space-x-1">
+                            <span>{getBalanceIcon(account.kwdBalance)}</span>
+                            <span>{formatCurrency(account.kwdBalance, 'kwd')}</span>
+                          </div>
+                        </td>
+                      )}
+                      
                       <td className="border border-emerald-300 px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
                           <Link
@@ -536,15 +566,20 @@ export default function AccountBalancesPage({
                 {filteredAccounts.length > 0 && (
                   <tfoot className="bg-emerald-100">
                     <tr>
-                      <td colSpan={2} className="border border-emerald-300 px-4 py-4 text-sm font-semibold text-emerald-800 text-right">
+                      <td colSpan={isProject ? 2 : 2} className="border border-emerald-300 px-4 py-4 text-sm font-semibold text-emerald-800 text-right">
                         Totals:
                       </td>
                       <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalGold)}`}>
                         {formatCurrency(totalGold, 'gold')}
                       </td>
-                      <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalKwd)}`}>
-                        {formatCurrency(totalKwd, 'kwd')}
-                      </td>
+                      
+                      {/* Conditionally render KWD total */}
+                      {!isProject && (
+                        <td className={`border border-emerald-300 px-4 py-4 whitespace-nowrap text-sm text-right font-mono font-bold ${getBalanceColor(totalKwd)}`}>
+                          {formatCurrency(totalKwd, 'kwd')}
+                        </td>
+                      )}
+                      
                       <td></td>
                     </tr>
                   </tfoot>
