@@ -113,7 +113,7 @@ export default function LockerLedger({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   
   // Date range state - initialize with empty strings to show all transactions
-const getCurrentMonthRange = () => {
+const getDefaultRange = () => {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
