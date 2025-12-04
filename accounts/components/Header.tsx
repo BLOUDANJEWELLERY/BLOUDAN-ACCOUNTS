@@ -17,116 +17,66 @@ export default function Header() {
   const accountTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
   return (
-    <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 shadow-2xl border-b-4 border-blue-500/30 backdrop-blur-sm">
+    <header className="bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 shadow-2xl border-b-4 border-blue-400/30 backdrop-blur-sm">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          {/* Logo and Brand - Enhanced */}
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-4 group">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo and Brand */}
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center space-x-2 group">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-2xl group-hover:shadow-3xl transition-all duration-300 transform group-hover:scale-105 ring-4 ring-blue-400/30">
-                  <span className="text-white font-bold text-2xl">💎</span>
-                  <div className="absolute -inset-2 bg-gradient-to-r from-blue-400/30 to-cyan-400/30 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 ring-2 ring-blue-400/30">
+                  <span className="text-white font-bold text-lg">💎</span>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-400/30 to-cyan-400/30 rounded-xl blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
                 </div>
               </div>
-              <div className="flex flex-col">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+              <div className="hidden sm:flex flex-col">
+                <h1 className="text-lg font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent leading-tight">
                   Bloudan Jewellery
                 </h1>
-                <p className="text-sm text-blue-200/80 font-medium tracking-wide">
-                  Premium Accounting System
+                <p className="text-xs text-blue-200/80 font-medium">
+                  Premium Accounting
                 </p>
               </div>
             </Link>
           </div>
 
-          {/* Desktop Navigation - Enhanced */}
-          <nav className="hidden xl:flex items-center space-x-1">
-            {/* Main Navigation Links */}
+          {/* Desktop Navigation - Hidden on mobile */}
+          <nav className="hidden lg:flex items-center space-x-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`relative px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-300 transform hover:scale-105 group ${
+                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   item.current
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xl ring-2 ring-cyan-400/50'
-                    : 'text-blue-100 hover:bg-blue-700/70 hover:text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400/30'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md ring-1 ring-cyan-400/50'
+                    : 'text-blue-100 hover:bg-blue-700/80 hover:text-white hover:shadow-sm hover:ring-1 hover:ring-blue-400/30'
                 }`}
               >
                 <div className="flex items-center space-x-2">
-                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-base">{item.icon}</span>
                   <span>{item.name}</span>
                 </div>
-                {!item.current && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-blue-400 group-hover:w-3/4 transition-all duration-300"></div>
-                )}
               </Link>
             ))}
 
-            {/* Quick Actions Dropdown */}
-            <div className="relative group ml-2">
-              <button className="px-5 py-3 rounded-xl text-sm font-semibold text-blue-100 hover:bg-blue-700/70 hover:text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400/30 transition-all duration-300 flex items-center space-x-2 group">
-                <span className="text-lg">⚡</span>
-                <span>Quick Actions</span>
-                <svg className="w-4 h-4 ml-1 transform group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <div className="absolute right-0 mt-2 w-64 bg-gradient-to-b from-blue-800 to-blue-900 rounded-2xl shadow-2xl py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 ring-2 ring-blue-400/30 backdrop-blur-sm">
-                {/* Quick Voucher Creation */}
-                <div className="px-4 py-2 border-b border-blue-700/50">
-                  <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Voucher Creation</p>
-                  <Link
-                    href="/vouchers/create"
-                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 border-l-2 border-transparent hover:border-cyan-400"
-                  >
-                    ➕ Create New Voucher
-                  </Link>
-                </div>
-                
-                {/* Quick Account Actions */}
-                <div className="px-4 py-2 border-b border-blue-700/50">
-                  <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Account Management</p>
-                  <Link
-                    href="/accounts/create"
-                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 border-l-2 border-transparent hover:border-emerald-400"
-                  >
-                    👤 Create New Account
-                  </Link>
-                </div>
-
-                {/* Reports Section */}
-                <div className="px-4 py-2">
-                  <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Quick Reports</p>
-                  <Link
-                    href="/balance-sheet/type-summary"
-                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 border-l-2 border-transparent hover:border-yellow-400"
-                  >
-                    📊 View Type Summary
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Type Balances Dropdown */}
+            {/* Balances Dropdown */}
             <div className="relative group">
-              <button className="px-5 py-3 rounded-xl text-sm font-semibold text-blue-100 hover:bg-blue-700/70 hover:text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400/30 transition-all duration-300 flex items-center space-x-2 group">
-                <span className="text-lg">💰</span>
-                <span>Account Balances</span>
-                <svg className="w-4 h-4 ml-1 transform group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button className="px-4 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700/80 hover:text-white hover:shadow-sm hover:ring-1 hover:ring-blue-400/30 transition-all duration-200 flex items-center space-x-2">
+                <span className="text-base">💰</span>
+                <span className="hidden xl:inline">Balances</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              <div className="absolute right-0 mt-2 w-56 bg-gradient-to-b from-blue-800 to-blue-900 rounded-2xl shadow-2xl py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 ring-2 ring-blue-400/30 backdrop-blur-sm">
-                <div className="px-4 py-2 border-b border-blue-700/50">
+              <div className="absolute right-0 mt-2 w-56 bg-gradient-to-b from-blue-800 to-blue-900 rounded-xl shadow-2xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 ring-1 ring-blue-400/30">
+                <div className="px-3 py-2 border-b border-blue-700/50">
                   <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Account Types</p>
                   {accountTypes.map((type) => (
                     <Link
                       key={type}
                       href={`/accounts/balance/${type}`}
-                      className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 mb-1 last:mb-0"
+                      className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md transition-colors"
                     >
-                      <span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
                       {type} Balances
                     </Link>
                   ))}
@@ -136,40 +86,37 @@ export default function Header() {
 
             {/* Ledgers Dropdown */}
             <div className="relative group">
-              <button className="px-5 py-3 rounded-xl text-sm font-semibold text-blue-100 hover:bg-blue-700/70 hover:text-white hover:shadow-lg hover:ring-1 hover:ring-blue-400/30 transition-all duration-300 flex items-center space-x-2 group">
-                <span className="text-lg">📚</span>
-                <span>Ledgers</span>
-                <svg className="w-4 h-4 ml-1 transform group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button className="px-4 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700/80 hover:text-white hover:shadow-sm hover:ring-1 hover:ring-blue-400/30 transition-all duration-200 flex items-center space-x-2">
+                <span className="text-base">📚</span>
+                <span className="hidden xl:inline">Ledgers</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              <div className="absolute right-0 mt-2 w-56 bg-gradient-to-b from-blue-800 to-blue-900 rounded-2xl shadow-2xl py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 ring-2 ring-blue-400/30 backdrop-blur-sm">
-                <div className="px-4 py-2 border-b border-blue-700/50">
+              <div className="absolute right-0 mt-2 w-56 bg-gradient-to-b from-blue-800 to-blue-900 rounded-xl shadow-2xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 ring-1 ring-blue-400/30">
+                <div className="px-3 py-2 border-b border-blue-700/50">
                   <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Special Ledgers</p>
                   <Link
                     href="/balance-sheet/open-balance"
-                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 mb-1"
+                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md transition-colors mb-1"
                   >
-                    <span className="inline-block w-2 h-2 rounded-full bg-orange-400 mr-3"></span>
                     Open Balance
                   </Link>
                   <Link
                     href="/balance-sheet/locker-ledger"
-                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200"
+                    className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md transition-colors"
                   >
-                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 mr-3"></span>
                     Locker Ledger
                   </Link>
                 </div>
-                <div className="px-4 py-2">
+                <div className="px-3 py-2">
                   <p className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2">Account Type Ledgers</p>
                   {accountTypes.map((type) => (
                     <Link
                       key={type}
                       href={`/balance-sheet/type/${type}`}
-                      className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-lg transition-colors hover:pl-4 duration-200 mb-1 last:mb-0"
+                      className="block px-3 py-2 text-sm text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md transition-colors"
                     >
-                      <span className="inline-block w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
                       {type} Ledger
                     </Link>
                   ))}
@@ -178,11 +125,29 @@ export default function Header() {
             </div>
           </nav>
 
-          {/* Mobile menu button - Enhanced */}
-          <div className="xl:hidden">
+          {/* Quick Actions for tablet/desktop */}
+          <div className="hidden md:flex items-center space-x-2">
+            <Link
+              href="/vouchers/create"
+              className="px-3 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700/80 hover:text-white hover:shadow-sm hover:ring-1 hover:ring-blue-400/30 transition-all duration-200 flex items-center space-x-1"
+            >
+              <span className="text-base">➕</span>
+              <span className="hidden lg:inline">New Voucher</span>
+            </Link>
+            <Link
+              href="/accounts/create"
+              className="px-3 py-2 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700/80 hover:text-white hover:shadow-sm hover:ring-1 hover:ring-blue-400/30 transition-all duration-200 flex items-center space-x-1"
+            >
+              <span className="text-base">👤</span>
+              <span className="hidden lg:inline">New Account</span>
+            </Link>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="lg:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-3 rounded-xl bg-blue-800/50 text-blue-100 hover:bg-blue-700 hover:text-white transition-all duration-300 ring-2 ring-blue-600/30 hover:ring-blue-500/50"
+              className="p-2 rounded-lg bg-blue-700/50 text-blue-100 hover:bg-blue-600 hover:text-white transition-all duration-200 ring-1 ring-blue-600/30"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isMobileMenuOpen ? (
@@ -195,75 +160,75 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile Navigation - Enhanced */}
+        {/* Mobile Navigation - Fully responsive */}
         {isMobileMenuOpen && (
-          <div className="xl:hidden py-6 border-t border-blue-700/50 bg-gradient-to-b from-blue-800/90 to-blue-900/90 backdrop-blur-lg rounded-b-3xl shadow-2xl mb-4">
-            {/* Main Navigation */}
-            <div className="grid grid-cols-2 gap-3 px-4 mb-6">
+          <div className="lg:hidden py-4 border-t border-blue-700/50 bg-gradient-to-b from-blue-800/95 to-blue-900/95 backdrop-blur-lg rounded-b-xl shadow-2xl">
+            {/* Main Navigation Grid */}
+            <div className="grid grid-cols-3 gap-2 px-3 mb-4">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`relative px-4 py-4 rounded-xl text-center transition-all duration-300 transform hover:scale-105 ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 ${
                     item.current
-                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xl ring-2 ring-cyan-400/50'
-                      : 'bg-blue-800/50 text-blue-100 hover:bg-blue-700/70 hover:text-white hover:ring-1 hover:ring-blue-400/30'
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md ring-1 ring-cyan-400/50'
+                      : 'bg-blue-700/50 text-blue-100 hover:bg-blue-600/70 hover:text-white hover:ring-1 hover:ring-blue-400/30'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <div className="flex flex-col items-center space-y-2">
-                    <span className="text-2xl">{item.icon}</span>
-                    <span className="text-sm font-semibold">{item.name}</span>
-                  </div>
+                  <span className="text-xl mb-1">{item.icon}</span>
+                  <span className="text-xs font-medium text-center">{item.name}</span>
                 </Link>
               ))}
             </div>
 
-            {/* Quick Actions */}
-            <div className="px-4 mb-6">
-              <div className="text-sm font-semibold text-cyan-300 uppercase tracking-wider mb-3 px-3">Quick Actions</div>
-              <div className="grid grid-cols-2 gap-2">
+            {/* Quick Actions Row */}
+            <div className="px-3 mb-4">
+              <div className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2 px-2">Quick Actions</div>
+              <div className="flex gap-2">
                 <Link
                   href="/vouchers/create"
-                  className="px-3 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors text-center"
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  ➕ New Voucher
+                  <span className="mr-2">➕</span>
+                  New Voucher
                 </Link>
                 <Link
                   href="/accounts/create"
-                  className="px-3 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors text-center"
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  👤 New Account
+                  <span className="mr-2">👤</span>
+                  New Account
                 </Link>
               </div>
             </div>
 
-            {/* Account Balances */}
-            <div className="px-4 mb-6">
-              <div className="text-sm font-semibold text-cyan-300 uppercase tracking-wider mb-3 px-3">Account Balances</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {/* Account Balances Section */}
+            <div className="px-3 mb-4">
+              <div className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2 px-2">Account Balances</div>
+              <div className="grid grid-cols-2 gap-2">
                 {accountTypes.map((type) => (
                   <Link
                     key={type}
                     href={`/accounts/balance/${type}`}
-                    className="px-3 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors text-center"
+                    className="px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors text-center"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    {type}
+                    {type} Balances
                   </Link>
                 ))}
               </div>
             </div>
 
-            {/* Ledgers */}
-            <div className="px-4">
-              <div className="text-sm font-semibold text-cyan-300 uppercase tracking-wider mb-3 px-3">Ledgers</div>
+            {/* Ledgers Section */}
+            <div className="px-3">
+              <div className="text-xs font-semibold text-cyan-300 uppercase tracking-wider mb-2 px-2">Ledgers</div>
               <div className="space-y-2">
                 <Link
                   href="/balance-sheet/open-balance"
-                  className="flex items-center px-4 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <span className="w-2 h-2 rounded-full bg-orange-400 mr-3"></span>
@@ -271,7 +236,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/balance-sheet/locker-ledger"
-                  className="flex items-center px-4 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors"
+                  className="flex items-center px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <span className="w-2 h-2 rounded-full bg-cyan-400 mr-3"></span>
@@ -281,7 +246,7 @@ export default function Header() {
                   <Link
                     key={type}
                     href={`/balance-sheet/type/${type}`}
-                    className="flex items-center px-4 py-3 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-xl text-sm font-medium transition-colors"
+                    className="flex items-center px-3 py-2 bg-blue-700/50 text-blue-100 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className="w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
@@ -292,10 +257,10 @@ export default function Header() {
             </div>
 
             {/* Close Button */}
-            <div className="px-4 mt-6">
+            <div className="px-3 mt-4">
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="w-full py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
               >
                 Close Menu
               </button>
