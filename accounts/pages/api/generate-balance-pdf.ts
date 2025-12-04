@@ -89,12 +89,22 @@ interface PageConfig {
   maxRowsPerPage: number;
 }
 
+interface ColumnConfig {
+  widths: number[];
+  headers: string[];
+  alignments: ('left' | 'center' | 'right')[];
+  balanceColumnIndices: number[];
+  showAmountBalance: boolean;
+}
+
 class AccountTypeBalancesPDFGenerator {
   private pdfDoc: PDFDocument | null = null;
   private font: PDFFont | null = null;
   private boldFont: PDFFont | null = null;
   private pageConfig: PageConfig;
   private isInitialized: boolean = false;
+  private accountType: string = '';
+  private columnConfig: ColumnConfig | null = null;
 
   constructor() {
     this.pageConfig = this.calculatePageConfig();
@@ -123,6 +133,29 @@ class AccountTypeBalancesPDFGenerator {
       tableEndY,
       maxRowsPerPage
     };
+  }
+
+  private getColumnConfig(accountType: string): ColumnConfig {
+    // For Project accounts, don't show amount balance column
+    const isProject = accountType === 'Project';
+    
+    if (isProject) {
+      return {
+        widths: [60, 220, 80, 130, 80], // More width for name since we removed amount column
+        headers: ["Account No", "Account Name", "Phone", "Gold Balance", "Txns"],
+        alignments: ['left', 'left', 'center', 'right', 'center'],
+        balanceColumnIndices: [3], // Only gold balance column at index 3
+        showAmountBalance: false
+      };
+    } else {
+      return {
+        widths: [60, 180, 70, 100, 100, 60],
+        headers: ["Account No", "Account Name", "Phone", "Gold Balance", "Amount Balance", "Txns"],
+        alignments: ['left', 'left', 'center', 'right', 'right', 'center'],
+        balanceColumnIndices: [3, 4], // Gold at index 3, Amount at index 4
+        showAmountBalance: true
+      };
+    }
   }
 
   async initialize(): Promise<void> {
@@ -200,20 +233,21 @@ class AccountTypeBalancesPDFGenerator {
 
     currentY -= 50;
 
-    // Account Type Badge
+    // Account Type Badge with special note for Project
     const typeColor = TYPE_COLORS[data.accountType] || [6 / 255, 95 / 255, 70 / 255];
     page.drawRectangle({
       x: MARGIN + 20,
       y: currentY + 5,
-      width: 100,
+      width: 120,
       height: 20,
       color: rgb(...typeColor),
       borderColor: rgb(217 / 255, 119 / 255, 6 / 255),
       borderWidth: 1,
     });
 
-    page.drawText(data.accountType, {
-      x: MARGIN + 20 + (100 - boldFont.widthOfTextAtSize(data.accountType, 10)) / 2,
+    const badgeText = data.accountType === 'Project' ? 'PROJECT (Gold Only)' : data.accountType;
+    page.drawText(badgeText, {
+      x: MARGIN + 20 + (120 - boldFont.widthOfTextAtSize(badgeText, 10)) / 2,
       y: currentY + 10,
       size: 10,
       font: boldFont,
@@ -223,7 +257,13 @@ class AccountTypeBalancesPDFGenerator {
     currentY -= 30;
 
     // Summary Information
-    const summaryText = `Total Accounts: ${data.totals.totalAccounts} | Active Accounts: ${data.totals.activeAccounts} | Total Transactions: ${data.totals.totalTransactions}`;
+    let summaryText: string;
+    if (data.accountType === 'Project') {
+      summaryText = `Total Accounts: ${data.totals.totalAccounts} | Active Accounts: ${data.totals.activeAccounts} | Total Transactions: ${data.totals.totalTransactions}`;
+    } else {
+      summaryText = `Total Accounts: ${data.totals.totalAccounts} | Active Accounts: ${data.totals.activeAccounts} | Total Transactions: ${data.totals.totalTransactions}`;
+    }
+    
     page.drawText(summaryText, {
       x: MARGIN + 20,
       y: currentY,
@@ -234,8 +274,14 @@ class AccountTypeBalancesPDFGenerator {
 
     currentY -= 20;
 
-    // Balance Stats
-    const statsText = `Positive Gold: ${data.totals.accountsWithPositiveGold} | Positive KWD: ${data.totals.accountsWithPositiveKwd} | Zero Balances: ${data.totals.accountsWithZeroBalance}`;
+    // Balance Stats (adjust for Project)
+    let statsText: string;
+    if (data.accountType === 'Project') {
+      statsText = `Positive Gold Balances: ${data.totals.accountsWithPositiveGold} | Zero Balances: ${data.totals.accountsWithZeroBalance}`;
+    } else {
+      statsText = `Positive Gold: ${data.totals.accountsWithPositiveGold} | Positive KWD: ${data.totals.accountsWithPositiveKwd} | Zero Balances: ${data.totals.accountsWithZeroBalance}`;
+    }
+    
     page.drawText(statsText, {
       x: MARGIN + 20,
       y: currentY,
@@ -259,7 +305,11 @@ class AccountTypeBalancesPDFGenerator {
     currentY -= 30;
 
     // Table Title
-    page.drawText("Account Balances Overview", {
+    const tableTitle = data.accountType === 'Project' 
+      ? "Project Account Balances (Gold Only)"
+      : "Account Balances Overview";
+    
+    page.drawText(tableTitle, {
       x: MARGIN + 20,
       y: currentY,
       size: 14,
@@ -274,10 +324,14 @@ class AccountTypeBalancesPDFGenerator {
     const { boldFont } = this.getFonts();
     const tableWidth = this.pageConfig.contentWidth - 40;
     
-    // 6 columns for account type balances
-    let colWidths = [60, 180, 70, 100, 100, 60]; // Account No, Name, Phone, Gold Balance, KWD Balance, Txns
+    if (!this.columnConfig) {
+      throw new Error("Column config not set");
+    }
+
+    // Use the pre-calculated column widths
+    let colWidths = [...this.columnConfig.widths];
     
-    // Calculate missing width and distribute
+    // Adjust column widths to fit the table width
     const currentTotal = colWidths.reduce((a, b) => a + b, 0);
     const missing = tableWidth - currentTotal;
     
@@ -309,7 +363,7 @@ class AccountTypeBalancesPDFGenerator {
     this.drawTableGrid(page, tableTop, HEADER_HEIGHT, colWidths, true);
 
     // Column headers
-    const headers = ["Account No", "Account Name", "Phone", "Gold Balance", "Amount Balance", "Txns"];
+    const headers = this.columnConfig.headers;
     let xPos = MARGIN + 20;
     
     headers.forEach((header, index) => {
@@ -364,6 +418,10 @@ class AccountTypeBalancesPDFGenerator {
     const ROW_OFFSET = 10;
     let currentY = startY - ROW_OFFSET;
 
+    if (!this.columnConfig) {
+      throw new Error("Column config not set");
+    }
+
     // Draw rows
     balances.forEach((balance, index) => {
       const rowTop = currentY + ROW_HEIGHT / 2;
@@ -384,32 +442,28 @@ class AccountTypeBalancesPDFGenerator {
         xPos += width;
       });
 
-      // Prepare row data
-      const rowData = [
-        balance.accountNo.toString(),
-        balance.name.substring(0, 25) + (balance.name.length > 25 ? '...' : ''),
-        balance.phone || '-',
-        formatBalanceCompact(balance.goldBalance, 'gold'),
-        formatBalanceCompact(balance.kwdBalance, 'kwd'),
-        balance.transactionCount.toString()
-      ];
+      // Prepare row data based on column config
+      const rowData = this.getRowDataForBalance(balance);
 
       // Draw cell text
       xPos = MARGIN + 20;
       rowData.forEach((data, colIndex) => {
-        const isLeftAligned = colIndex <= 1; // Account No and Name are left-aligned
-        const isRightAligned = colIndex >= 3 && colIndex <= 4; // Balance columns are right-aligned
+        const alignment = this.columnConfig!.alignments[colIndex];
+        const isBalanceColumn = this.columnConfig!.balanceColumnIndices.includes(colIndex);
         
-        // Determine text color based on column and balance
+        // Determine text color
         let textColor;
-        if (colIndex === 3) {
-          // Gold balance column
-          textColor = balance.goldBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
-        } else if (colIndex === 4) {
-          // KWD balance column
-          textColor = balance.kwdBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
+        if (isBalanceColumn) {
+          // For Project accounts, we only have gold balance
+          // For other accounts, we need to determine which balance
+          if (this.columnConfig!.showAmountBalance && colIndex === 4) {
+            // KWD balance column (index 4 when amount balance is shown)
+            textColor = balance.kwdBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
+          } else {
+            // Gold balance column
+            textColor = balance.goldBalance >= 0 ? COLORS.emerald700 : COLORS.red600;
+          }
         } else {
-          // All other columns
           textColor = COLORS.emerald700;
         }
         
@@ -418,9 +472,9 @@ class AccountTypeBalancesPDFGenerator {
         const textWidth = textFont.widthOfTextAtSize(data, fontSize);
         
         let textX;
-        if (isLeftAligned) {
+        if (alignment === 'left') {
           textX = xPos + 5;
-        } else if (isRightAligned) {
+        } else if (alignment === 'right') {
           textX = xPos + colWidths[colIndex] - textWidth - 5;
         } else {
           // Center aligned
@@ -447,11 +501,41 @@ class AccountTypeBalancesPDFGenerator {
     return currentY;
   }
 
+  private getRowDataForBalance(balance: AccountBalance): string[] {
+    if (!this.columnConfig) {
+      throw new Error("Column config not set");
+    }
+
+    if (this.accountType === 'Project') {
+      // For Project accounts: Account No, Name, Phone, Gold Balance, Transactions
+      return [
+        balance.accountNo.toString(),
+        balance.name.substring(0, 30) + (balance.name.length > 30 ? '...' : ''),
+        balance.phone || '-',
+        formatBalanceCompact(balance.goldBalance, 'gold'),
+        balance.transactionCount.toString()
+      ];
+    } else {
+      // For other accounts: Account No, Name, Phone, Gold Balance, Amount Balance, Transactions
+      return [
+        balance.accountNo.toString(),
+        balance.name.substring(0, 25) + (balance.name.length > 25 ? '...' : ''),
+        balance.phone || '-',
+        formatBalanceCompact(balance.goldBalance, 'gold'),
+        formatBalanceCompact(balance.kwdBalance, 'kwd'),
+        balance.transactionCount.toString()
+      ];
+    }
+  }
+
   private drawTotalsRow(page: PDFPage, data: AccountTypeBalancesPdfRequestData, startY: number, colWidths: number[]): number {
     const { font, boldFont } = this.getFonts();
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
     const rowTop = startY + ROW_HEIGHT / 2;
     
+    if (!this.columnConfig) {
+      throw new Error("Column config not set");
+    }
+
     // Totals row background
     let xPos = MARGIN + 20;
     colWidths.forEach(width => {
@@ -465,35 +549,30 @@ class AccountTypeBalancesPDFGenerator {
       xPos += width;
     });
 
-    // Totals row data
-    const totalsRowData = [
-      "TOTALS", "", "",
-      formatBalanceCompact(data.totals.totalGold, 'gold'),
-      formatBalanceCompact(data.totals.totalKwd, 'kwd'),
-      data.totals.totalTransactions.toString()
-    ];
+    // Get totals row data
+    const totalsRowData = this.getTotalsRowData(data);
 
     // Draw totals text
     xPos = MARGIN + 20;
-    totalsRowData.forEach((data, colIndex) => {
-      const isLeftAligned = colIndex <= 1;
-      const isRightAligned = colIndex >= 3 && colIndex <= 4;
+    totalsRowData.forEach((cellData, colIndex) => {
+      const alignment = this.columnConfig!.alignments[colIndex];
+      const isBalanceColumn = this.columnConfig!.balanceColumnIndices.includes(colIndex);
       
       const textColor = COLORS.emerald900;
-      const textFont = colIndex >= 3 ? boldFont : font;
-      const fontSize = colIndex >= 3 ? 8 : 7;
-      const textWidth = textFont.widthOfTextAtSize(data, fontSize);
+      const textFont = isBalanceColumn ? boldFont : font;
+      const fontSize = isBalanceColumn ? 8 : 7;
+      const textWidth = textFont.widthOfTextAtSize(cellData, fontSize);
       
       let textX;
-      if (isLeftAligned) {
+      if (alignment === 'left') {
         textX = xPos + 5;
-      } else if (isRightAligned) {
+      } else if (alignment === 'right') {
         textX = xPos + colWidths[colIndex] - textWidth - 5;
       } else {
         textX = xPos + (colWidths[colIndex] - textWidth) / 2;
       }
       
-      page.drawText(data, {
+      page.drawText(cellData, {
         x: textX,
         y: startY - 3,
         size: fontSize,
@@ -510,10 +589,39 @@ class AccountTypeBalancesPDFGenerator {
     return startY - ROW_HEIGHT;
   }
 
-  private drawFooter(page: PDFPage, pageNumber: number, totalPages: number, accountType: string): void {
+  private getTotalsRowData(data: AccountTypeBalancesPdfRequestData): string[] {
+    if (!this.columnConfig) {
+      throw new Error("Column config not set");
+    }
+
+    if (this.accountType === 'Project') {
+      // For Project accounts: TOTALS, empty, empty, Gold Total, Transactions Total
+      return [
+        "TOTALS", 
+        "", 
+        "",
+        formatBalanceCompact(data.totals.totalGold, 'gold'),
+        data.totals.totalTransactions.toString()
+      ];
+    } else {
+      // For other accounts: TOTALS, empty, empty, Gold Total, KWD Total, Transactions Total
+      return [
+        "TOTALS", 
+        "", 
+        "",
+        formatBalanceCompact(data.totals.totalGold, 'gold'),
+        formatBalanceCompact(data.totals.totalKwd, 'kwd'),
+        data.totals.totalTransactions.toString()
+      ];
+    }
+  }
+
+  private drawFooter(page: PDFPage, pageNumber: number, totalPages: number): void {
     const { font } = this.getFonts();
     const footerY = MARGIN + 10;
-    const footerText = `${accountType} Account Balances - Generated by ZamZam Jewellery - Page ${pageNumber} of ${totalPages}`;
+    const footerText = this.accountType === 'Project' 
+      ? `Project Account Balances (Gold Only) - Generated by ZamZam Jewellery - Page ${pageNumber} of ${totalPages}`
+      : `${this.accountType} Account Balances - Generated by ZamZam Jewellery - Page ${pageNumber} of ${totalPages}`;
     
     page.drawText(footerText, {
       x: (this.pageConfig.width - font.widthOfTextAtSize(footerText, 9)) / 2,
@@ -527,6 +635,10 @@ class AccountTypeBalancesPDFGenerator {
   async generatePDF(data: AccountTypeBalancesPdfRequestData): Promise<Uint8Array> {
     await this.initialize();
     const pdfDoc = this.getPDFDoc();
+    
+    // Set account type and column config
+    this.accountType = data.accountType;
+    this.columnConfig = this.getColumnConfig(this.accountType);
     
     const allBalances = data.accountBalances;
     const totalPages = Math.ceil(allBalances.length / this.pageConfig.maxRowsPerPage);
@@ -553,7 +665,7 @@ class AccountTypeBalancesPDFGenerator {
       }
       
       // Draw footer
-      this.drawFooter(page, pageNum, totalPages, data.accountType);
+      this.drawFooter(page, pageNum, totalPages);
     }
 
     return await pdfDoc.save();
@@ -585,6 +697,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    if (!data.accountType) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Account type is required" 
+      });
+    }
+
     if (isAccountTypeBalancesData(data)) {
       console.log(`Generating PDF for ${data.accountType} - ${data.accountBalances.length} accounts`);
       
@@ -603,7 +722,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } else {
       console.log("Generating PDF for general balances - unsupported in this endpoint");
       
-      // This is the old structure - you need to handle it or return error
       return res.status(400).json({ 
         success: false, 
         error: "This endpoint now only supports account type balances. Please update your request.",
