@@ -113,7 +113,6 @@ export default function LockerLedger({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   
   // Date range state - initialize with empty strings to show all transactions
-const [dateRange, setDateRange] = useState(getCurrentMonthRange());
 
   // Filter vouchers by date range (client-side)
   const filteredVouchers = useMemo(() => {
@@ -190,6 +189,9 @@ const [dateRange, setDateRange] = useState(getCurrentMonthRange());
       end: lastDay.toISOString().split('T')[0]
     };
   };
+
+const [dateRange, setDateRange] = useState(getCurrentMonthRange());
+
 
   // Helper function to get last month date range
   const getLastMonthRange = () => {
