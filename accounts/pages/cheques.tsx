@@ -60,6 +60,54 @@ export const getServerSideProps: GetServerSideProps = async () => {
   };
 };
 
+// Get account type color
+const getTypeColor = (type: string) => {
+  const colors = {
+    Market: {
+      bg: 'bg-blue-500',
+      lightBg: 'bg-blue-50',
+      text: 'text-blue-800',
+      border: 'border-blue-200',
+      gradient: 'from-blue-500 to-blue-600',
+    },
+    Casting: {
+      bg: 'bg-purple-500',
+      lightBg: 'bg-purple-50',
+      text: 'text-purple-800',
+      border: 'border-purple-200',
+      gradient: 'from-purple-500 to-purple-600',
+    },
+    Faceting: {
+      bg: 'bg-amber-500',
+      lightBg: 'bg-amber-50',
+      text: 'text-amber-800',
+      border: 'border-amber-200',
+      gradient: 'from-amber-500 to-amber-600',
+    },
+    Project: {
+      bg: 'bg-emerald-500',
+      lightBg: 'bg-emerald-50',
+      text: 'text-emerald-800',
+      border: 'border-emerald-200',
+      gradient: 'from-emerald-500 to-emerald-600',
+    },
+    'Gold Fixing': {
+      bg: 'bg-yellow-500',
+      lightBg: 'bg-yellow-50',
+      text: 'text-yellow-800',
+      border: 'border-yellow-200',
+      gradient: 'from-yellow-500 to-yellow-600',
+    },
+  };
+  return colors[type as keyof typeof colors] || {
+    bg: 'bg-gray-500',
+    lightBg: 'bg-gray-50',
+    text: 'text-gray-800',
+    border: 'border-gray-200',
+    gradient: 'from-gray-500 to-gray-600',
+  };
+};
+
 export default function ChequesPage({ cheques: initialCheques }: Props) {
   const [cheques, setCheques] = useState<ChequeVoucher[]>(initialCheques);
   const [searchTerm, setSearchTerm] = useState("");
@@ -197,10 +245,7 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-KW', {
-      minimumFractionDigits: 3,
-      maximumFractionDigits: 3
-    }).format(value);
+    return value.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
   // Statistics
@@ -219,16 +264,18 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
   }, [cheques]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 py-8 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Cheques Management</h1>
-          <p className="text-gray-600 mb-4">Track and manage all cheque payments</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4">
+            Cheques Management
+          </h1>
+          <p className="text-xl text-blue-700 mb-6">Track and manage all cheque payments</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link 
               href="/vouchers/list" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl bg-white hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -239,36 +286,64 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-            <div className="text-sm text-gray-600">Total Cheques</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {formatCurrency(stats.totalAmount)} KWD
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-blue-700">Total Cheques</p>
+                <p className="text-2xl font-bold text-blue-800">{stats.total}</p>
+                <p className="text-xs text-blue-600 mt-1">{formatCurrency(stats.totalAmount)} KWD</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
-            <div className="text-2xl font-bold text-amber-600">{stats.outstanding}</div>
-            <div className="text-sm text-gray-600">Outstanding</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {formatCurrency(stats.outstandingAmount)} KWD
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
+            <div className="flex items-center">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-blue-700">Outstanding</p>
+                <p className="text-2xl font-bold text-blue-800">{stats.outstanding}</p>
+                <p className="text-xs text-blue-600 mt-1">{formatCurrency(stats.outstandingAmount)} KWD</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
-            <div className="text-2xl font-bold text-green-600">{stats.cashed}</div>
-            <div className="text-sm text-gray-600">Cashed</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {formatCurrency(stats.cashedAmount)} KWD
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-blue-700">Cashed</p>
+                <p className="text-2xl font-bold text-blue-800">{stats.cashed}</p>
+                <p className="text-xs text-blue-600 mt-1">{formatCurrency(stats.cashedAmount)} KWD</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Search and Filter Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-end gap-4 mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-8 border-2 border-blue-300">
+          <div className="px-4 py-3 border-b-2 border-blue-300 bg-blue-100 rounded-t-2xl -mx-6 -mt-6 mb-6">
+            <h2 className="text-xl font-semibold text-blue-800">Search & Filter Cheques</h2>
+            <p className="text-sm text-blue-700 mt-1">Find cheques by various criteria</p>
+          </div>
+
+          <div className="flex flex-col lg:flex-row lg:items-end gap-6 mb-6">
             {/* Search Input */}
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
                 Search Cheques
               </label>
               <input
@@ -276,19 +351,19 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
                 placeholder="Search by bank, cheque no, account name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
               />
             </div>
 
             {/* Status Filter */}
-            <div className="w-full lg:w-48">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="w-full lg:w-56">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
                 Status
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
               >
                 <option value="outstanding">Outstanding</option>
                 <option value="cashed">Cashed</option>
@@ -297,14 +372,14 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
             </div>
 
             {/* Bank Filter */}
-            <div className="w-full lg:w-48">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="w-full lg:w-56">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
                 Bank
               </label>
               <select
                 value={bankFilter}
                 onChange={(e) => setBankFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
               >
                 <option value="">All Banks</option>
                 {banks.map(bank => (
@@ -314,14 +389,14 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
             </div>
 
             {/* Sort Option */}
-            <div className="w-full lg:w-48">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="w-full lg:w-56">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
                 Sort By
               </label>
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
               >
                 <option value="chequeDate">Cheque Date (Oldest First)</option>
                 <option value="chequeDateDesc">Cheque Date (Newest First)</option>
@@ -333,25 +408,28 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
             </div>
 
             {/* Reset Button */}
-            <div>
+            <div className="w-full lg:w-auto">
               <button
                 onClick={resetFilters}
-                className="w-full lg:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                className="w-full px-6 py-3 border-2 border-blue-300 text-blue-700 rounded-xl font-medium bg-white/80 hover:bg-blue-50 transition-colors"
               >
-                Reset
+                Reset Filters
               </button>
             </div>
           </div>
 
           {/* Results Count */}
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-blue-600">
               Showing {filteredAndSortedCheques.length} of {cheques.length} cheques
             </p>
             {(searchTerm || statusFilter !== "outstanding" || bankFilter) && (
-              <p className="text-sm text-blue-600 font-medium">
-                Filters Active
-              </p>
+              <div className="flex items-center mt-2 sm:mt-0">
+                <span className="w-3 h-3 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
+                <p className="text-sm font-medium text-blue-700">
+                  Filters Active
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -360,21 +438,24 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAndSortedCheques.map((cheque) => {
             const status = getChequeStatus(cheque);
+            const typeColor = getTypeColor(cheque.account.type);
             
             return (
-              <div key={cheque.id} className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all hover:shadow-xl">
+              <div key={cheque.id} className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border-2 border-blue-300 transition-all hover:border-blue-500 hover:shadow-2xl">
                 {/* Header */}
                 <div className={`px-6 py-4 ${
-                  status.status === "cashed" ? "bg-green-500" : "bg-blue-500"
+                  status.status === "cashed" 
+                    ? "bg-gradient-to-r from-green-500 to-green-600" 
+                    : "bg-gradient-to-r from-blue-500 to-blue-600"
                 } text-white`}>
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold text-lg">{cheque.bankName}</h3>
                       <p className="text-blue-100 text-sm">{cheque.branch}</p>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       status.status === "cashed" 
-                        ? "bg-green-600 text-white" 
+                        ? "bg-green-700 text-white" 
                         : "bg-amber-500 text-white"
                     }`}>
                       {status.status === "cashed" ? "CASHED" : "OUTSTANDING"}
@@ -384,51 +465,69 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
 
                 {/* Cheque Details */}
                 <div className="p-6">
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Cheque No:</span>
-                      <span className="font-mono font-semibold">{cheque.chequeNo}</span>
+                      <span className="text-sm text-blue-600">Cheque No:</span>
+                      <span className="font-mono font-semibold text-blue-800">{cheque.chequeNo}</span>
                     </div>
                     
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Cheque Date:</span>
-                      <span className="font-medium">{formatDate(cheque.chequeDate || cheque.date)}</span>
+                      <span className="text-sm text-blue-600">Cheque Date:</span>
+                      <span className="font-medium text-blue-800">{formatDate(cheque.chequeDate || cheque.date)}</span>
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Amount:</span>
-                      <span className="text-lg font-bold text-green-600">
+                      <span className="text-sm text-blue-600">Amount:</span>
+                      <span className="text-xl font-bold text-blue-800">
                         {formatCurrency(cheque.chequeAmount || 0)} KWD
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Account:</span>
-                      <span className="text-sm font-medium text-right">
-                        {cheque.account.accountNo} - {cheque.account.name}
-                      </span>
+                      <span className="text-sm text-blue-600">Account:</span>
+                      <div className="text-right">
+                        <div className="flex items-center justify-end mb-1">
+                          <div className={`w-3 h-3 rounded-full ${typeColor.bg} mr-2`}></div>
+                          <span className="text-sm font-medium text-blue-800">{cheque.account.accountNo}</span>
+                        </div>
+                        <div className="text-xs text-blue-600">{cheque.account.name}</div>
+                      </div>
                     </div>
 
                     {/* Status Information */}
-                    <div className="mt-4 p-3 rounded-lg bg-gray-50">
+                    <div className="mt-4 p-4 rounded-2xl bg-blue-50 border-2 border-blue-300">
                       {status.status === "cashed" ? (
                         <div className="text-center">
-                          <p className="text-sm text-green-600 font-medium">Cashed</p>
-                          <p className="text-xs text-gray-600">
+                          <div className="flex items-center justify-center mb-2">
+                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <p className="text-sm font-semibold text-green-700">Cashed</p>
+                          </div>
+                          <p className="text-xs text-blue-600">
                             Cashed after {status.days} day{status.days !== 1 ? 's' : ''}
                           </p>
                           {cheque.cashedDate && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-blue-500 mt-1">
                               on {formatDate(cheque.cashedDate)}
                             </p>
                           )}
                         </div>
                       ) : (
                         <div className="text-center">
-                          <p className="text-sm font-medium">
-                            {status.canBeCashed ? "Ready to Cash" : "Not Yet Cashable"}
-                          </p>
-                          <p className="text-xs text-gray-600">
+                          <div className="flex items-center justify-center mb-2">
+                            <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center mr-2">
+                              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <p className={`text-sm font-semibold ${status.canBeCashed ? "text-green-700" : "text-amber-700"}`}>
+                              {status.canBeCashed ? "Ready to Cash" : "Not Yet Cashable"}
+                            </p>
+                          </div>
+                          <p className="text-xs text-blue-600">
                             {status.canBeCashed 
                               ? `${status.days} day${status.days !== 1 ? 's' : ''} passed`
                               : `${status.daysUntilCashable} day${status.daysUntilCashable !== 1 ? 's' : ''} until cashable`
@@ -443,41 +542,58 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
                       <button
                         onClick={() => handleCashCheque(cheque.id)}
                         disabled={isCashing === cheque.id}
-                        className="w-full mt-4 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:bg-green-400 transition-colors flex items-center justify-center"
+                        className="w-full mt-4 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-2xl font-medium hover:from-green-700 hover:to-green-800 disabled:from-green-400 disabled:to-green-500 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center"
                       >
                         {isCashing === cheque.id ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                             Cashing...
                           </>
                         ) : (
-                          "Mark as Cashed"
+                          <>
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Mark as Cashed
+                          </>
                         )}
                       </button>
                     )}
 
                     {status.status === "outstanding" && !status.canBeCashed && (
-                      <div className="w-full mt-4 bg-gray-300 text-gray-600 py-2 rounded-lg font-medium text-center">
-                        Available in {status.daysUntilCashable} day{status.daysUntilCashable !== 1 ? 's' : ''}
+                      <div className="w-full mt-4 bg-blue-100 text-blue-700 py-3 rounded-2xl font-medium text-center border-2 border-blue-300">
+                        <div className="flex items-center justify-center">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Available in {status.daysUntilCashable} day{status.daysUntilCashable !== 1 ? 's' : ''}
+                        </div>
                       </div>
                     )}
 
                     {status.status === "cashed" && (
-                      <div className="w-full mt-4 bg-green-100 text-green-700 py-2 rounded-lg font-medium text-center">
-                        Cheque Cashed
+                      <div className="w-full mt-4 bg-green-100 text-green-700 py-3 rounded-2xl font-medium text-center border-2 border-green-300">
+                        <div className="flex items-center justify-center">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Cheque Cashed
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-3 bg-gray-50 border-t">
-                  <p className="text-xs text-gray-500 text-center">
-                    Voucher: {cheque.mvn || cheque.description} • {formatDate(cheque.date)}
-                  </p>
+                <div className="px-6 py-4 bg-blue-50 border-t-2 border-blue-300">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-blue-600">
+                      {cheque.mvn || cheque.description}
+                    </p>
+                    <span className="text-xs text-blue-500 font-medium">
+                      {formatDate(cheque.date)}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -486,12 +602,10 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
 
         {/* Empty State */}
         {filteredAndSortedCheques.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl shadow-lg">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No cheques found</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center border-2 border-blue-300">
+            <div className="text-6xl mb-4 text-blue-400">💳</div>
+            <h3 className="text-lg font-medium text-blue-800">No cheques found</h3>
+            <p className="text-blue-600 mt-1">
               {searchTerm || statusFilter !== "outstanding" || bankFilter 
                 ? "Try adjusting your search or filters" 
                 : "No cheques have been recorded yet."}
@@ -499,10 +613,39 @@ export default function ChequesPage({ cheques: initialCheques }: Props) {
             <div className="mt-6">
               <Link
                 href="/vouchers/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:from-blue-700 hover:to-blue-900 transition-colors shadow-lg"
               >
-                Create Voucher
+                Create Voucher with Cheque
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Card */}
+        {filteredAndSortedCheques.length > 0 && (
+          <div className="mt-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-2xl border-2 border-blue-400">
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="mb-4 md:mb-0">
+                <h3 className="text-xl font-bold">Cheques Summary</h3>
+                <p className="opacity-90">
+                  {statusFilter === "outstanding" ? "Outstanding Cheques" :
+                   statusFilter === "cashed" ? "Cashed Cheques" :
+                   "All Cheques"}
+                  {bankFilter && ` • ${bankFilter}`}
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-6">
+                <div className="text-center sm:text-right">
+                  <div className="text-lg font-bold">{filteredAndSortedCheques.length}</div>
+                  <div className="text-xs opacity-80">Cheques</div>
+                </div>
+                <div className="text-center sm:text-right">
+                  <div className="text-lg font-bold">
+                    {formatCurrency(filteredAndSortedCheques.reduce((sum, cheque) => sum + (cheque.chequeAmount || 0), 0))}
+                  </div>
+                  <div className="text-xs opacity-80">Total Amount</div>
+                </div>
+              </div>
             </div>
           </div>
         )}
