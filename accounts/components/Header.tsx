@@ -60,7 +60,7 @@ export default function Header() {
                 <span>New Voucher</span>
               </Link>
               <Link
-                href="/accounts/create"
+                href="/accounts"
                 className="px-3 py-1.5 rounded-lg text-sm text-white hover:bg-blue-500/30 transition-colors flex items-center space-x-1"
               >
                 <span className="text-sm">👤</span>
