@@ -10,7 +10,7 @@ type Account = {
   type: string;
   phone?: string;
   crOrCivilIdNo?: string;
-  isActive: boolean;  // Added this field
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -24,6 +24,60 @@ export const getServerSideProps: GetServerSideProps = async () => {
   return { props: { accounts: JSON.parse(JSON.stringify(accounts)) } };
 };
 
+// Get account type color function
+const getTypeColor = (type: string) => {
+  const colors = {
+    Market: {
+      bg: 'bg-blue-500',
+      lightBg: 'bg-blue-50',
+      text: 'text-blue-800',
+      border: 'border-blue-200',
+      gradient: 'from-blue-500 to-blue-600',
+      dot: 'bg-blue-500',
+    },
+    Casting: {
+      bg: 'bg-purple-500',
+      lightBg: 'bg-purple-50',
+      text: 'text-purple-800',
+      border: 'border-purple-200',
+      gradient: 'from-purple-500 to-purple-600',
+      dot: 'bg-purple-500',
+    },
+    Faceting: {
+      bg: 'bg-amber-500',
+      lightBg: 'bg-amber-50',
+      text: 'text-amber-800',
+      border: 'border-amber-200',
+      gradient: 'from-amber-500 to-amber-600',
+      dot: 'bg-amber-500',
+    },
+    Project: {
+      bg: 'bg-emerald-500',
+      lightBg: 'bg-emerald-50',
+      text: 'text-emerald-800',
+      border: 'border-emerald-200',
+      gradient: 'from-emerald-500 to-emerald-600',
+      dot: 'bg-emerald-500',
+    },
+    'Gold Fixing': {
+      bg: 'bg-yellow-500',
+      lightBg: 'bg-yellow-50',
+      text: 'text-yellow-800',
+      border: 'border-yellow-200',
+      gradient: 'from-yellow-500 to-yellow-600',
+      dot: 'bg-yellow-500',
+    },
+  };
+  return colors[type as keyof typeof colors] || {
+    bg: 'bg-gray-500',
+    lightBg: 'bg-gray-50',
+    text: 'text-gray-800',
+    border: 'border-gray-200',
+    gradient: 'from-gray-500 to-gray-600',
+    dot: 'bg-gray-500',
+  };
+};
+
 export default function AccountsPage({ accounts: initialAccounts }: Props) {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [form, setForm] = useState<Partial<Account>>({});
@@ -35,7 +89,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     direction: 'asc'
   });
 
-  // Predefined types only - removed custom option
+  // Predefined types only
   const predefinedTypes = ["Market", "Casting", "Faceting", "Project", "Gold Fixing"];
 
   // Auto-number new accounts by type
@@ -44,7 +98,6 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     const type = form.type?.trim();
     if (!type) return;
 
-    // Count only active accounts of this type for numbering
     const filtered = accounts.filter(
       (acc) => acc.type.toLowerCase() === type.toLowerCase() && acc.isActive
     );
@@ -68,7 +121,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          isActive: true // New accounts are always active
+          isActive: true
         }),
       });
 
@@ -167,41 +220,34 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     let aValue: any = a[sortBy.field as keyof Account];
     let bValue: any = b[sortBy.field as keyof Account];
     
-    // Handle undefined values
     if (aValue === undefined || aValue === null) aValue = '';
     if (bValue === undefined || bValue === null) bValue = '';
     
-    // For type sorting, group by type then by account number
     if (sortBy.field === 'type') {
       if (a.type !== b.type) {
         const result = a.type.localeCompare(b.type);
         return sortBy.direction === 'asc' ? result : -result;
       }
-      // Same type - sort by account number
       return a.accountNo - b.accountNo;
     }
     
-    // For account number sorting
     if (sortBy.field === 'accountNo') {
       return sortBy.direction === 'asc' 
         ? a.accountNo - b.accountNo 
         : b.accountNo - a.accountNo;
     }
     
-    // For name sorting
     if (sortBy.field === 'name') {
       const result = a.name.localeCompare(b.name);
       return sortBy.direction === 'asc' ? result : -result;
     }
     
-    // For date sorting (createdAt only)
     if (sortBy.field === 'createdAt') {
       const aDate = new Date(aValue).getTime();
       const bDate = new Date(bValue).getTime();
       return sortBy.direction === 'asc' ? aDate - bDate : bDate - aDate;
     }
     
-    // Default string comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
@@ -222,53 +268,40 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
     return acc;
   }, {} as Record<string, number>);
 
-  // Get account type style (matching dashboard)
-  const getAccountTypeStyle = (type: string) => {
-    const colors = {
-      Market: 'bg-blue-100 text-blue-800',
-      Casting: 'bg-purple-100 text-purple-800',
-      Faceting: 'bg-amber-100 text-amber-800',
-      Project: 'bg-green-100 text-green-800',
-      'Gold Fixing': 'bg-yellow-100 text-yellow-800',
-    };
-    return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Get account status badge style
-  const getAccountStatusStyle = (isActive: boolean) => {
-    return isActive 
-      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-      : 'bg-red-100 text-red-800 border border-red-200';
-  };
-
-  // Get account type dot color
-  const getTypeDotColor = (type: string) => {
-    return type === 'Market' ? 'bg-blue-500' :
-           type === 'Casting' ? 'bg-purple-500' :
-           type === 'Faceting' ? 'bg-amber-500' :
-           type === 'Project' ? 'bg-green-500' :
-           'bg-yellow-500';
-  };
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">Account Management</h1>
-            <p className="text-xl md:text-2xl mb-8 opacity-90">Create and manage your business accounts</p>
-            <p className="text-lg opacity-80 max-w-3xl mx-auto">
-              Organize all your jewellery business accounts, track customer information, and maintain complete records.
-            </p>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent mb-4">
+            Account Management
+          </h1>
+          <p className="text-xl text-blue-700 mb-6">Create and manage your business accounts</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Link 
+              href="/" 
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Back to Home
+            </Link>
+            <Link 
+              href="/balance-sheet/type-summary" 
+              className="inline-flex items-center px-6 py-3 border-2 border-blue-300 text-lg font-medium rounded-2xl text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 transition-colors shadow-xl"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              View Type Summary
+            </Link>
           </div>
         </div>
-      </div>
 
-      {/* Quick Stats */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+        {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -276,78 +309,78 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">{totalAccounts}</p>
+                <p className="text-sm font-medium text-blue-700">Total Accounts</p>
+                <p className="text-2xl font-bold text-blue-800">{totalAccounts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-emerald-100 rounded-lg">
-                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">{activeAccounts}</p>
+                <p className="text-sm font-medium text-blue-700">Active Accounts</p>
+                <p className="text-2xl font-bold text-blue-800">{activeAccounts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Closed Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">{closedAccounts}</p>
+                <p className="text-sm font-medium text-blue-700">Closed Accounts</p>
+                <p className="text-2xl font-bold text-blue-800">{closedAccounts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-2 border-blue-300">
             <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Account Types</p>
-                <p className="text-2xl font-bold text-gray-900">{predefinedTypes.length}</p>
+                <p className="text-sm font-medium text-blue-700">Account Types</p>
+                <p className="text-2xl font-bold text-blue-800">{predefinedTypes.length}</p>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Account Form Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {editingId ? "Edit Account" : "Create New Account"}
-              </h2>
-              {editingId && (
-                <button
-                  onClick={handleCancel}
-                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              )}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border-2 border-blue-300">
+            <div className="px-4 py-3 border-b-2 border-blue-300 bg-blue-100 rounded-t-2xl -mx-6 -mt-6 mb-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-blue-800">
+                  {editingId ? "Edit Account" : "Create New Account"}
+                </h2>
+                {editingId && (
+                  <button
+                    onClick={handleCancel}
+                    className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-blue-700 mb-2">
                   Account Number
                 </label>
                 <input
@@ -355,13 +388,13 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   placeholder="Auto-generated"
                   value={form.accountNo ?? ""}
                   disabled
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 text-gray-600 cursor-not-allowed"
+                  className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 bg-blue-100 text-blue-600 cursor-not-allowed text-base"
                 />
-                <p className="text-xs text-gray-500 mt-1">Automatically generated based on account type</p>
+                <p className="text-sm text-blue-500 mt-2">Automatically generated based on account type</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-blue-700 mb-2">
                   Account Name *
                 </label>
                 <input
@@ -369,29 +402,34 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                   placeholder="Enter account name"
                   value={form.name ?? ""}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-blue-700 mb-2">
                   Account Type *
                 </label>
                 <select
                   value={form.type ?? ""}
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
                 >
                   <option value="">Select Type</option>
-                  {predefinedTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {predefinedTypes.map((t) => {
+                    const typeColor = getTypeColor(t);
+                    return (
+                      <option key={t} value={t} className={typeColor.text}>
+                        {t}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
                     Phone Number
                   </label>
                   <input
@@ -399,12 +437,12 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                     placeholder="Enter phone number"
                     value={form.phone ?? ""}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
                     C.R / Civil ID No
                   </label>
                   <input
@@ -412,7 +450,7 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
                     placeholder="Enter ID number"
                     value={form.crOrCivilIdNo ?? ""}
                     onChange={(e) => setForm({ ...form, crOrCivilIdNo: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base bg-white/80"
                   />
                 </div>
               </div>
@@ -420,14 +458,11 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
               <button
                 onClick={handleSubmit}
                 disabled={!form.name || !form.type || isSubmitting}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center"
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-800 text-white px-6 py-3 rounded-2xl font-semibold hover:from-blue-700 hover:to-blue-900 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-xl hover:shadow-2xl flex items-center justify-center"
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                     {editingId ? "Updating..." : "Creating..."}
                   </>
                 ) : (
@@ -438,187 +473,210 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
           </div>
 
           {/* Accounts List Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4 sm:mb-0">All Accounts</h2>
-              
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border-2 border-blue-300">
+            <div className="px-4 py-3 border-b-2 border-blue-300 bg-blue-100 rounded-t-2xl -mx-6 -mt-6 mb-6">
+              <h2 className="text-xl font-semibold text-blue-800">All Accounts</h2>
+              <p className="text-sm text-blue-700 mt-1">Manage and view all accounts</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
               {/* Filters and Sort */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-4">
                 {/* Status Filter */}
-                <select
-                  value={filter.status}
-                  onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="active">Active Accounts</option>
-                  <option value="closed">Closed Accounts</option>
-                  <option value="all">All Accounts</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Status</label>
+                  <select
+                    value={filter.status}
+                    onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                    className="border-2 border-blue-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80"
+                  >
+                    <option value="active">Active Accounts</option>
+                    <option value="closed">Closed Accounts</option>
+                    <option value="all">All Accounts</option>
+                  </select>
+                </div>
 
                 {/* Type Filter */}
-                <select
-                  value={filter.type}
-                  onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="">All Types</option>
-                  {predefinedTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Type</label>
+                  <select
+                    value={filter.type}
+                    onChange={(e) => setFilter({ ...filter, type: e.target.value })}
+                    className="border-2 border-blue-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80"
+                  >
+                    <option value="">All Types</option>
+                    {predefinedTypes.map((t) => {
+                      const typeColor = getTypeColor(t);
+                      return (
+                        <option key={t} value={t} className={typeColor.text}>
+                          {t}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
 
                 {/* Search */}
-                <input
-                  type="text"
-                  placeholder="Search by name or phone..."
-                  value={filter.search}
-                  onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[200px]"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search by name or phone..."
+                    value={filter.search}
+                    onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+                    className="border-2 border-blue-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80 min-w-[200px]"
+                  />
+                </div>
+              </div>
+
+              {/* Sort Options */}
+              <div className="mt-4 sm:mt-0">
+                <label className="block text-sm font-medium text-blue-700 mb-2">Sort By</label>
+                <select
+                  value={`${sortBy.field}-${sortBy.direction}`}
+                  onChange={(e) => {
+                    const [field, direction] = e.target.value.split('-');
+                    setSortBy({ field, direction: direction as 'asc' | 'desc' });
+                  }}
+                  className="border-2 border-blue-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white/80"
+                >
+                  <option value="type-asc">Type: A to Z</option>
+                  <option value="type-desc">Type: Z to A</option>
+                  <option value="accountNo-asc">Account No: Low to High</option>
+                  <option value="accountNo-desc">Account No: High to Low</option>
+                  <option value="name-asc">Name: A to Z</option>
+                  <option value="name-desc">Name: Z to A</option>
+                  <option value="createdAt-desc">Recently Created</option>
+                  <option value="createdAt-asc">Oldest First</option>
+                </select>
               </div>
             </div>
 
-            {/* Sort Options */}
-            <div className="mb-4">
-              <select
-                value={`${sortBy.field}-${sortBy.direction}`}
-                onChange={(e) => {
-                  const [field, direction] = e.target.value.split('-');
-                  setSortBy({ field, direction: direction as 'asc' | 'desc' });
-                }}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="type-asc">Type: A to Z</option>
-                <option value="type-desc">Type: Z to A</option>
-                <option value="accountNo-asc">Account No: Low to High</option>
-                <option value="accountNo-desc">Account No: High to Low</option>
-                <option value="name-asc">Name: A to Z</option>
-                <option value="name-desc">Name: Z to A</option>
-                <option value="createdAt-desc">Recently Created</option>
-                <option value="createdAt-asc">Oldest First</option>
-              </select>
-            </div>
-
             {/* Accounts List */}
-            <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {sortedAccounts.map((acc) => (
-                <div key={acc.id} className={`border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all ${!acc.isActive ? 'bg-gray-50' : ''}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 bg-gradient-to-r ${
-                        acc.type === 'Market' ? 'from-blue-400 to-blue-600' :
-                        acc.type === 'Casting' ? 'from-purple-400 to-purple-600' :
-                        acc.type === 'Faceting' ? 'from-amber-400 to-amber-600' :
-                        acc.type === 'Project' ? 'from-green-400 to-green-600' :
-                        'from-yellow-400 to-yellow-600'
-                      } rounded-lg flex items-center justify-center text-white font-bold text-sm ${!acc.isActive ? 'opacity-70' : ''}`}>
-                        {acc.accountNo}
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className={`font-semibold ${!acc.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
-                            {acc.name}
-                            {!acc.isActive && <span className="ml-2 text-xs text-gray-400">(Closed)</span>}
-                          </h3>
-                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getAccountStatusStyle(acc.isActive)}`}>
-                            {acc.isActive ? 'Active' : 'Closed'}
-                          </span>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto p-2">
+              {sortedAccounts.map((acc) => {
+                const typeColor = getTypeColor(acc.type);
+                
+                return (
+                  <div key={acc.id} className={`border-2 ${acc.isActive ? 'border-blue-300' : 'border-gray-300'} rounded-2xl p-4 hover:border-blue-500 hover:shadow-lg transition-all ${!acc.isActive ? 'bg-gray-50/80' : 'bg-white/80'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-base ${acc.isActive ? `bg-gradient-to-r ${typeColor.gradient}` : 'bg-gradient-to-r from-gray-400 to-gray-600'}`}>
+                          {acc.accountNo}
                         </div>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getAccountTypeStyle(acc.type)} ${!acc.isActive ? 'opacity-70' : ''}`}>
-                            {acc.type}
-                          </span>
-                          {acc.phone && (
-                            <span className={`text-xs ${!acc.isActive ? 'text-gray-400' : 'text-gray-500'} flex items-center`}>
-                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
-                              {acc.phone}
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h3 className={`font-semibold ${!acc.isActive ? 'text-gray-600' : 'text-blue-900'}`}>
+                              {acc.name}
+                            </h3>
+                            <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${acc.isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                              {acc.isActive ? 'Active' : 'Closed'}
                             </span>
-                          )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${typeColor.lightBg} ${typeColor.text} border ${typeColor.border}`}>
+                              {acc.type}
+                            </span>
+                            {acc.phone && (
+                              <span className={`text-sm ${!acc.isActive ? 'text-gray-500' : 'text-blue-600'} flex items-center`}>
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                                {acc.phone}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        {acc.isActive ? (
+                          <>
+                            <button
+                              onClick={() => handleEdit(acc)}
+                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors border border-blue-300"
+                              title="Edit Account"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            
+                            <Link
+                              href={`/balance-sheet/${acc.id}?accountType=${encodeURIComponent(acc.type)}`}
+                              className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-300"
+                              title="View Ledger"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </Link>
+                            
+                            <button
+                              onClick={() => handleCloseAccount(acc.id)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-xl transition-colors border border-red-300"
+                              title="Close Account"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleReopenAccount(acc.id)}
+                              className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-300"
+                              title="Reopen Account"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                            
+                            <Link
+                              href={`/balance-sheet/${acc.id}?accountType=${encodeURIComponent(acc.type)}`}
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors border border-gray-300"
+                              title="View Ledger"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </Link>
+                          </>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2">
-                      {acc.isActive ? (
-                        <>
-                          <button
-                            onClick={() => handleEdit(acc)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Account"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          
-                          <Link
-                            href={`/balance-sheet/${acc.id}?accountType=${encodeURIComponent(acc.type)}`}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="View Ledger"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </Link>
-                          
-                          <button
-                            onClick={() => handleCloseAccount(acc.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Close Account"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleReopenAccount(acc.id)}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Reopen Account"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                          </button>
-                          
-                          <Link
-                            href={`/balance-sheet/${acc.id}?accountType=${encodeURIComponent(acc.type)}`}
-                            className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                            title="View Ledger"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </Link>
-                        </>
-                      )}
-                    </div>
+                    {acc.crOrCivilIdNo && (
+                      <div className={`mt-3 text-sm ${!acc.isActive ? 'text-gray-500' : 'text-blue-600'} flex items-center`}>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9a2 2 0 10-4 0v5a2 2 0 01-2 2h6m-6-4h4m8 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        ID: {acc.crOrCivilIdNo}
+                      </div>
+                    )}
                   </div>
-                  
-                  {acc.crOrCivilIdNo && (
-                    <div className={`mt-2 text-xs ${!acc.isActive ? 'text-gray-400' : 'text-gray-500'} flex items-center`}>
-                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9a2 2 0 10-4 0v5a2 2 0 01-2 2h6m-6-4h4m8 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      ID: {acc.crOrCivilIdNo}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
 
               {sortedAccounts.length === 0 && (
                 <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No accounts found</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <div className="text-6xl mb-4 text-blue-400">👤</div>
+                  <h3 className="text-lg font-medium text-blue-800">No accounts found</h3>
+                  <p className="text-blue-600 mt-1">
                     {filter.search || filter.type ? "Try adjusting your search filters" : "Get started by creating a new account"}
                   </p>
+                  {!filter.search && !filter.type && (
+                    <div className="mt-6">
+                      <button
+                        onClick={() => setForm({})}
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:from-blue-700 hover:to-blue-900 transition-colors shadow-lg"
+                      >
+                        Create Account
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -626,31 +684,61 @@ export default function AccountsPage({ accounts: initialAccounts }: Props) {
         </div>
 
         {/* Account Statistics */}
-        <div className="mt-8 bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Statistics</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-8 border-2 border-blue-300">
+          <div className="px-4 py-3 border-b-2 border-blue-300 bg-blue-100 rounded-t-2xl -mx-6 -mt-6 mb-6">
+            <h2 className="text-xl font-semibold text-blue-800">Account Statistics</h2>
+            <p className="text-sm text-blue-700 mt-1">Overview of account distribution</p>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div className="text-center p-4 border border-gray-200 rounded-xl">
-              <div className="text-3xl font-bold text-gray-900 mb-2">{totalAccounts}</div>
-              <div className="text-sm text-gray-600">Total Accounts</div>
+            <div className="text-center p-6 border-2 border-blue-300 rounded-2xl bg-white/80">
+              <div className="text-3xl font-bold text-blue-800 mb-2">{totalAccounts}</div>
+              <div className="text-sm text-blue-700">Total Accounts</div>
             </div>
-            <div className="text-center p-4 border border-gray-200 rounded-xl">
-              <div className="text-3xl font-bold text-emerald-600 mb-2">{activeAccounts}</div>
-              <div className="text-sm text-gray-600">Active Accounts</div>
+            <div className="text-center p-6 border-2 border-blue-300 rounded-2xl bg-white/80">
+              <div className="text-3xl font-bold text-blue-800 mb-2">{activeAccounts}</div>
+              <div className="text-sm text-blue-700">Active Accounts</div>
             </div>
-            <div className="text-center p-4 border border-gray-200 rounded-xl">
-              <div className="text-3xl font-bold text-red-600 mb-2">{closedAccounts}</div>
-              <div className="text-sm text-gray-600">Closed Accounts</div>
+            <div className="text-center p-6 border-2 border-blue-300 rounded-2xl bg-white/80">
+              <div className="text-3xl font-bold text-blue-800 mb-2">{closedAccounts}</div>
+              <div className="text-sm text-blue-700">Closed Accounts</div>
             </div>
-            <div className="text-center p-4 border border-gray-200 rounded-xl">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
+            <div className="text-center p-6 border-2 border-blue-300 rounded-2xl bg-white/80">
+              <div className="text-3xl font-bold text-blue-800 mb-2">
                 {totalAccounts > 0 ? Math.round((activeAccounts / totalAccounts) * 100) : 0}%
               </div>
-              <div className="text-sm text-gray-600">Active Rate</div>
+              <div className="text-sm text-blue-700">Active Rate</div>
             </div>
-            <div className="text-center p-4 border border-gray-200 rounded-xl">
-              <div className="text-3xl font-bold text-purple-600 mb-2">{predefinedTypes.length}</div>
-              <div className="text-sm text-gray-600">Account Types</div>
+            <div className="text-center p-6 border-2 border-blue-300 rounded-2xl bg-white/80">
+              <div className="text-3xl font-bold text-blue-800 mb-2">{predefinedTypes.length}</div>
+              <div className="text-sm text-blue-700">Account Types</div>
             </div>
+          </div>
+        </div>
+
+        {/* Account Type Distribution */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border-2 border-blue-300">
+          <div className="px-4 py-3 border-b-2 border-blue-300 bg-blue-100 rounded-t-2xl -mx-6 -mt-6 mb-6">
+            <h2 className="text-xl font-semibold text-blue-800">Account Type Distribution</h2>
+            <p className="text-sm text-blue-700 mt-1">Active accounts by type</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            {predefinedTypes.map((type) => {
+              const typeColor = getTypeColor(type);
+              const count = accountsByType[type] || 0;
+              
+              return (
+                <div key={type} className={`p-5 rounded-2xl border-2 ${typeColor.border} ${typeColor.lightBg}`}>
+                  <div className="flex items-center mb-3">
+                    <div className={`w-3 h-3 rounded-full ${typeColor.dot} mr-2`}></div>
+                    <h3 className={`font-semibold ${typeColor.text}`}>{type}</h3>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-800">{count}</div>
+                  <div className="text-sm text-blue-600">active account{count !== 1 ? 's' : ''}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
