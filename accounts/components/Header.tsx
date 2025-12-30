@@ -30,15 +30,6 @@ export default function Header() {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Brand */}
             <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
-                className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors lg:hidden"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              
               <Link href="/" className="flex items-center space-x-2 group">
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-md ring-2 ring-white/30">
                   <span className="text-white font-bold">💎</span>
@@ -49,6 +40,23 @@ export default function Header() {
                 </div>
               </Link>
             </div>
+
+            {/* Desktop Sidebar Toggle Button - Only on desktop */}
+            <button
+              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
+              className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors hidden lg:block"
+              title={isDesktopSidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            >
+              {isDesktopSidebarOpen ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              )}
+            </button>
 
             {/* Desktop Quick Actions */}
             <div className="hidden md:flex items-center space-x-2">
@@ -68,7 +76,7 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* Mobile menu button */}
+            {/* Mobile menu button - Only on mobile */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors md:hidden"
@@ -157,9 +165,18 @@ export default function Header() {
             </div>
           </nav>
 
-          {/* Sidebar Footer */}
+          {/* Sidebar Footer with Toggle Button */}
           <div className="p-4 border-t border-blue-200">
-            <div className="text-center text-xs text-blue-500">
+            <button
+              onClick={() => setIsDesktopSidebarOpen(false)}
+              className="w-full flex items-center justify-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+              Hide Sidebar
+            </button>
+            <div className="text-center text-xs text-blue-500 mt-2">
               <p>Premium Accounting System</p>
             </div>
           </div>
@@ -175,7 +192,7 @@ export default function Header() {
         ></div>
         
         {/* Sidebar */}
-        <div className="fixed inset-y-0 left-0 w-80 max-w-full bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-2xl transform transition-transform duration-300 ease-in-out">
+        <div className="fixed inset-y-0 right-0 w-80 max-w-full bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-2xl transform transition-transform duration-300 ease-in-out">
           <div className="flex flex-col h-full">
             {/* Mobile Header */}
             <div className="p-4 border-b border-blue-200 bg-gradient-to-r from-blue-500 to-blue-400">
@@ -310,11 +327,12 @@ export default function Header() {
       {!isDesktopSidebarOpen && (
         <button
           onClick={() => setIsDesktopSidebarOpen(true)}
-          className="fixed left-4 top-20 z-30 p-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:pl-3 hidden lg:block"
+          className="fixed left-0 top-20 z-30 p-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:pl-3 hidden lg:flex items-center"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
+          <span className="ml-2 text-xs">Show Menu</span>
         </button>
       )}
 
