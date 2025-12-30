@@ -3,6 +3,7 @@ import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import "@/styles/globals.css";
 import Header from '../components/Header';
+import Head from "next/head";
 
 function Loader() {
   return (
@@ -54,8 +55,40 @@ export default function App({ Component, pageProps }: AppProps) {
     };
   }, [router]);
 
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => console.log("SW registered:", reg))
+        .catch((err) => console.error("SW failed:", err));
+    }
+  }, []);
+
   return (
     <>
+      <Head>
+        {/* PWA */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.PNG" />
+
+        {/* Favicon */}
+        <link rel="icon" href="/Favicon.PNG" />
+
+        {/* Title */}
+        <title>BLOUDAN ACCOUNTS</title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="The all in one acvounting system for jewelery workshop."
+        />
+         <style>{`
+    html, body {
+      overscroll-behavior: none;
+    }
+  `}</style>
+      </Head>
       {loading && <Loader />}
       <Header />
       <Component {...pageProps} />
