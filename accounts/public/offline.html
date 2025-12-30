@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline | Pixora</title>
+  <meta name="theme-color" content="#1e40af" />
+  <meta name="description" content="Pixora is temporarily offline. Check your connection and try again." />
+  <link rel="icon" href="/Favicon.PNG" />
+  <link rel="apple-touch-icon" href="/Favicon.PNG" />
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    html, body {
+      overscroll-behavior: none;
+      height: 100%;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
+      background-attachment: fixed;
+      display: flex;
+      flex-direction: column;
+      color: #1e293b;
+      font-size: 16px;
+      overflow-x: hidden;
+    }
+
+    /* Header - Matching the React component exactly */
+    .header {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      width: 100%;
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 2rem;
+      height: 2rem;
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .logo-icon span {
+      color: white;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1e40af;
+      letter-spacing: -0.5px;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    /* Offline Card - Matching other pages' card styling */
+    .offline-card {
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 40px 30px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      max-width: 500px;
+      width: 100%;
+      margin-bottom: 20px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .offline-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 25px 70px rgba(0,0,0,0.15);
+    }
+
+    .offline-icon {
+      width: 140px;
+      height: 140px;
+      margin: 0 auto 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      padding: 20px;
+      box-shadow: 0 8px 25px rgba(30, 64, 175, 0.15);
+    }
+
+    .offline-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    h1 {
+      color: #1e40af;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    p {
+      color: #334155;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .retry-button {
+      background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+      color: white;
+      border: none;
+      padding: 16px 40px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .retry-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.4);
+      background: linear-gradient(135deg, #4f8eff 0%, #2563eb 100%);
+    }
+
+    .retry-button:active {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+    }
+
+    .connection-status {
+      margin-top: 25px;
+      font-size: 0.95rem;
+      color: #64748b;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 12px;
+      max-width: 300px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .connection-status::before {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background-color: #ef4444;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .hint {
+      margin-top: 25px;
+      font-size: 0.95rem;
+      color: #64748b;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      border-left: 4px solid #3b82f6;
+    }
+
+    /* Footer - Updated to be light blue like the header */
+    footer {
+      text-align: center;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(10px);
+      color: #1e293b;
+      margin-top: 40px;
+      width: 100%;
+      border-top: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    footer p {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0;
+      color: #334155;
+      max-width: none;
+    }
+
+    /* Tips Section - Matching other pages */
+    .tips-section {
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      max-width: 500px;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .tips-section h3 {
+      color: #1e40af;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .tips-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .tips-list li {
+      margin-bottom: 12px;
+      padding-left: 24px;
+      position: relative;
+      color: #334155;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .tips-list li:before {
+      content: "•";
+      color: #3b82f6;
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .offline-card {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      body {
+        font-size: 14px;
+      }
+
+      .header-container {
+        padding: 0.5rem 1rem;
+      }
+
+      .logo-text {
+        font-size: 1.25rem;
+      }
+
+      .offline-card {
+        padding: 30px 20px;
+        margin: 10px;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      p {
+        font-size: 1rem;
+      }
+
+      .offline-icon {
+        width: 120px;
+        height: 120px;
+      }
+
+      .retry-button {
+        padding: 14px 30px;
+        font-size: 1rem;
+        width: 100%;
+        max-width: 280px;
+      }
+
+      .tips-section {
+        padding: 20px;
+        margin: 10px;
+      }
+
+      .container {
+        padding: 15px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .logo-text {
+        font-size: 1.1rem;
+      }
+
+      .offline-card {
+        padding: 25px 15px;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      p {
+        font-size: 0.95rem;
+      }
+
+      .offline-icon {
+        width: 100px;
+        height: 100px;
+      }
+
+      .retry-button {
+        padding: 12px 25px;
+        font-size: 0.95rem;
+      }
+
+      .connection-status {
+        font-size: 0.9rem;
+        padding: 8px 15px;
+      }
+
+      .hint {
+        font-size: 0.9rem;
+        padding: 12px;
+      }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(30, 64, 175, 0.1);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(30, 64, 175, 0.3);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(30, 64, 175, 0.5);
+    }
+
+    /* Fix for background gradient not covering entire page */
+    .background-fix {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
+      z-index: -1;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Background fix to ensure gradient covers entire page -->
+  <div class="background-fix"></div>
+
+  <!-- Header - White background matching React component -->
+  <div class="header">
+    <div class="header-container">
+      <a href="/" class="logo">
+        <div class="logo-icon">
+          <span>P</span>
+        </div>
+        <span class="logo-text">Pixora</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="offline-card">
+      <div class="offline-icon">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+          <path d="M35 35 L65 65 M65 35 L35 65" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+          <path d="M30 65 L70 65" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="50" cy="40" r="5" fill="#3b82f6"/>
+        </svg>
+      </div>
+
+      <h1>You're Offline</h1>
+      <p>
+        Pixora couldn't reach the network. Your tools are ready — 
+        but the connection isn't. Check your network settings and try again.
+      </p>
+
+      <button class="retry-button" onclick="window.location.reload()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6"/>
+          <path d="M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        Retry Connection
+      </button>
+
+      <div class="connection-status">
+        No internet connection detected
+      </div>
+
+      <div class="hint">
+        Check your network or reconnect to continue using Pixora's tools.
+      </div>
+    </div>
+
+    <!-- Tips Section - Similar to other pages -->
+    <div class="tips-section">
+      <h3>💡 Quick Tips</h3>
+      <ul class="tips-list">
+        <li>Check if Wi-Fi or mobile data is enabled</li>
+        <li>Try restarting your router or modem</li>
+        <li>Switch to a different network if available</li>
+        <li>Clear your browser cache and reload the page</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Footer - Light blue background matching the theme -->
+  <footer>
+    <p>© 2025 Pixora · Built for speed, privacy, and control</p>
+  </footer>
+
+</body>
+</html>
