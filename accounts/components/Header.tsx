@@ -24,7 +24,7 @@ export default function Header() {
 
   // Lock scrolling when mobile menu or desktop sidebar is open
   useEffect(() => {
-    if (isMobileMenuOpen || !isDesktopSidebarOpen) {
+    if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -33,7 +33,7 @@ export default function Header() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isMobileMenuOpen, isDesktopSidebarOpen]);
+  }, [isMobileMenuOpen]);
 
   return (
     <>
@@ -195,26 +195,26 @@ export default function Header() {
         </div>
       </aside>
 
-      {/* Desktop overlay when sidebar is open */}
+      {/* Desktop overlay when sidebar is open - Fixed position */}
       {isDesktopSidebarOpen && (
         <div 
-          className="hidden lg:block fixed inset-0 top-16 z-30 bg-black/50 backdrop-blur-sm"
+          className="hidden lg:block fixed inset-0 z-30 bg-black/20 backdrop-blur-sm"
+          style={{ top: '4rem', pointerEvents: 'auto' }}
           onClick={() => setIsDesktopSidebarOpen(false)}
-          style={{ pointerEvents: 'auto' }}
         />
       )}
 
       {/* Mobile Menu Sidebar */}
-      <div className={`fixed inset-0 z-40 lg:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
+      <div className={`fixed inset-0 z-50 lg:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
         {/* Backdrop */}
         <div 
           className="fixed inset-0 bg-black/50 transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
           style={{ pointerEvents: 'auto' }}
-        ></div>
+        />
         
         {/* Sidebar */}
-        <div className="fixed inset-y-0 left-0 w-80 max-w-full bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-2xl transform transition-transform duration-300 ease-in-out z-50">
+        <div className="fixed inset-y-0 left-0 w-80 max-w-full bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-2xl transform transition-transform duration-300 ease-in-out">
           <div className="flex flex-col h-full">
             {/* Mobile Header */}
             <div className="p-4 border-b border-blue-200 bg-gradient-to-r from-blue-500 to-blue-400">
@@ -358,13 +358,11 @@ export default function Header() {
         </button>
       )}
 
-      {/* Main content wrapper with dynamic padding */}
-      <main className={`transition-all duration-300 min-h-screen ${
-        isDesktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
-      }`}>
+      {/* Main content wrapper - This is the key change */}
+      <div className={`transition-all duration-300 ${isDesktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
         {/* The rest of your page content goes here */}
-        {/* Note: You'll need to wrap your page content in this structure */}
-      </main>
+        {/* Your existing page content should be placed here */}
+      </div>
     </>
   );
 }
