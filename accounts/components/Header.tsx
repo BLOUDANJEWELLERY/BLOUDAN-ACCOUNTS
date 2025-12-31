@@ -43,7 +43,7 @@ export default function Header() {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Brand with Desktop Toggle Button */}
             <div className="flex items-center space-x-3">
-              {/* Desktop sidebar toggle button - Now in header */}
+              {/* Desktop sidebar toggle button */}
               <button
                 onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
                 className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors hidden lg:block"
@@ -338,11 +338,6 @@ export default function Header() {
           </div>
         </div>
       </div>
-
-      {/* Main content area with proper spacing */}
-      <main className="min-h-screen bg-gray-50">
-        {/* Your page content will go here */}
-      </main>
     </>
   );
 }
