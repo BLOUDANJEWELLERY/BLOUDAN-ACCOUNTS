@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 export default function Header() {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/', current: router.pathname === '/', icon: '🏠' },
@@ -24,7 +24,7 @@ export default function Header() {
 
   // Lock scrolling when mobile menu or desktop sidebar is open
   useEffect(() => {
-    if (isMobileMenuOpen) {
+    if (isMobileMenuOpen || isDesktopSidebarOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -33,24 +33,28 @@ export default function Header() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, isDesktopSidebarOpen]);
 
   return (
     <>
-      {/* Top Header Bar (Visible on all screens) */}
-      <header className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 shadow-lg border-b border-blue-400/30 relative z-50">
+      {/* Sticky Top Header Bar */}
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 shadow-lg border-b border-blue-400/30">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo and Brand */}
+            {/* Logo and Brand with Desktop Toggle Button */}
             <div className="flex items-center space-x-3">
-              {/* Desktop sidebar toggle button - Only shown on desktop */}
+              {/* Desktop sidebar toggle button - Now in header */}
               <button
                 onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
                 className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors hidden lg:block"
-                aria-label="Toggle sidebar"
+                aria-label={isDesktopSidebarOpen ? "Close sidebar" : "Open sidebar"}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  {isDesktopSidebarOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
                 </svg>
               </button>
               
@@ -83,7 +87,7 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* Mobile menu button - Only shown on mobile */}
+            {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 rounded-lg bg-blue-500/20 text-white hover:bg-blue-500/30 transition-colors lg:hidden"
@@ -102,29 +106,17 @@ export default function Header() {
       </header>
 
       {/* Desktop Sidebar */}
-      <aside className={`hidden lg:block fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-xl border-r border-blue-200 transition-all duration-300 z-40 ${isDesktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-             style={{ height: 'calc(100vh - 4rem)', top: '4rem' }}>
-        <div className="flex flex-col h-full">
-          {/* Close button for desktop sidebar */}
-          <div className="p-4 border-b border-blue-200 flex justify-end">
-            <button
-              onClick={() => setIsDesktopSidebarOpen(false)}
-              className="p-1 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-100 transition-colors"
-              aria-label="Close sidebar"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          
+      <aside className={`hidden lg:block fixed left-0 top-16 h-full w-64 bg-gradient-to-b from-blue-50 via-white to-blue-100 shadow-xl border-r border-blue-200 transition-all duration-300 z-40 ${isDesktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+             style={{ height: 'calc(100vh - 4rem)' }}>
+        <div className="flex flex-col h-full overflow-y-auto">
           {/* Navigation Links */}
-          <nav className="flex-1 overflow-y-auto py-4">
+          <nav className="flex-1 py-4">
             <div className="space-y-1 px-4">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsDesktopSidebarOpen(false)}
                   className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-all duration-200 ${
                     item.current
                       ? 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 border-l-4 border-blue-500 shadow-sm'
@@ -145,6 +137,7 @@ export default function Header() {
                   <Link
                     key={type}
                     href={`/accounts/balance/${type}`}
+                    onClick={() => setIsDesktopSidebarOpen(false)}
                     className="flex items-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-800 hover:pl-4 rounded-lg transition-all duration-200"
                   >
                     <span className="w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
@@ -160,6 +153,7 @@ export default function Header() {
               <div className="space-y-1">
                 <Link
                   href="/balance-sheet/open-balance"
+                  onClick={() => setIsDesktopSidebarOpen(false)}
                   className="flex items-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-800 hover:pl-4 rounded-lg transition-all duration-200"
                 >
                   <span className="w-2 h-2 rounded-full bg-orange-400 mr-3"></span>
@@ -167,6 +161,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/balance-sheet/locker-ledger"
+                  onClick={() => setIsDesktopSidebarOpen(false)}
                   className="flex items-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-800 hover:pl-4 rounded-lg transition-all duration-200"
                 >
                   <span className="w-2 h-2 rounded-full bg-cyan-400 mr-3"></span>
@@ -176,6 +171,7 @@ export default function Header() {
                   <Link
                     key={type}
                     href={`/balance-sheet/type/${type}`}
+                    onClick={() => setIsDesktopSidebarOpen(false)}
                     className="flex items-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-800 hover:pl-4 rounded-lg transition-all duration-200"
                   >
                     <span className="w-2 h-2 rounded-full bg-blue-400 mr-3"></span>
@@ -195,22 +191,20 @@ export default function Header() {
         </div>
       </aside>
 
-      {/* Desktop overlay when sidebar is open - Fixed position */}
+      {/* Desktop Overlay (only when sidebar is open) */}
       {isDesktopSidebarOpen && (
         <div 
-          className="hidden lg:block fixed inset-0 z-30 bg-black/20 backdrop-blur-sm"
-          style={{ top: '4rem', pointerEvents: 'auto' }}
+          className="hidden lg:block fixed inset-0 top-16 z-30 bg-black/40 backdrop-blur-sm"
           onClick={() => setIsDesktopSidebarOpen(false)}
         />
       )}
 
       {/* Mobile Menu Sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
+      <div className={`fixed inset-0 z-40 lg:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
         {/* Backdrop */}
         <div 
           className="fixed inset-0 bg-black/50 transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
-          style={{ pointerEvents: 'auto' }}
         />
         
         {/* Sidebar */}
@@ -345,24 +339,10 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Desktop Toggle Button (when sidebar is closed) */}
-      {!isDesktopSidebarOpen && (
-        <button
-          onClick={() => setIsDesktopSidebarOpen(true)}
-          className="fixed left-4 top-20 z-30 p-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:pl-3 hidden lg:block"
-          aria-label="Open sidebar"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-          </svg>
-        </button>
-      )}
-
-      {/* Main content wrapper - This is the key change */}
-      <div className={`transition-all duration-300 ${isDesktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
-        {/* The rest of your page content goes here */}
-        {/* Your existing page content should be placed here */}
-      </div>
+      {/* Main content area with proper spacing */}
+      <main className="min-h-screen bg-gray-50">
+        {/* Your page content will go here */}
+      </main>
     </>
   );
 }
